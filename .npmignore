@@ -1,0 +1,32 @@
+# Source files
+src/
+test.html
+tsconfig.json
+rollup.config.js
+.eslintrc.js
+.prettierrc
+.prettierignore
+
+# Development files
+.github/
+.vscode/
+.idea/
+
+# Documentation (keep README.md)
+CONTRIBUTING.md
+CHANGELOG.md
+
+# Logs
+*.log
+npm-debug.log*
+
+# Dependencies
+node_modules/
+
+# Build cache
+.cache/
+.temp/
+
+# OS files
+.DS_Store
+Thumbs.db
