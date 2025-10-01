@@ -56,9 +56,9 @@ Configure global SDK settings.
 import { configure } from '@funnelfox/billing';
 
 configure({
-  orgId: 'your-org-id',           // Required
-  baseUrl: 'https://custom.api',  // Optional, defaults to https://billing.funnelfox.com
-  region: 'us-east-1',            // Optional, defaults to 'default'
+  orgId: 'your-org-id', // Required
+  baseUrl: 'https://custom.api', // Optional, defaults to https://billing.funnelfox.com
+  region: 'us-east-1', // Optional, defaults to 'default'
 });
 ```
 
@@ -81,23 +81,30 @@ const checkout = await createCheckout({
   customer: {
     externalId: 'user_456',
     email: 'user@example.com',
-    countryCode: 'US',             // Optional
+    countryCode: 'US', // Optional
   },
   container: '#checkout-container',
 
   // Optional
-  orgId: 'your-org-id',            // If not configured globally
+  orgId: 'your-org-id', // If not configured globally
   clientMetadata: { source: 'web' },
-  universalCheckoutOptions: {      // Primer SDK options
+  universalCheckoutOptions: {
+    // Primer SDK options
     paypal: {
       buttonColor: 'blue',
     },
   },
 
   // Callbacks (alternative to events)
-  onSuccess: (result) => { /* ... */ },
-  onError: (error) => { /* ... */ },
-  onStatusChange: (state, oldState) => { /* ... */ },
+  onSuccess: result => {
+    /* ... */
+  },
+  onError: error => {
+    /* ... */
+  },
+  onStatusChange: (state, oldState) => {
+    /* ... */
+  },
 });
 ```
 
@@ -131,10 +138,10 @@ const session = await createClientSession({
   priceId: 'price_123',
   externalId: 'user_456',
   email: 'user@example.com',
-  orgId: 'your-org-id',  // Optional if configured
+  orgId: 'your-org-id', // Optional if configured
 });
 
-console.log(session.clientToken);  // Use with Primer SDK
+console.log(session.clientToken); // Use with Primer SDK
 console.log(session.orderId);
 ```
 
@@ -176,9 +183,9 @@ const primerCheckout = await showUniversalCheckout(clientToken, {
 Emitted when payment completes successfully.
 
 ```javascript
-checkout.on('success', (result) => {
+checkout.on('success', result => {
   console.log('Order ID:', result.orderId);
-  console.log('Status:', result.status);           // 'succeeded'
+  console.log('Status:', result.status); // 'succeeded'
   console.log('Transaction:', result.transactionId);
 });
 ```
@@ -188,10 +195,10 @@ checkout.on('success', (result) => {
 Emitted when payment fails or encounters an error.
 
 ```javascript
-checkout.on('error', (error) => {
+checkout.on('error', error => {
   console.error('Error:', error.message);
   console.error('Code:', error.code);
-  console.error('Request ID:', error.requestId);  // For support
+  console.error('Request ID:', error.requestId); // For support
 });
 ```
 
@@ -234,10 +241,10 @@ Returns current checkout status.
 
 ```javascript
 const status = checkout.getStatus();
-console.log(status.id);          // Checkout ID
-console.log(status.state);       // Current state
-console.log(status.orderId);     // Order ID
-console.log(status.priceId);     // Current price ID
+console.log(status.id); // Checkout ID
+console.log(status.state); // Current state
+console.log(status.orderId); // Order ID
+console.log(status.priceId); // Current price ID
 console.log(status.isDestroyed); // Cleanup status
 ```
 
@@ -279,7 +286,10 @@ if (checkout.isProcessing()) {
   <head>
     <title>Funnelfox Checkout</title>
     <script src="https://sdk.primer.io/web/v2.54.0/Primer.min.js"></script>
-    <link rel="stylesheet" href="https://sdk.primer.io/web/v2.0.0/Checkout.css" />
+    <link
+      rel="stylesheet"
+      href="https://sdk.primer.io/web/v2.0.0/Checkout.css"
+    />
     <script src="https://unpkg.com/@funnelfox/billing@latest/dist/funnelfox-billing.min.js"></script>
   </head>
   <body>
@@ -320,18 +330,18 @@ if (checkout.isProcessing()) {
             });
 
             // Handle success
-            currentCheckout.on('success', (result) => {
+            currentCheckout.on('success', result => {
               alert('Payment successful!');
               window.location.href = '/success?order=' + result.orderId;
             });
 
             // Handle errors
-            currentCheckout.on('error', (error) => {
+            currentCheckout.on('error', error => {
               alert('Payment failed: ' + error.message);
             });
 
             // Track state changes
-            currentCheckout.on('status-change', (state) => {
+            currentCheckout.on('status-change', state => {
               console.log('Checkout state:', state);
             });
           }
@@ -377,9 +387,9 @@ try {
   } else if (error instanceof APIError) {
     // API error
     console.log('Status:', error.statusCode);
-    console.log('Error Code:', error.errorCode);      // e.g., 'double_purchase'
-    console.log('Error Type:', error.errorType);      // e.g., 'api_exception'
-    console.log('Request ID:', error.requestId);      // For support
+    console.log('Error Code:', error.errorCode); // e.g., 'double_purchase'
+    console.log('Error Type:', error.errorType); // e.g., 'api_exception'
+    console.log('Request ID:', error.requestId); // For support
     console.log('Message:', error.message);
   } else if (error instanceof PrimerError) {
     // Primer SDK error
@@ -459,10 +469,10 @@ const checkout = await createCheckout({
   container: '#checkout',
 
   // Callback style (alternative to .on() events)
-  onSuccess: (result) => {
+  onSuccess: result => {
     console.log('Success!', result.orderId);
   },
-  onError: (error) => {
+  onError: error => {
     console.error('Error!', error.message);
   },
   onStatusChange: (newState, oldState) => {

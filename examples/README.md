@@ -330,4 +330,4 @@ const checkout: CheckoutInstance = await createCheckout({
 
 ---
 
-**Need help?** Open an issue on [GitHub](https://github.com/funnelfox/billing-sdk/issues)
+**Need help?** Open an issue on [GitHub](https://github.com/adaptyteam/funnelfox-billing-js/issues)
