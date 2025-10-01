@@ -118,7 +118,8 @@ class CheckoutInstance extends EventEmitter {
         countryCode: this.checkoutConfig.customer.countryCode,
       });
 
-      const sessionData = this.apiClient.processSessionResponse(sessionResponse);
+      const sessionData =
+        this.apiClient.processSessionResponse(sessionResponse);
       this.orderId = sessionData.orderId;
       this.clientToken = sessionData.clientToken;
 

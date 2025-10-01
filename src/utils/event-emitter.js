@@ -96,6 +96,7 @@ class EventEmitter {
         handler.apply(this, args);
       } catch (error) {
         // Don't let handler errors break the emission chain
+        // eslint-disable-next-line no-console
         console.warn(`Error in event handler for "${eventName}":`, error);
       }
     }
