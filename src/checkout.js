@@ -207,6 +207,11 @@ class CheckoutInstance extends EventEmitter {
    * @private
    */
   async _processPaymentResult(result, primerHandler) {
+    // Update order ID if it changed
+    if (result.orderId) {
+      this.orderId = result.orderId;
+    }
+
     switch (result.type) {
       case 'success':
         this._setState('completed');
