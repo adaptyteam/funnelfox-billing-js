@@ -1,6 +1,6 @@
 {
   "name": "@funnelfox/billing",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "author": "Funnelfox",
   "description": "JavaScript SDK for Funnelfox billing with Primer integration",
