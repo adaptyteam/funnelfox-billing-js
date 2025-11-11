@@ -1,33 +1,27 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Funnelfox Billing - Basic Example</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Funnelfox Billing - Basic Example</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
+  <body>
+    <div class="container">
+      <h1>Headless Checkout</h1>
+      <div id="checkout-container"></div>
+    </div>
 
-<body>
-  <div class="container">
-    <h1>Checkout</h1>
+    <link
+      rel="stylesheet"
+      href="https://sdk.primer.io/web/v2.57.3/Checkout.css"
+    />
 
-    <!-- Checkout container -->
-    <div id="checkout-container"></div>
-
-    <!-- Success/Error messages -->
-    <div id="success-message" class="message success"></div>
-    <div id="error-message" class="message error"></div>
-  </div>
-
-  <link rel="stylesheet" href="https://sdk.primer.io/web/v2.57.3/Checkout.css" />
-
-  <script src="https://sdk.primer.io/web/v2.57.3/Primer.min.js"
-    integrity="sha384-xq2SWkYvTlKOMpuXQUXq1QI3eZN7JiqQ3Sc72U9wY1IE30MW3HkwQWg/1n6BTMz4"
-    crossorigin="anonymous"></script>
-
-  <!-- Load example script -->
-  <script type="module" src="script.js"></script>
-</body>
-
+    <script
+      src="https://sdk.primer.io/web/v2.57.3/Primer.min.js"
+      integrity="sha384-xq2SWkYvTlKOMpuXQUXq1QI3eZN7JiqQ3Sc72U9wY1IE30MW3HkwQWg/1n6BTMz4"
+      crossorigin="anonymous"
+    ></script>
+  </body>
 </html>

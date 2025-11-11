@@ -1,0 +1,309 @@
+/* Main container */
+.ff-skin-default {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+/* Payment method cards */
+.ff-payment-method-card {
+  display: none;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: #ffffff;
+  padding: 20px;
+  transition: border-color 0.2s ease;
+  height: auto;
+}
+
+.ff-payment-method-card.visible {
+  display: block;
+}
+
+.ff-payment-method-card:hover {
+  border-color: #b0b0b0;
+}
+
+.payment-errors-container {
+    background-color: #D1000033;
+    color: #D10000;
+    font-size: 14px;
+    padding: 16px 12px;
+  border-radius: 8px;
+}
+.payment-errors-container:empty {
+  display: none;
+}
+
+/* Label wrapper */
+.ff-payment-method-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  cursor: pointer;
+  width: 100%;
+}
+
+/* Custom radio button styling */
+.ff-payment-method-radio {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  border: 1px solid #9e9e9e;
+  border-radius: 50%;
+  background-color: #ffffff;
+  cursor: pointer;
+  position: relative;
+  margin: 0;
+  flex-shrink: 0;
+  transition: border-color 0.2s ease;
+}
+
+.ff-card-form-submit-button{
+  display: block;
+  cursor: pointer;
+  width: 100%;
+  padding: 16px 0;
+  border-radius: 16px;
+  background-color: #000000;
+  color: #ffffff;
+  border: none;
+  font-size: 16px;
+  margin-top: 16px;
+}
+
+.ff-payment-method-radio:checked {
+  border-color: #e32f41;
+  background-color: #ffffff;
+}
+
+.ff-payment-method-radio:checked::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #e32f41;
+}
+
+/* Payment method content */
+.ff-payment-method-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 0;
+  height:0;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.3s ease, margin-top 0.3s ease;
+  margin-top: 0;
+}
+
+.ff-payment-method-card.expanded .ff-payment-method-content {
+  max-height: 2000px;
+  height: auto;
+  opacity: 1;
+  margin-top: 16px;
+}
+.ff-payment-method-card.expanded .ff-payment-method-label {
+  margin-bottom: 16px;
+}
+
+/* Payment method header */
+.ff-payment-method-header {
+  display: flex;
+  align-items: center;
+}
+
+/* Google Pay Logo */
+.ff-google-pay-logo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  font-size: 18px;
+}
+
+/* Payment features list */
+.ff-payment-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ff-payment-feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.ff-checkmark-icon {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  color: #e32f41;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.ff-payment-feature span {
+  color: #333333;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Google Pay button container */
+.ff-google-pay-button-container {
+  display: flex;
+  justify-content: center;
+  margin: 8px 0;
+}
+
+/* Security message */
+.ff-security-message {
+  text-align: center;
+  color: #757575;
+  font-size: 12px;
+  margin: 8px 0 0 0;
+  padding: 0;
+}
+
+/* Card logos container */
+.ff-card-logos {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+ 
+
+/* Card form container */
+.ff-card-form-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ff-card-form-label {
+    display: block;
+    font-size: 16px;
+    margin-bottom: 5px;
+}
+
+.card-form-row {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+}
+
+.ff-card-form-cardholder-input {
+    padding-left: 10px;
+    padding-right: 10px;
+    box-sizing: border-box;
+    height: 36px;
+    width: 100%;
+    font-size: 1rem;
+    background-color: transparent;
+    border: 1px solid rgb(0 0 0 / 10%);
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    box-shadow: none;
+}
+.ff-card-form-cardholder-input.error {
+  border-color: #e32f41;
+}
+
+
+.errorContainer {
+  color: #D10000;
+  font-size: 16px;
+}
+
+
+
+.loader-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(255, 255, 255);
+  }
+
+.payment-button-loader {
+  position: relative;
+  height: 50px;
+}
+
+.loader {
+  width: 24px;
+  height: 24px;
+  border: 4px solid #e32f41;
+  border-top: 4px solid transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .ff-payment-method-card {
+    padding: 16px;
+  }
+
+  .ff-payment-method-label {
+    gap: 12px;
+  }
+
+  .ff-card-logos {
+    gap: 8px;
+  }
+}
+
+.ff-payment-container {
+  position: relative;
+}
+
+.success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+#cvvInput {
+  position: relative;
+}
+
+#cvvInput > svg {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 26px;
+  height: 26px;
+}
+

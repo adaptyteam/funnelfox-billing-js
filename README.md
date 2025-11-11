@@ -1,24 +1,25 @@
 # @funnelfox/billing
 
-A modern JavaScript SDK for subscription payments with Primer integration.
+A modern TypeScript SDK for subscription payments with Primer Headless Checkout integration.
 
 ## Features
 
 - 🚀 **Modern API**: Clean, Promise-based interface with event-driven architecture
 - 🔄 **Dynamic Pricing**: Update prices without page reload
-- 🛡️ **Type-Safe**: Complete JSDoc coverage with TypeScript definitions
+- 🛡️ **Type-Safe**: Complete TypeScript definitions and type safety
 - 🎯 **Event-Driven**: Handle success, errors, and status changes with ease
 - 🔧 **Robust**: Built-in error handling, retries, and validation
-- 📦 **Lightweight**: Minimal dependencies (15KB minified), browser-optimized
+- 📦 **Lightweight**: Minimal dependencies, browser-optimized
+- 🎨 **Headless Checkout**: Full control over checkout UI with Primer Headless Checkout
 
 ## Installation
 
 ### Via CDN
 
 ```html
-<!-- Include Primer SDK first -->
-<script src="https://sdk.primer.io/web/v2.54.0/Primer.min.js"></script>
-<link rel="stylesheet" href="https://sdk.primer.io/web/v2.0.0/Checkout.css" />
+<!-- Include Primer Headless Checkout SDK first -->
+<script src="https://sdk.primer.io/web/v2.57.3/Primer.min.js"></script>
+<link rel="stylesheet" href="https://sdk.primer.io/web/v2.57.3/Checkout.css" />
 
 <!-- Include Funnelfox Billing SDK -->
 <script src="https://unpkg.com/@funnelfox/billing@latest/dist/funnelfox-billing.min.js"></script>
@@ -28,6 +29,18 @@ A modern JavaScript SDK for subscription payments with Primer integration.
 
 ```bash
 npm install @funnelfox/billing @primer-io/checkout-web
+```
+
+If you are developing locally, install dev tooling for TypeScript builds/tests:
+
+```bash
+npm i -D @rollup/plugin-typescript ts-jest @types/jest
+```
+
+Then build:
+
+```bash
+npm run build
 ```
 
 ## Quick Start
@@ -88,12 +101,17 @@ const checkout = await createCheckout({
   // Optional
   orgId: 'your-org-id', // If not configured globally
   clientMetadata: { source: 'web' },
-  universalCheckoutOptions: {
-    // Primer SDK options
-    paypal: {
-      buttonColor: 'blue',
-    },
+  cardSelectors: {
+    // Custom card input selectors (optional, defaults to auto-generated)
+    cardNumber: '#cardNumberInput',
+    expiryDate: '#expiryInput',
+    cvv: '#cvvInput',
+    cardholderName: '#cardHolderInput',
+    button: '#submitButton',
   },
+  paypalButtonContainer: '#paypalButton', // Optional
+  googlePayButtonContainer: '#googlePayButton', // Optional
+  applePayButtonContainer: '#applePayButton', // Optional
 
   // Callbacks (alternative to events)
   onSuccess: result => {
@@ -118,7 +136,10 @@ const checkout = await createCheckout({
 - `options.container` (string, required) - CSS selector for checkout container
 - `options.orgId` (string, optional) - Org ID (if not configured globally)
 - `options.clientMetadata` (object, optional) - Custom metadata
-- `options.universalCheckoutOptions` (object, optional) - Primer SDK options
+- `options.cardSelectors` (object, optional) - Custom card input selectors (defaults to auto-generated)
+- `options.paypalButtonContainer` (string, optional) - Container selector for PayPal button
+- `options.googlePayButtonContainer` (string, optional) - Container selector for Google Pay button
+- `options.applePayButtonContainer` (string, optional) - Container selector for Apple Pay button
 - `options.onSuccess` (function, optional) - Success callback
 - `options.onError` (function, optional) - Error callback
 - `options.onStatusChange` (function, optional) - State change callback
@@ -141,29 +162,11 @@ const session = await createClientSession({
   orgId: 'your-org-id', // Optional if configured
 });
 
-console.log(session.clientToken); // Use with Primer SDK
+console.log(session.clientToken); // Use with Primer Headless Checkout
 console.log(session.orderId);
 ```
 
 **Returns:** `Promise<{ clientToken: string, orderId: string, type: string }>`
-
----
-
-### `showUniversalCheckout(clientToken, options)`
-
-Direct Primer integration (for advanced use cases).
-
-```javascript
-import { showUniversalCheckout } from '@funnelfox/billing';
-
-const primerCheckout = await showUniversalCheckout(clientToken, {
-  container: '#checkout',
-  onTokenizeSuccess: async (data, handler) => {
-    // Handle payment...
-    handler.handleSuccess();
-  },
-});
-```
 
 ---
 
@@ -285,10 +288,10 @@ if (checkout.isProcessing()) {
 <html>
   <head>
     <title>Funnelfox Checkout</title>
-    <script src="https://sdk.primer.io/web/v2.54.0/Primer.min.js"></script>
+    <script src="https://sdk.primer.io/web/v2.57.3/Primer.min.js"></script>
     <link
       rel="stylesheet"
-      href="https://sdk.primer.io/web/v2.0.0/Checkout.css"
+      href="https://sdk.primer.io/web/v2.57.3/Checkout.css"
     />
     <script src="https://unpkg.com/@funnelfox/billing@latest/dist/funnelfox-billing.min.js"></script>
   </head>
@@ -481,7 +484,9 @@ const checkout = await createCheckout({
 });
 ```
 
-### Custom Primer Options
+### Custom Card Input Selectors
+
+By default, the SDK automatically generates card input elements. You can provide custom selectors if you want to use your own HTML structure:
 
 ```javascript
 const checkout = await createCheckout({
@@ -492,25 +497,29 @@ const checkout = await createCheckout({
   },
   container: '#checkout',
 
-  // Pass options to Primer SDK
-  universalCheckoutOptions: {
-    paypal: {
-      buttonColor: 'gold',
-      paymentFlow: 'PREFER_VAULT',
-    },
-    style: {
-      // Custom styling...
-    },
+  // Custom card input selectors
+  cardSelectors: {
+    cardNumber: '#my-card-number',
+    expiryDate: '#my-expiry',
+    cvv: '#my-cvv',
+    cardholderName: '#my-cardholder',
+    button: '#my-submit-button',
   },
+  
+  // Custom payment method button containers
+  paypalButtonContainer: '#my-paypal-button',
+  googlePayButtonContainer: '#my-google-pay-button',
+  applePayButtonContainer: '#my-apple-pay-button',
 });
 ```
 
 ### Manual Session Creation
 
-For advanced integrations where you want to control the Primer SDK directly:
+For advanced integrations where you want to control the Primer Headless Checkout directly:
 
 ```javascript
-import { createClientSession, showUniversalCheckout } from '@funnelfox/billing';
+import { createClientSession } from '@funnelfox/billing';
+import { Primer } from '@primer-io/checkout-web';
 
 // Step 1: Create session
 const session = await createClientSession({
@@ -520,14 +529,18 @@ const session = await createClientSession({
   orgId: 'your-org-id',
 });
 
-// Step 2: Use with Primer directly
-const primerCheckout = await showUniversalCheckout(session.clientToken, {
-  container: '#checkout',
-  onTokenizeSuccess: async (data, handler) => {
+// Step 2: Use with Primer Headless Checkout directly
+const headlessCheckout = await Primer.createHeadless(session.clientToken, {
+  paymentHandling: 'MANUAL',
+  apiVersion: '2.4',
+  onTokenizeSuccess: async (paymentMethodTokenData, handler) => {
     // Your custom payment logic...
+    // Call your payment API with paymentMethodTokenData.token
     handler.handleSuccess();
   },
 });
+
+await headlessCheckout.start();
 ```
 
 ## Browser Support

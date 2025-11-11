@@ -27,3 +27,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Error Recovery**: Robust error handling with retry mechanisms
 - **Browser Support**: Compatible with all modern browsers
 - **Build System**: UMD, ES modules, and minified distributions
+
+## [2.0.0] - 2025-11-11
+
+### 🚀 Features
+- Added default skin for rendering the default checkout experience
+
+### ⚙️ Refactors / Internal Changes
+- Migrated entire codebase from JavaScript to TypeScript for improved type safety and maintainability
+- Switched from Primer.io Universal Checkout to Primer Headless Checkout
+  - `createCheckout` now uses Primer Headless Checkout internally
+
+### ⚠️ Breaking Changes
+- The SDK’s `createCheckout` API has changed due to the move to Headless Checkout
+- TypeScript definitions are now included and required for integrations

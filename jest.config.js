@@ -1,11 +1,15 @@
 export default {
+  preset: 'ts-jest',
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
-  testMatch: ['<rootDir>/tests/**/*.test.js', '<rootDir>/tests/**/*.spec.js'],
+  testMatch: [
+    '<rootDir>/tests/**/*.test.{js,ts,tsx}',
+    '<rootDir>/tests/**/*.spec.{js,ts,tsx}',
+  ],
   collectCoverageFrom: [
-    'src/**/*.js',
-    '!src/index.js', // Entry point, tested via integration
-    '!src/types.js', // Type definitions only
+    'src/**/*.{ts,tsx}',
+    '!src/index.ts', // Entry point, tested via integration
+    '!src/types.{ts,js}',
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
@@ -18,6 +22,7 @@ export default {
     },
   },
   transform: {
+    '^.+\\.(ts|tsx)$': 'ts-jest',
     '^.+\\.js$': 'babel-jest',
   },
   moduleNameMapper: {

@@ -2,24 +2,15 @@
  * @fileoverview Input validation utilities for Funnefox SDK
  */
 
-import { ValidationError } from '../errors.js';
+import { ValidationError } from '../errors';
 
-/**
- * Validates SDK configuration
- * @param {Object} config - Configuration object to validate
- * @returns {boolean} True if valid
- * @throws {ValidationError} If validation fails
- */
-export function validateSDKConfig(config) {
+export function validateSDKConfig(config: any) {
   if (!config || typeof config !== 'object') {
     throw new ValidationError('config', 'SDK configuration must be an object');
   }
-
   if (!config.orgId || typeof config.orgId !== 'string') {
     throw new ValidationError('orgId', 'must be a non-empty string');
   }
-
-  // baseUrl is optional (has default), but if provided must be valid
   if (config.baseUrl) {
     if (typeof config.baseUrl !== 'string') {
       throw new ValidationError('baseUrl', 'must be a valid URL string');
@@ -28,76 +19,51 @@ export function validateSDKConfig(config) {
       throw new ValidationError('baseUrl', 'must be a valid URL format');
     }
   }
-
   if (config.region && typeof config.region !== 'string') {
     throw new ValidationError('region', 'must be a string if provided');
   }
-
   if (config.sandbox !== undefined && typeof config.sandbox !== 'boolean') {
     throw new ValidationError('sandbox', 'must be a boolean if provided');
   }
-
   return true;
 }
 
-/**
- * Validates checkout configuration
- * @param {Object} config - Checkout configuration to validate
- * @returns {boolean} True if valid
- * @throws {ValidationError} If validation fails
- */
-export function validateCheckoutConfig(config) {
+export function validateCheckoutConfig(config: any) {
   if (!config || typeof config !== 'object') {
     throw new ValidationError('checkoutConfig', 'must be an object');
   }
-
   if (!config.priceId || typeof config.priceId !== 'string') {
     throw new ValidationError('priceId', 'must be a non-empty string');
   }
-
   if (!config.externalId || typeof config.externalId !== 'string') {
     throw new ValidationError('externalId', 'must be a non-empty string');
   }
-
   if (!config.email || typeof config.email !== 'string') {
     throw new ValidationError('email', 'must be a non-empty string');
   }
-
   if (!isValidEmail(config.email)) {
     throw new ValidationError('email', 'must be a valid email address');
   }
-
   if (!config.container || typeof config.container !== 'string') {
     throw new ValidationError(
       'container',
       'must be a valid DOM selector string'
     );
   }
-
   if (config.clientMetadata && typeof config.clientMetadata !== 'object') {
     throw new ValidationError(
       'clientMetadata',
       'must be an object if provided'
     );
   }
-
   if (config.primerOptions && typeof config.primerOptions !== 'object') {
     throw new ValidationError('primerOptions', 'must be an object if provided');
   }
-
   return true;
 }
 
-/**
- * Validates a URL string
- * @param {string} url - URL to validate
- * @returns {boolean} True if valid URL
- */
-export function isValidUrl(url) {
-  if (typeof url !== 'string') {
-    return false;
-  }
-
+export function isValidUrl(url: string) {
+  if (typeof url !== 'string') return false;
   try {
     new URL(url);
     return true;
@@ -106,30 +72,14 @@ export function isValidUrl(url) {
   }
 }
 
-/**
- * Validates an email address
- * @param {string} email - Email to validate
- * @returns {boolean} True if valid email format
- */
-export function isValidEmail(email) {
-  if (typeof email !== 'string') {
-    return false;
-  }
-
+export function isValidEmail(email: string) {
+  if (typeof email !== 'string') return false;
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 }
 
-/**
- * Validates a DOM selector
- * @param {string} selector - DOM selector to validate
- * @returns {boolean} True if valid selector format
- */
-export function isValidSelector(selector) {
-  if (typeof selector !== 'string' || selector.length === 0) {
-    return false;
-  }
-
+export function isValidSelector(selector: string) {
+  if (typeof selector !== 'string' || selector.length === 0) return false;
   try {
     document.querySelector(selector);
     return true;
@@ -138,47 +88,24 @@ export function isValidSelector(selector) {
   }
 }
 
-/**
- * Sanitizes a string input
- * @param {*} input - Input to sanitize
- * @returns {string} Sanitized string
- */
-export function sanitizeString(input) {
+export function sanitizeString(input: any): string {
   if (input === null || input === undefined) {
     return '';
   }
-
   return String(input).trim();
 }
 
-/**
- * Validates that a value is a non-empty string
- * @param {*} value - Value to validate
- * @param {string} fieldName - Name of the field for error reporting
- * @returns {boolean} True if valid
- * @throws {ValidationError} If validation fails
- */
-export function requireString(value, fieldName) {
+export function requireString(value: any, fieldName: string) {
   const sanitized = sanitizeString(value);
-
   if (sanitized.length === 0) {
     throw new ValidationError(fieldName, 'must be a non-empty string', value);
   }
-
   return true;
 }
 
-/**
- * Validates that a container element exists in the DOM
- * @param {string} selector - DOM selector
- * @returns {Element} The found element
- * @throws {ValidationError} If element not found
- */
-export function validateContainer(selector) {
+export function validateContainer(selector: string) {
   requireString(selector, 'container');
-
   const element = document.querySelector(selector);
-
   if (!element) {
     throw new ValidationError(
       'container',
@@ -186,25 +113,17 @@ export function validateContainer(selector) {
       selector
     );
   }
-
   return element;
 }
 
-/**
- * Deep freezes an object to prevent modification
- * @param {Object} obj - Object to freeze
- * @returns {Object} Frozen object
- */
-export function deepFreeze(obj) {
+export function deepFreeze<T>(obj: T): T {
   if (obj === null || typeof obj !== 'object') {
     return obj;
   }
-
-  Object.keys(obj).forEach(prop => {
-    if (typeof obj[prop] === 'object' && obj[prop] !== null) {
-      deepFreeze(obj[prop]);
+  Object.keys(obj as any).forEach(prop => {
+    if (typeof (obj as any)[prop] === 'object' && (obj as any)[prop] !== null) {
+      deepFreeze((obj as any)[prop]);
     }
   });
-
   return Object.freeze(obj);
 }

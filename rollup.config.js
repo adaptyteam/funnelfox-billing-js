@@ -1,6 +1,9 @@
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import babel from '@rollup/plugin-babel';
 import terser from '@rollup/plugin-terser';
+import typescript from '@rollup/plugin-typescript';
+import html from 'rollup-plugin-html';
+import postcss from 'rollup-plugin-import-css';
 
 const packageJson = {
   name: '@funnelfox/billing',
@@ -16,9 +19,15 @@ const banner = `/**
  */`;
 
 const commonConfig = {
-  input: 'src/index.js',
+  input: 'src/index.ts',
   external: ['@primer-io/checkout-web'],
   plugins: [
+    typescript({
+      tsconfig: './tsconfig.json',
+      sourceMap: false,
+      declaration: false,
+      noEmitOnError: false,
+    }),
     nodeResolve({
       browser: true,
       preferBuiltins: false,
@@ -38,6 +47,10 @@ const commonConfig = {
         ],
       ],
     }),
+    html(),
+    postcss({
+      inject: true,
+    }),
   ],
 };
 
@@ -49,6 +62,7 @@ export default [
       file: 'dist/funnelfox-billing.js',
       format: 'umd',
       name: 'FunnelfoxSDK',
+      inlineDynamicImports: true,
       banner,
       globals: {
         '@primer-io/checkout-web': 'Primer',
@@ -63,6 +77,7 @@ export default [
       file: 'dist/funnelfox-billing.min.js',
       format: 'umd',
       name: 'FunnelfoxSDK',
+      inlineDynamicImports: true,
       banner,
       globals: {
         '@primer-io/checkout-web': 'Primer',
@@ -82,8 +97,11 @@ export default [
   {
     ...commonConfig,
     output: {
-      file: 'dist/funnelfox-billing.esm.js',
       format: 'es',
+      dir: 'dist',
+      entryFileNames: 'funnelfox-billing.esm.js',
+      chunkFileNames: 'chunk-[name].[format].js',
+      assetFileNames: 'chunk-[name].[format].[ext]',
       banner,
     },
   },
@@ -92,8 +110,11 @@ export default [
   {
     ...commonConfig,
     output: {
-      file: 'dist/funnelfox-billing.cjs.js',
       format: 'cjs',
+      dir: 'dist',
+      entryFileNames: 'funnelfox-billing.cjs.js',
+      chunkFileNames: 'chunk-[name].[format].js',
+      assetFileNames: 'chunk-[name].[format].[ext]',
       banner,
       exports: 'auto',
     },

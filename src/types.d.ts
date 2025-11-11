@@ -3,6 +3,15 @@
  * These types are importable by users and used internally via JSDoc
  */
 
+import type {
+  HeadlessUniversalCheckoutOptions,
+  OnResumeSuccess,
+  OnTokenizeSuccess,
+  CheckoutStyle,
+} from '@primer-io/checkout-web';
+
+import type { PaymentMethod } from './enums';
+
 export interface SDKConfig {
   orgId: string;
   baseUrl?: string;
@@ -21,12 +30,40 @@ export interface Customer {
   countryCode?: string;
 }
 
-export interface CheckoutConfig {
+export interface PrimerCheckoutConfig
+  extends Pick<
+    Partial<HeadlessUniversalCheckoutOptions>,
+    'paypal' | 'applePay' | 'googlePay' | 'style'
+  > {
+  cardSelectors?: CardInputSelectors;
+  paymentButtonSelectors?: PaymentButtonSelectors;
+}
+export interface CheckoutConfig extends PrimerCheckoutConfig {
   customer: Customer;
   priceId: string;
   container: string;
   clientMetadata?: Record<string, any>;
-  universalCheckoutOptions?: PrimerCheckoutOptions;
+}
+
+export interface PaymentButtonSelectors {
+  paypal: string;
+  googlePay: string;
+  applePay: string;
+}
+
+export interface CheckoutOptions
+  extends Partial<HeadlessUniversalCheckoutOptions> {
+  container: string;
+  cardSelectors: CardInputSelectors;
+  paymentButtonSelectors: PaymentButtonSelectors;
+  onTokenizeSuccess: OnTokenizeSuccess;
+  onResumeSuccess: OnResumeSuccess;
+  onSubmit: (isSubmitting: boolean) => void;
+  onInputChange: (
+    inputName: keyof CardInputSelectors,
+    error: string | null
+  ) => void;
+  onMethodRender: (method: PaymentMethod) => void;
 }
 
 export interface CheckoutConfigWithCallbacks extends CheckoutConfig {
@@ -41,14 +78,11 @@ export interface CreateCheckoutOptions extends CheckoutConfigWithCallbacks {
   apiConfig?: APIConfig;
 }
 
-export interface PrimerCheckoutOptions {
-  paymentHandling?: 'MANUAL' | 'AUTO';
-  apiVersion?: string;
-  paypal?: {
-    buttonColor?: 'blue' | 'gold' | 'silver' | 'white' | 'black';
-    paymentFlow?: 'PREFER_VAULT' | 'VAULT_ONLY' | 'CHECKOUT_ONLY';
-  };
-}
+export interface PrimerCheckoutOptions
+  extends Pick<
+    HeadlessUniversalCheckoutOptions,
+    'paymentHandling' | 'apiVersion' | 'paypal'
+  > {}
 
 export interface PaymentResult {
   orderId: string;
@@ -58,17 +92,21 @@ export interface PaymentResult {
   metadata?: Record<string, any>;
 }
 
-export type CheckoutState = 
-  | 'initializing' 
-  | 'ready' 
-  | 'processing' 
-  | 'action_required' 
-  | 'updating' 
-  | 'completed' 
-  | 'error' 
+export type CheckoutState =
+  | 'initializing'
+  | 'ready'
+  | 'processing'
+  | 'action_required'
+  | 'updating'
+  | 'completed'
+  | 'error'
   | 'destroyed';
 
-export type CheckoutEventName = 'success' | 'error' | 'status-change' | 'destroy';
+export type CheckoutEventName =
+  | 'success'
+  | 'error'
+  | 'status-change'
+  | 'destroy';
 
 export interface CheckoutStatus {
   id: string;
@@ -94,7 +132,10 @@ export interface CheckoutInstance {
 
   on(eventName: 'success', handler: (result: PaymentResult) => void): this;
   on(eventName: 'error', handler: (error: Error) => void): this;
-  on(eventName: 'status-change', handler: (newState: CheckoutState, oldState?: CheckoutState) => void): this;
+  on(
+    eventName: 'status-change',
+    handler: (newState: CheckoutState, oldState?: CheckoutState) => void
+  ): this;
   on(eventName: 'destroy', handler: () => void): this;
   on(eventName: CheckoutEventName, handler: (...args: any[]) => void): this;
 
@@ -166,9 +207,9 @@ export interface NetworkError extends FunnefoxSDKError {
 // Function signatures
 export declare function configure(config: SDKConfig): void;
 
-export declare function createCheckout(options: CreateCheckoutOptions): Promise<CheckoutInstance>;
-
-export declare function showUniversalCheckout(clientToken: string, options: any): Promise<any>;
+export declare function createCheckout(
+  options: CreateCheckoutOptions
+): Promise<CheckoutInstance>;
 
 export interface CreateClientSessionOptions {
   priceId: string;
@@ -186,13 +227,14 @@ export interface ClientSessionData {
   type: string;
 }
 
-export declare function createClientSession(params: CreateClientSessionOptions): Promise<ClientSessionData>;
+export declare function createClientSession(
+  params: CreateClientSessionOptions
+): Promise<ClientSessionData>;
 
 // Billing namespace
 export declare const Billing: {
   configure: typeof configure;
   createCheckout: typeof createCheckout;
-  showUniversalCheckout: typeof showUniversalCheckout;
   createClientSession: typeof createClientSession;
 };
 
@@ -201,3 +243,11 @@ export declare const SDK_VERSION: string;
 export declare const CHECKOUT_STATES: Record<string, CheckoutState>;
 export declare const EVENTS: Record<string, CheckoutEventName>;
 export declare const ERROR_CODES: Record<string, string>;
+
+export interface CardInputSelectors {
+  cardNumber: string;
+  expiryDate: string;
+  cvv: string;
+  cardholderName: string;
+  button: string;
+}
