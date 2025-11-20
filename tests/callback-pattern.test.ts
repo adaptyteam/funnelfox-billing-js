@@ -2,32 +2,72 @@
  * @jest-environment jsdom
  */
 
-import {
-  configure,
-  createCheckout,
-  Billing
-} from '../src/index.js';
+import { configure, createCheckout, Billing } from '../src';
+
+jest.mock('../src/primer-wrapper', () => {
+  return jest.fn().mockImplementation(() => ({
+    ensurePrimerAvailable: jest.fn(),
+    renderCheckout: jest.fn().mockResolvedValue(undefined),
+    destroy: jest.fn().mockResolvedValue(undefined),
+    disableButtons: jest.fn(),
+    validateContainer: jest.fn().mockReturnValue(document.createElement('div')),
+  }));
+});
+
+jest.mock('../src/skins/default', () => ({
+  __esModule: true,
+  default: jest.fn((containerSelector: string) => {
+    const container = document.querySelector(containerSelector);
+    if (!container) return Promise.resolve(true);
+    container.innerHTML = `
+      <div class="ff-payment-container">
+        <div id="success-screen"></div>
+        <div class="loader-container"></div>
+        <div class="payment-errors-container"></div>
+        <div class="ff-payment-method-card ff-payment-method-payment-card">
+          <div class="errorContainer"></div>
+        </div>
+        <div class="ff-payment-method-google-pay"></div>
+        <div class="ff-payment-method-apple-pay"></div>
+        <div class="ff-payment-method-paypal"></div>
+        <div>
+          <div id="cardNumberInput"></div>
+        </div>
+        <div>
+          <div id="expiryInput"></div>
+        </div>
+        <div>
+          <div id="cvvInput"></div>
+        </div>
+        <input id="cardHolderInput" />
+        <button id="submitButton"></button>
+      </div>
+    `;
+    return Promise.resolve(true);
+  }),
+}));
 
 describe('Callback Pattern Tests', () => {
   beforeEach(() => {
-    // Mock successful API response
-    global.fetch.mockResolvedValue({
+    const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+    fetchMock.mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({
-        status: 'success',
-        data: {
-          client_token: 'test-token',
-          order_id: 'order-123'
-        }
-      })
-    });
+      json: () =>
+        Promise.resolve({
+          status: 'success',
+          data: {
+            client_token: 'test-token',
+            order_id: 'order-123',
+          },
+        }),
+    } as Response);
   });
 
   describe('Individual Functions with Callbacks', () => {
     test('createCheckout should call onSuccess callback', async () => {
       configure({
         baseUrl: 'https://api.example.com',
-        orgId: 'test-org'
+        orgId: 'test-org',
       });
 
       const onSuccess = jest.fn();
@@ -37,24 +77,26 @@ describe('Callback Pattern Tests', () => {
         priceId: 'price-123',
         customer: {
           externalId: 'user-456',
-          email: 'test@example.com'
+          email: 'test@example.com',
         },
         container: '#test-container',
         onSuccess,
-        onError
-      });
+        onError,
+      } as any);
 
-      // Simulate success
       checkout.emit('success', { orderId: 'order-123', status: 'succeeded' });
 
-      expect(onSuccess).toHaveBeenCalledWith({ orderId: 'order-123', status: 'succeeded' });
+      expect(onSuccess).toHaveBeenCalledWith({
+        orderId: 'order-123',
+        status: 'succeeded',
+      });
       expect(onError).not.toHaveBeenCalled();
     });
 
     test('createCheckout should call onError callback', async () => {
       configure({
         baseUrl: 'https://api.example.com',
-        orgId: 'test-org'
+        orgId: 'test-org',
       });
 
       const onSuccess = jest.fn();
@@ -64,14 +106,13 @@ describe('Callback Pattern Tests', () => {
         priceId: 'price-123',
         customer: {
           externalId: 'user-456',
-          email: 'test@example.com'
+          email: 'test@example.com',
         },
         container: '#test-container',
         onSuccess,
-        onError
-      });
+        onError,
+      } as any);
 
-      // Simulate error
       const error = new Error('Payment failed');
       checkout.emit('error', error);
 
@@ -82,7 +123,7 @@ describe('Callback Pattern Tests', () => {
     test('createCheckout should call onStatusChange callback', async () => {
       configure({
         baseUrl: 'https://api.example.com',
-        orgId: 'test-org'
+        orgId: 'test-org',
       });
 
       const onStatusChange = jest.fn();
@@ -91,13 +132,12 @@ describe('Callback Pattern Tests', () => {
         priceId: 'price-123',
         customer: {
           externalId: 'user-456',
-          email: 'test@example.com'
+          email: 'test@example.com',
         },
         container: '#test-container',
-        onStatusChange
-      });
+        onStatusChange,
+      } as any);
 
-      // Simulate status change
       checkout.emit('status-change', 'processing', 'ready');
 
       expect(onStatusChange).toHaveBeenCalledWith('processing', 'ready');
@@ -106,7 +146,7 @@ describe('Callback Pattern Tests', () => {
     test('createCheckout should call onDestroy callback', async () => {
       configure({
         baseUrl: 'https://api.example.com',
-        orgId: 'test-org'
+        orgId: 'test-org',
       });
 
       const onDestroy = jest.fn();
@@ -115,13 +155,12 @@ describe('Callback Pattern Tests', () => {
         priceId: 'price-123',
         customer: {
           externalId: 'user-456',
-          email: 'test@example.com'
+          email: 'test@example.com',
         },
         container: '#test-container',
-        onDestroy
-      });
+        onDestroy,
+      } as any);
 
-      // Simulate destroy
       checkout.emit('destroy');
 
       expect(onDestroy).toHaveBeenCalled();
@@ -132,7 +171,7 @@ describe('Callback Pattern Tests', () => {
     test('Billing.createCheckout should support callbacks', async () => {
       Billing.configure({
         baseUrl: 'https://api.example.com',
-        orgId: 'test-org'
+        orgId: 'test-org',
       });
 
       const onSuccess = jest.fn();
@@ -142,17 +181,19 @@ describe('Callback Pattern Tests', () => {
         priceId: 'price-123',
         customer: {
           externalId: 'user-456',
-          email: 'test@example.com'
+          email: 'test@example.com',
         },
         container: '#test-container',
         onSuccess,
-        onError
-      });
+        onError,
+      } as any);
 
-      // Simulate success
       checkout.emit('success', { orderId: 'order-123', status: 'succeeded' });
 
-      expect(onSuccess).toHaveBeenCalledWith({ orderId: 'order-123', status: 'succeeded' });
+      expect(onSuccess).toHaveBeenCalledWith({
+        orderId: 'order-123',
+        status: 'succeeded',
+      });
       expect(onError).not.toHaveBeenCalled();
     });
   });
@@ -161,7 +202,7 @@ describe('Callback Pattern Tests', () => {
     test('should support both callbacks and additional event listeners', async () => {
       configure({
         baseUrl: 'https://api.example.com',
-        orgId: 'test-org'
+        orgId: 'test-org',
       });
 
       const callbackHandler = jest.fn();
@@ -171,20 +212,17 @@ describe('Callback Pattern Tests', () => {
         priceId: 'price-123',
         customer: {
           externalId: 'user-456',
-          email: 'test@example.com'
+          email: 'test@example.com',
         },
         container: '#test-container',
-        onSuccess: callbackHandler
-      });
+        onSuccess: callbackHandler,
+      } as any);
 
-      // Add additional event listener
       checkout.on('success', eventHandler);
 
-      // Simulate success
       const result = { orderId: 'order-123', status: 'succeeded' };
       checkout.emit('success', result);
 
-      // Both callback and event listener should be called
       expect(callbackHandler).toHaveBeenCalledWith(result);
       expect(eventHandler).toHaveBeenCalledWith(result);
     });
@@ -192,7 +230,7 @@ describe('Callback Pattern Tests', () => {
     test('should allow removing callback-based listeners via events', async () => {
       configure({
         baseUrl: 'https://api.example.com',
-        orgId: 'test-org'
+        orgId: 'test-org',
       });
 
       const callbackHandler = jest.fn();
@@ -201,19 +239,16 @@ describe('Callback Pattern Tests', () => {
         priceId: 'price-123',
         customer: {
           externalId: 'user-456',
-          email: 'test@example.com'
+          email: 'test@example.com',
         },
         container: '#test-container',
-        onSuccess: callbackHandler
-      });
+        onSuccess: callbackHandler,
+      } as any);
 
-      // Remove the callback listener
       checkout.off('success', callbackHandler);
 
-      // Simulate success
       checkout.emit('success', { orderId: 'order-123', status: 'succeeded' });
 
-      // Callback should not be called
       expect(callbackHandler).not.toHaveBeenCalled();
     });
   });
@@ -222,22 +257,23 @@ describe('Callback Pattern Tests', () => {
     test('should not break if callbacks are not provided', async () => {
       configure({
         baseUrl: 'https://api.example.com',
-        orgId: 'test-org'
+        orgId: 'test-org',
       });
 
-      // No callbacks provided - should not throw
       const checkout = await createCheckout({
         priceId: 'price-123',
         customer: {
           externalId: 'user-456',
-          email: 'test@example.com'
+          email: 'test@example.com',
         },
-        container: '#test-container'
-      });
+        container: '#test-container',
+      } as any);
 
-      // Simulate events - should not throw
       expect(() => {
-        checkout.emit('success', { orderId: 'order-123', status: 'succeeded' });
+        checkout.emit('success', {
+          orderId: 'order-123',
+          status: 'succeeded',
+        });
         checkout.emit('error', new Error('Test error'));
         checkout.emit('status-change', 'processing');
         checkout.emit('destroy');
@@ -247,25 +283,23 @@ describe('Callback Pattern Tests', () => {
     test('should handle partial callback configuration', async () => {
       configure({
         baseUrl: 'https://api.example.com',
-        orgId: 'test-org'
+        orgId: 'test-org',
       });
 
       const onSuccess = jest.fn();
-      // Only onSuccess provided, no onError
 
       const checkout = await createCheckout({
         priceId: 'price-123',
         customer: {
           externalId: 'user-456',
-          email: 'test@example.com'
+          email: 'test@example.com',
         },
         container: '#test-container',
-        onSuccess
-      });
+        onSuccess,
+      } as any);
 
-      // Should work fine with missing callbacks
       checkout.emit('success', { orderId: 'order-123', status: 'succeeded' });
-      checkout.emit('error', new Error('Test error')); // No callback, but shouldn't break
+      checkout.emit('error', new Error('Test error'));
 
       expect(onSuccess).toHaveBeenCalled();
     });

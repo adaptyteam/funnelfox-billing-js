@@ -9,22 +9,23 @@ global.fetch = jest.fn();
 global.Primer = {
   showUniversalCheckout: jest.fn().mockResolvedValue({
     container: '#test-container',
-    destroy: jest.fn()
-  })
+    destroy: jest.fn(),
+  }),
 };
+window.Primer = global.Primer;
 
 // Mock DOM methods
 Object.defineProperty(window, 'location', {
   value: {
-    href: 'http://localhost'
-  }
+    href: 'http://localhost',
+  },
 });
 
 // Setup DOM cleanup
 afterEach(() => {
   // Clear all mocks
   jest.clearAllMocks();
-  
+
   // Clear DOM
   document.body.innerHTML = '';
 });

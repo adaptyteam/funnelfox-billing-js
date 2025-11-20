@@ -7,16 +7,16 @@ import {
   validateCheckoutConfig,
   isValidUrl,
   isValidEmail,
-  requireString
-} from '../src/utils/validation.js';
-import { ValidationError } from '../src/errors.js';
+  requireString,
+} from '../src/utils/validation';
+import { ValidationError } from '../src/errors';
 
 describe('Validation Utils', () => {
   describe('validateSDKConfig', () => {
     test('should pass with valid config', () => {
       const config = {
         baseUrl: 'https://api.example.com',
-        orgId: 'test-org'
+        orgId: 'test-org',
       };
 
       expect(() => validateSDKConfig(config)).not.toThrow();
@@ -31,9 +31,9 @@ describe('Validation Utils', () => {
     test('should throw ValidationError for invalid URL', () => {
       const config = {
         baseUrl: 'not-a-url',
-        orgId: 'test-org'
+        orgId: 'test-org',
       };
-      
+
       expect(() => validateSDKConfig(config)).toThrow(ValidationError);
     });
   });
@@ -43,7 +43,7 @@ describe('Validation Utils', () => {
       priceId: 'price-123',
       externalId: 'user-456',
       email: 'test@example.com',
-      container: '#test-container'
+      container: '#test-container',
     };
 
     test('should pass with valid config', () => {
@@ -52,16 +52,18 @@ describe('Validation Utils', () => {
 
     test('should throw ValidationError for invalid email', () => {
       const config = { ...validConfig, email: 'invalid-email' };
-      
+
       expect(() => validateCheckoutConfig(config)).toThrow(ValidationError);
       expect(() => validateCheckoutConfig(config)).toThrow(/email/);
     });
 
     test('should throw ValidationError for missing priceId', () => {
       const { priceId, ...config } = validConfig;
-      
-      expect(() => validateCheckoutConfig(config)).toThrow(ValidationError);
-      expect(() => validateCheckoutConfig(config)).toThrow(/priceId/);
+
+      expect(() => validateCheckoutConfig(config as any)).toThrow(
+        ValidationError
+      );
+      expect(() => validateCheckoutConfig(config as any)).toThrow(/priceId/);
     });
   });
 
@@ -75,7 +77,7 @@ describe('Validation Utils', () => {
     test('should return false for invalid URLs', () => {
       expect(isValidUrl('not-a-url')).toBe(false);
       expect(isValidUrl('')).toBe(false);
-      expect(isValidUrl(null)).toBe(false);
+      expect(isValidUrl(null as any)).toBe(false);
     });
   });
 
@@ -101,7 +103,9 @@ describe('Validation Utils', () => {
     test('should throw ValidationError for empty strings', () => {
       expect(() => requireString('', 'field')).toThrow(ValidationError);
       expect(() => requireString('   ', 'field')).toThrow(ValidationError);
-      expect(() => requireString(null, 'field')).toThrow(ValidationError);
+      expect(() => requireString(null as any, 'field')).toThrow(
+        ValidationError
+      );
     });
   });
 });

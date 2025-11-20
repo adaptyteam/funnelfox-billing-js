@@ -9,14 +9,14 @@ import {
   PrimerError,
   CheckoutError,
   ConfigurationError,
-  NetworkError
-} from '../src/errors.js';
+  NetworkError,
+} from '../src/errors';
 
 describe('Error Classes', () => {
   describe('FunnefoxSDKError', () => {
     test('should create error with message and code', () => {
       const error = new FunnefoxSDKError('Test message', 'TEST_CODE');
-      
+
       expect(error.message).toBe('Test message');
       expect(error.code).toBe('TEST_CODE');
       expect(error.name).toBe('FunnefoxSDKError');
@@ -25,7 +25,7 @@ describe('Error Classes', () => {
 
     test('should use default code when not provided', () => {
       const error = new FunnefoxSDKError('Test message');
-      
+
       expect(error.code).toBe('SDK_ERROR');
     });
   });
@@ -33,7 +33,7 @@ describe('Error Classes', () => {
   describe('ValidationError', () => {
     test('should create validation error with field info', () => {
       const error = new ValidationError('email', 'must be valid email');
-      
+
       expect(error.message).toBe('Invalid email: must be valid email');
       expect(error.code).toBe('VALIDATION_ERROR');
       expect(error.field).toBe('email');
@@ -42,7 +42,7 @@ describe('Error Classes', () => {
 
     test('should store invalid value', () => {
       const error = new ValidationError('email', 'invalid format', 'bad-email');
-      
+
       expect(error.value).toBe('bad-email');
     });
   });
@@ -50,7 +50,7 @@ describe('Error Classes', () => {
   describe('APIError', () => {
     test('should create API error with status code', () => {
       const error = new APIError('Server error', 500, {
-        response: { error: 'Internal' }
+        response: { error: 'Internal' },
       });
 
       expect(error.message).toBe('Server error');
@@ -68,12 +68,14 @@ describe('Error Classes', () => {
         response: {
           status: 'error',
           req_id: '4euAd4PZ',
-          error: [{
-            msg: 'user has not finished subscription',
-            code: 'double_purchase',
-            type: 'api_exception'
-          }]
-        }
+          error: [
+            {
+              msg: 'user has not finished subscription',
+              code: 'double_purchase',
+              type: 'api_exception',
+            },
+          ],
+        },
       });
 
       expect(error.message).toBe('Double purchase');
@@ -89,7 +91,7 @@ describe('Error Classes', () => {
     test('should create Primer error with original error', () => {
       const originalError = new Error('Primer failed');
       const error = new PrimerError('Primer SDK error', originalError);
-      
+
       expect(error.message).toBe('Primer SDK error');
       expect(error.code).toBe('PRIMER_ERROR');
       expect(error.primerError).toBe(originalError);
@@ -100,7 +102,7 @@ describe('Error Classes', () => {
   describe('CheckoutError', () => {
     test('should create checkout error with phase info', () => {
       const error = new CheckoutError('Payment failed', 'tokenization');
-      
+
       expect(error.message).toBe('Payment failed');
       expect(error.code).toBe('CHECKOUT_ERROR');
       expect(error.phase).toBe('tokenization');
@@ -111,7 +113,7 @@ describe('Error Classes', () => {
   describe('ConfigurationError', () => {
     test('should create configuration error', () => {
       const error = new ConfigurationError('Invalid configuration');
-      
+
       expect(error.message).toBe('Invalid configuration');
       expect(error.code).toBe('CONFIGURATION_ERROR');
       expect(error.name).toBe('ConfigurationError');
@@ -122,7 +124,7 @@ describe('Error Classes', () => {
     test('should create network error with original error', () => {
       const originalError = new Error('Connection failed');
       const error = new NetworkError('Network request failed', originalError);
-      
+
       expect(error.message).toBe('Network request failed');
       expect(error.code).toBe('NETWORK_ERROR');
       expect(error.originalError).toBe(originalError);
