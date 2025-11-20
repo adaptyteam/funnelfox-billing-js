@@ -25,6 +25,29 @@ A clean, minimal example showing how to accept payments:
 
 ### Option 1: Build and View Locally
 
+Using the published tarball in the repo (basic example):
+
+```bash
+# From repo root
+npm i --prefix examples/basic
+npm run build --prefix examples/basic
+
+# Open the built example
+open examples/basic/dist/index.html
+```
+
+Or run a local server:
+
+```bash
+# From repo root
+npm run serve --prefix examples/basic
+# Then open http://localhost:8000
+```
+
+---
+
+### Option 1 (alternative): Build SDK from source (no bundling)
+
 1. Build the SDK:
    ```bash
    npm run build
