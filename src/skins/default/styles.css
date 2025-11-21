@@ -28,10 +28,10 @@
 }
 
 .payment-errors-container {
-    background-color: #D1000033;
-    color: #D10000;
-    font-size: 14px;
-    padding: 16px 12px;
+  background-color: #d1000033;
+  color: #d10000;
+  font-size: 14px;
+  padding: 16px 12px;
   border-radius: 8px;
 }
 .payment-errors-container:empty {
@@ -66,7 +66,7 @@
   transition: border-color 0.2s ease;
 }
 
-.ff-card-form-submit-button{
+.ff-card-form-submit-button {
   display: block;
   cursor: pointer;
   width: 100%;
@@ -103,10 +103,12 @@
   flex-direction: column;
   gap: 16px;
   max-height: 0;
-  height:0;
+  height: 0;
   overflow: hidden;
   opacity: 0;
-  transition: opacity 0.3s ease, margin-top 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    margin-top 0.3s ease;
   margin-top: 0;
 }
 
@@ -190,8 +192,6 @@
   flex-wrap: wrap;
 }
 
- 
-
 /* Card form container */
 .ff-card-form-container {
   position: relative;
@@ -201,9 +201,9 @@
 }
 
 .ff-card-form-label {
-    display: block;
-    font-size: 16px;
-    margin-bottom: 5px;
+  display: block;
+  font-size: 16px;
+  margin-bottom: 5px;
 }
 
 .card-form-row {
@@ -213,41 +213,38 @@
 }
 
 .ff-card-form-cardholder-input {
-    padding-left: 10px;
-    padding-right: 10px;
-    box-sizing: border-box;
-    height: 36px;
-    width: 100%;
-    font-size: 1rem;
-    background-color: transparent;
-    border: 1px solid rgb(0 0 0 / 10%);
-    border-radius: 6px;
-    transition: all 0.3s ease;
-    box-shadow: none;
+  padding-left: 10px;
+  padding-right: 10px;
+  box-sizing: border-box;
+  height: 36px;
+  width: 100%;
+  font-size: 1rem;
+  background-color: transparent;
+  border: 1px solid rgb(0 0 0 / 10%);
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  box-shadow: none;
 }
 .ff-card-form-cardholder-input.error {
   border-color: #e32f41;
 }
 
-
 .errorContainer {
-  color: #D10000;
+  color: #d10000;
   font-size: 16px;
 }
 
-
-
 .loader-container {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background-color: rgba(255, 255, 255);
-  }
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(255, 255, 255);
+}
 
 .payment-button-loader {
   position: relative;
@@ -264,8 +261,12 @@
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Responsive adjustments */
@@ -306,4 +307,3 @@
   width: 26px;
   height: 26px;
 }
-

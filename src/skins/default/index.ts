@@ -20,9 +20,6 @@ export default (container: string) => {
       const radio = card.querySelector<HTMLInputElement>(
         '.ff-payment-method-radio'
       );
-      const content = card.querySelector<HTMLElement>(
-        '.ff-payment-method-content'
-      );
 
       if (radio === checkedRadio && radio?.checked) {
         // Open the selected card

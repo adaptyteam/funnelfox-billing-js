@@ -7,7 +7,6 @@ import type {
   HeadlessUniversalCheckoutOptions,
   OnResumeSuccess,
   OnTokenizeSuccess,
-  CheckoutStyle,
 } from '@primer-io/checkout-web';
 
 import type { PaymentMethod } from './enums';
@@ -77,12 +76,6 @@ export interface CreateCheckoutOptions extends CheckoutConfigWithCallbacks {
   orgId?: string;
   apiConfig?: APIConfig;
 }
-
-export interface PrimerCheckoutOptions
-  extends Pick<
-    HeadlessUniversalCheckoutOptions,
-    'paymentHandling' | 'apiVersion' | 'paypal'
-  > {}
 
 export interface PaymentResult {
   orderId: string;
@@ -198,6 +191,7 @@ export interface CheckoutError extends FunnefoxSDKError {
   phase: string | null;
 }
 
+//eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ConfigurationError extends FunnefoxSDKError {}
 
 export interface NetworkError extends FunnefoxSDKError {

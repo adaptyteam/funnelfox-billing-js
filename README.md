@@ -505,7 +505,7 @@ const checkout = await createCheckout({
     cardholderName: '#my-cardholder',
     button: '#my-submit-button',
   },
-  
+
   // Custom payment method button containers
   paypalButtonContainer: '#my-paypal-button',
   googlePayButtonContainer: '#my-google-pay-button',

@@ -6,12 +6,7 @@ import CheckoutInstance from './checkout';
 import APIClient from './api-client';
 import PrimerWrapper from './primer-wrapper';
 import { DEFAULTS } from './constants';
-import type {
-  SDKConfig,
-  CreateCheckoutOptions,
-  CheckoutInstance as ICheckoutInstance,
-  APIConfig,
-} from './types';
+import type { SDKConfig, CreateCheckoutOptions, APIConfig } from './types';
 
 let defaultConfig: SDKConfig | null = null;
 
