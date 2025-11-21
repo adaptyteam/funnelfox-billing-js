@@ -134,7 +134,7 @@ class PrimerWrapper {
       const { cardNumberInput, expiryInput, cvvInput } =
         pmManager.createHostedInputs();
 
-      async function validateForm() {
+      const validateForm = async () => {
         if (!pmManager) return false;
 
         const { valid, validationErrors } = await pmManager.validate();
@@ -143,7 +143,7 @@ class PrimerWrapper {
         );
         dispatchError('cardholderName', cardHolderError?.message || null);
         return valid;
-      }
+      };
       const dispatchError = (
         inputName: keyof CardInputSelectors,
         error: string | null
@@ -284,9 +284,11 @@ class PrimerWrapper {
         }
       },
       onCheckoutFail: error => {
+        // eslint-disable-next-line no-console
         console.error(error);
       },
       onTokenizeError: error => {
+        // eslint-disable-next-line no-console
         console.error(error);
       },
     });
@@ -307,7 +309,7 @@ class PrimerWrapper {
             : method === PaymentMethod.GOOGLE_PAY
               ? paymentButtonSelectors.googlePay
               : paymentButtonSelectors.applePay;
-        const button = await this.renderButton(method, { container });
+        await this.renderButton(method, { container });
 
         onMethodRender(method);
       }
@@ -323,6 +325,7 @@ class PrimerWrapper {
       try {
         await handler(paymentMethodTokenData, primerHandler);
       } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('Error in tokenize handler:', error);
         primerHandler.handleFailure(
           'Payment processing failed. Please try again.'
@@ -336,6 +339,7 @@ class PrimerWrapper {
       try {
         await handler(resumeTokenData, primerHandler);
       } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('Error in resume handler:', error);
         primerHandler.handleFailure(
           'Payment processing failed. Please try again.'
@@ -344,18 +348,12 @@ class PrimerWrapper {
     };
   }
 
-  async updateClientToken(_newClientToken: string) {
-    if (!this.destroyCallbacks) {
-      throw new PrimerError('No active checkout to update');
-    }
-    throw new PrimerError('Client token updates require checkout recreation');
-  }
-
   async destroy() {
     if (this.destroyCallbacks) {
       try {
         Promise.all(this.destroyCallbacks.map(destroy => destroy()));
       } catch (error) {
+        // eslint-disable-next-line no-console
         console.warn('Error destroying Primer checkout:', error);
       }
     }
@@ -397,6 +395,7 @@ class PrimerWrapper {
     }
     const computedStyle = window.getComputedStyle(element as Element);
     if ((computedStyle as any).display === 'none') {
+      // eslint-disable-next-line no-console
       console.warn(
         'Checkout container is hidden, this may cause display issues'
       );

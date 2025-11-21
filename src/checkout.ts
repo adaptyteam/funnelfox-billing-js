@@ -8,7 +8,7 @@ import { CheckoutError } from './errors';
 import { requireString } from './utils/validation';
 import { generateId } from './utils/helpers';
 import APIClient from './api-client';
-import { cardHolderInputStyles, DEFAULTS, EVENTS } from './constants';
+import { DEFAULTS, EVENTS } from './constants';
 import {
   type CheckoutConfigWithCallbacks,
   type PaymentResult,
@@ -351,6 +351,7 @@ class CheckoutInstance extends EventEmitter {
       this.emit(EVENTS.DESTROY);
       this.removeAllListeners();
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.warn('Error during checkout cleanup:', error);
     }
   }
@@ -390,7 +391,7 @@ class CheckoutInstance extends EventEmitter {
   private async createCardElements(
     container: string
   ): Promise<CardInputSelectors> {
-    const init = await import('./skins/default')
+    await import('./skins/default')
       .then(module => module.default)
       .then(init => init(this.checkoutConfig.container));
     const cardNumberContainer = document.querySelector(
@@ -417,7 +418,7 @@ class CheckoutInstance extends EventEmitter {
     this.on(EVENTS.INPUT_ERROR, event => {
       const { name, error } = event;
       const errorContainer =
-        elementsMap[name]?.querySelector(`.errorContainer`);
+        elementsMap[name]?.querySelector('.errorContainer');
       if (errorContainer) {
         errorContainer.textContent = error || '';
       }
@@ -434,7 +435,7 @@ class CheckoutInstance extends EventEmitter {
 
     function setError(error?: Error) {
       const errorContainer = document.querySelector(
-        `.payment-errors-container`
+        '.payment-errors-container'
       );
       if (errorContainer) {
         errorContainer.textContent = error?.message || '';

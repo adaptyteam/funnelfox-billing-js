@@ -7,12 +7,14 @@ This directory contains working examples of the Funnelfox Billing SDK integratio
 ### `basic/` ⭐ **Start Here**
 
 A clean, minimal example showing how to accept payments:
+
 - Simple SDK configuration
 - Checkout with success/error handling
 - Separate HTML, CSS, and JavaScript files
 - ~30 lines of core logic
 
 **Files:**
+
 - `index.html` - HTML structure with Primer and SDK includes
 - `script.js` - Checkout initialization and event handling
 - `styles.css` - Basic styling
@@ -49,6 +51,7 @@ npm run serve --prefix examples/basic
 ### Option 1 (alternative): Build SDK from source (no bundling)
 
 1. Build the SDK:
+
    ```bash
    npm run build
    ```
@@ -85,9 +88,9 @@ All examples use placeholder configuration. Update these values:
 import { configure } from '@funnelfox/billing';
 
 configure({
-  orgId: 'your-org-id',                   // Your organization ID
+  orgId: 'your-org-id', // Your organization ID
   baseUrl: 'https://billing.funnelfox.com', // Optional: Custom API URL
-  region: 'default',                       // Optional: Your region
+  region: 'default', // Optional: Your region
 });
 ```
 
@@ -129,13 +132,13 @@ const checkout = await createCheckout({
 });
 
 // Handle success
-checkout.on('success', (result) => {
+checkout.on('success', result => {
   console.log('Payment successful!', result.orderId);
   window.location.href = '/success';
 });
 
 // Handle errors
-checkout.on('error', (error) => {
+checkout.on('error', error => {
   console.error('Payment failed:', error.message);
 });
 ```
@@ -152,11 +155,11 @@ const checkout = await createCheckout({
   container: '#checkout-container',
 
   // Use callbacks instead of events
-  onSuccess: (result) => {
+  onSuccess: result => {
     console.log('Payment successful:', result.orderId);
   },
 
-  onError: (error) => {
+  onError: error => {
     console.error('Payment failed:', error.message);
   },
 
@@ -208,16 +211,17 @@ const checkout = await Billing.createCheckout({
 
 The SDK tracks checkout through these states:
 
-| State | Description |
-|-------|-------------|
-| `initializing` | Creating client session |
-| `ready` | Waiting for payment input |
-| `processing` | Processing payment |
+| State             | Description                  |
+| ----------------- | ---------------------------- |
+| `initializing`    | Creating client session      |
+| `ready`           | Waiting for payment input    |
+| `processing`      | Processing payment           |
 | `action_required` | Additional auth needed (3DS) |
-| `completed` | Payment successful |
-| `error` | Error occurred |
+| `completed`       | Payment successful           |
+| `error`           | Error occurred               |
 
 Listen to state changes:
+
 ```javascript
 checkout.on('status-change', (newState, oldState) => {
   console.log(`${oldState} → ${newState}`);
@@ -236,7 +240,7 @@ const checkout = await createCheckout({
   customer: {
     externalId: 'user_456',
     email: 'user@example.com',
-    countryCode: 'US',  // Optional
+    countryCode: 'US', // Optional
   },
   container: '#checkout-container',
 
@@ -285,7 +289,9 @@ await checkout.updatePrice('price_yearly');
 ## ❓ Troubleshooting
 
 ### "Primer SDK not found"
+
 Make sure Primer script is loaded before Funnelfox SDK:
+
 ```html
 <!-- Load Primer FIRST -->
 <script src="https://sdk.primer.io/web/v2.54.0/Primer.min.js"></script>
@@ -296,25 +302,31 @@ Make sure Primer script is loaded before Funnelfox SDK:
 ```
 
 ### "Container not found"
+
 Ensure your container element exists in the DOM:
+
 ```html
 <div id="checkout-container"></div>
 <script>
   // Wait for DOM
   window.addEventListener('load', async () => {
     const checkout = await Billing.createCheckout({
-      container: '#checkout-container'  // Must exist!
+      container: '#checkout-container', // Must exist!
     });
   });
 </script>
 ```
 
 ### "orgId is required"
+
 Either configure globally or pass inline:
+
 ```javascript
 // Option 1: Configure globally
 Billing.configure({ orgId: 'your-org-id' });
-const checkout = await Billing.createCheckout({ /* ... */ });
+const checkout = await Billing.createCheckout({
+  /* ... */
+});
 
 // Option 2: Pass inline
 const checkout = await Billing.createCheckout({
@@ -324,7 +336,9 @@ const checkout = await Billing.createCheckout({
 ```
 
 ### TypeScript Support
+
 For TypeScript projects, types are included automatically:
+
 ```typescript
 import {
   configure,

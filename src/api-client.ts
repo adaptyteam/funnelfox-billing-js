@@ -26,7 +26,7 @@ class APIClient {
     this.retryAttempts = config.retryAttempts || 3;
   }
 
-  async request(endpoint: string, options: any = {}) {
+  async request(endpoint: string, options: RequestInit = {}) {
     const url = `${this.baseUrl}/${this.orgId}${endpoint}`;
     const requestOptions: RequestInit = {
       method: 'GET',
@@ -35,7 +35,7 @@ class APIClient {
         ...(options.headers || {}),
       },
       ...options,
-    } as any;
+    };
 
     try {
       return await retry(async () => {
@@ -45,7 +45,7 @@ class APIClient {
           'Request timed out'
         );
       }, this.retryAttempts);
-    } catch (error: any) {
+    } catch (error) {
       if (error.name === 'APIError') {
         throw error;
       }
