@@ -13,9 +13,7 @@ module.exports = {
     sourceType: 'module',
   },
   rules: {
-    'no-unused-vars': 'off',
-    '@typescript-eslint/no-unused-vars': ['error'],
-    '@typescript-eslint/no-explicit-any': 'off',
+    '@typescript-eslint/no-explicit-any': 'error',
     '@typescript-eslint/no-unsafe-function-type': 'off',
     'linebreak-style': ['error', 'unix'],
     quotes: ['error', 'single'],

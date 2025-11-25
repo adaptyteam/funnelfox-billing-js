@@ -38,5 +38,5 @@ declare global {
 }
 
 if (typeof window !== 'undefined') {
-  (window as any).Billing = Billing;
+  window.Billing = Billing;
 }

@@ -6,26 +6,26 @@ import { ERROR_CODES } from '.';
 
 class FunnefoxSDKError extends Error {
   code: string;
-  details: any;
+  details: unknown;
   constructor(
     message: string,
     code: string = ERROR_CODES.SDK_ERROR,
-    details: any = null
+    details: unknown = null
   ) {
     super(message);
     this.name = 'FunnefoxSDKError';
     this.code = code;
     this.details = details;
-    if ((Error as any).captureStackTrace) {
-      (Error as any).captureStackTrace(this, FunnefoxSDKError);
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, FunnefoxSDKError);
     }
   }
 }
 
 class ValidationError extends FunnefoxSDKError {
   field: string;
-  value: any;
-  constructor(field: string, message: string, value: any = null) {
+  value: unknown;
+  constructor(field: string, message: string, value: unknown = null) {
     super(`Invalid ${field}: ${message}`, ERROR_CODES.VALIDATION_ERROR);
     this.name = 'ValidationError';
     this.field = field;
@@ -38,7 +38,7 @@ class APIError extends FunnefoxSDKError {
   errorCode: string | null;
   errorType: string | null;
   requestId: string | null;
-  response: any;
+  response: unknown;
   constructor(
     message: string,
     statusCode: number | null = null,
@@ -46,7 +46,7 @@ class APIError extends FunnefoxSDKError {
       errorCode?: string | null;
       errorType?: string | null;
       requestId?: string | null;
-      response?: any;
+      response?: unknown;
     } = {}
   ) {
     super(message, options.errorCode || ERROR_CODES.API_ERROR);
@@ -60,8 +60,8 @@ class APIError extends FunnefoxSDKError {
 }
 
 class PrimerError extends FunnefoxSDKError {
-  primerError: any;
-  constructor(message: string, primerError: any = null) {
+  primerError: unknown;
+  constructor(message: string, primerError: unknown = null) {
     super(message, ERROR_CODES.PRIMER_ERROR);
     this.name = 'PrimerError';
     this.primerError = primerError;
@@ -85,8 +85,8 @@ class ConfigurationError extends FunnefoxSDKError {
 }
 
 class NetworkError extends FunnefoxSDKError {
-  originalError: any;
-  constructor(message: string, originalError: any = null) {
+  originalError: unknown;
+  constructor(message: string, originalError: unknown = null) {
     super(message, ERROR_CODES.NETWORK_ERROR);
     this.name = 'NetworkError';
     this.originalError = originalError;

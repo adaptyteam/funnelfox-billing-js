@@ -42,7 +42,7 @@ class PrimerWrapper {
   isPrimerAvailable(): boolean {
     return (
       typeof window !== 'undefined' &&
-      (window as any).Primer &&
+      window.Primer &&
       typeof window.Primer?.createHeadless === 'function'
     );
   }
@@ -85,7 +85,7 @@ class PrimerWrapper {
       );
       await headless.start();
       this.headless = headless;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw new PrimerError('Failed to create Primer headless checkout', error);
     }
   }
@@ -185,7 +185,7 @@ class PrimerWrapper {
         try {
           onSubmit(true);
           await pmManager.submit();
-        } catch (error: any) {
+        } catch (error: unknown) {
           throw new PrimerError('Failed to submit payment', error);
         } finally {
           onSubmit(false);
@@ -226,7 +226,7 @@ class PrimerWrapper {
           elements.button.disabled = disabled;
         },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw new PrimerError('Failed to initialize Primer checkout', error);
     }
   }
@@ -254,7 +254,7 @@ class PrimerWrapper {
       button = pmManager.createButton();
       await button.render(containerEl, {});
       this.destroyCallbacks.push(() => button.clean());
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw new PrimerError('Failed to initialize Primer checkout', error);
     }
   }
@@ -394,7 +394,7 @@ class PrimerWrapper {
       throw new PrimerError(`Checkout container not found: ${selector}`);
     }
     const computedStyle = window.getComputedStyle(element as Element);
-    if ((computedStyle as any).display === 'none') {
+    if (computedStyle.display === 'none') {
       // eslint-disable-next-line no-console
       console.warn(
         'Checkout container is hidden, this may cause display issues'

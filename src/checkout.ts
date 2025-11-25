@@ -15,6 +15,7 @@ import {
   type CheckoutState,
   CardInputSelectors,
   CheckoutOptions,
+  PaymentProcessResult,
 } from './types';
 import type {
   OnResumeSuccess,
@@ -24,7 +25,16 @@ import type {
 } from '@primer-io/checkout-web';
 import { PaymentMethod } from './enums';
 
-class CheckoutInstance extends EventEmitter {
+interface CheckoutEventMap {
+  [EVENTS.SUCCESS]: PaymentResult;
+  [EVENTS.ERROR]: Error | unknown | undefined;
+  [EVENTS.STATUS_CHANGE]: [CheckoutState, CheckoutState];
+  [EVENTS.DESTROY]: void;
+  [EVENTS.INPUT_ERROR]: { name: keyof CardInputSelectors; error: string };
+  [EVENTS.METHOD_RENDER]: PaymentMethod;
+  [EVENTS.LOADER_CHANGE]: boolean;
+}
+class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   id: string;
   orgId: string;
   baseUrl?: string;
@@ -39,7 +49,7 @@ class CheckoutInstance extends EventEmitter {
     ) => void;
     onDestroy?: () => void;
   };
-  state: string;
+  state: CheckoutState;
   orderId: string | null;
   clientToken: string | null;
   primerWrapper: PrimerWrapper;
@@ -96,22 +106,6 @@ class CheckoutInstance extends EventEmitter {
     }
   }
 
-  on(eventName: string, handler: Function): this {
-    return super.on(eventName, handler);
-  }
-
-  once(eventName: string, handler: Function): this {
-    return super.once(eventName, handler);
-  }
-
-  off(eventName: string, handler: Function | null = null): this {
-    return super.off(eventName, handler);
-  }
-
-  emit(eventName: string, ...args: any[]): boolean {
-    return super.emit(eventName, ...args);
-  }
-
   removeAllListeners(): this {
     return super.removeAllListeners();
   }
@@ -146,7 +140,7 @@ class CheckoutInstance extends EventEmitter {
       return this;
     } catch (error) {
       this._setState('error');
-      this.emit(EVENTS.ERROR, error);
+      this.emit(EVENTS.ERROR, error as Error);
       throw error;
     }
   }
@@ -208,16 +202,14 @@ class CheckoutInstance extends EventEmitter {
     );
   }
 
-  private handleMethodRender = (
-    method: 'GOOGLE_PAY' | 'APPLE_PAY' | 'PAYPAL' | 'PAYMENT_CARD'
-  ) => {
+  private handleMethodRender = (method: PaymentMethod) => {
     this.emit(EVENTS.METHOD_RENDER, method);
   };
 
   private handleSubmit = (isSubmitting: boolean) => {
     this.onLoaderChangeWithRace(isSubmitting);
     // Clear any previous errors
-    this.emit(EVENTS.ERROR);
+    this.emit(EVENTS.ERROR, undefined);
     this._setState(isSubmitting ? 'processing' : 'ready');
   };
 
@@ -234,10 +226,12 @@ class CheckoutInstance extends EventEmitter {
       });
       const result = this.apiClient.processPaymentResponse(paymentResponse);
       await this._processPaymentResult(result, primerHandler);
-    } catch (error: any) {
+    } catch (error: unknown) {
       this._setState('error');
       this.emit(EVENTS.ERROR, error);
-      primerHandler.handleFailure(error.message || 'Payment processing failed');
+      primerHandler.handleFailure(
+        (error as Error).message || 'Payment processing failed'
+      );
     } finally {
       this.onLoaderChangeWithRace(false);
       this._setState('ready');
@@ -257,10 +251,12 @@ class CheckoutInstance extends EventEmitter {
       });
       const result = this.apiClient.processPaymentResponse(resumeResponse);
       await this._processPaymentResult(result, primerHandler);
-    } catch (error: any) {
+    } catch (error: unknown) {
       this._setState('error');
       this.emit(EVENTS.ERROR, error);
-      primerHandler.handleFailure(error.message || 'Payment processing failed');
+      primerHandler.handleFailure(
+        (error as Error).message || 'Payment processing failed'
+      );
     } finally {
       this.onLoaderChangeWithRace(false);
       this._setState('ready');
@@ -268,7 +264,7 @@ class CheckoutInstance extends EventEmitter {
   };
 
   async _processPaymentResult(
-    result: any,
+    result: PaymentProcessResult,
     primerHandler: OnResumeSuccessHandler | OnTokenizeSuccessHandler
   ) {
     if (result.orderId) {
@@ -280,9 +276,11 @@ class CheckoutInstance extends EventEmitter {
         this._setState('completed');
         this.emit(EVENTS.SUCCESS, {
           orderId: result.orderId,
-          status: result.status,
-          transactionId: result.transactionId,
-          metadata: result.metadata,
+          status: result.status as
+            | 'succeeded'
+            | 'failed'
+            | 'cancelled'
+            | 'processing',
         });
         primerHandler.handleSuccess();
         break;
@@ -322,7 +320,6 @@ class CheckoutInstance extends EventEmitter {
       });
       this.checkoutConfig.priceId = newPriceId;
       this._setState('ready');
-      this.emit(EVENTS.STATUS_CHANGE, 'price-updated');
     } catch (error) {
       this._setState('error');
       this.emit(EVENTS.ERROR, error);
@@ -333,7 +330,7 @@ class CheckoutInstance extends EventEmitter {
   getStatus() {
     return {
       id: this.id,
-      state: this.state as CheckoutState,
+      state: this.state,
       orderId: this.orderId,
       priceId: this.checkoutConfig.priceId,
       isDestroyed: this.isDestroyed,

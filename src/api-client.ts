@@ -4,6 +4,14 @@
 
 import { API_ENDPOINTS } from './constants';
 import { APIError, NetworkError } from './errors';
+import {
+  CreateClientSessionOptions,
+  CreateClientSessionRequest,
+  CreateClientSessionResponse,
+  CreatePaymentRequest,
+  CreatePaymentResponse,
+  PaymentProcessResult,
+} from './types';
 import { retry, withTimeout } from './utils/helpers';
 
 interface APIClientConfig {
@@ -45,8 +53,8 @@ class APIClient {
           'Request timed out'
         );
       }, this.retryAttempts);
-    } catch (error) {
-      if (error.name === 'APIError') {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'APIError') {
         throw error;
       }
       throw new NetworkError('Network request failed', error);
@@ -57,11 +65,14 @@ class APIClient {
     let response: Response;
     try {
       response = await fetch(url, options);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'NetworkError') {
+        throw error;
+      }
       throw new NetworkError('Network request failed', error);
     }
 
-    let data: any;
+    let data: unknown;
     try {
       data = await response.json();
     } catch {
@@ -69,24 +80,25 @@ class APIClient {
     }
 
     if (!response.ok) {
+      const d = data as {
+        message?: string | { msg: string }[];
+        error?: string;
+      };
       const message =
-        data.message || data.message || data.error || `HTTP ${response.status}`;
-      throw new APIError(message?.[0]?.msg || message, response.status, {
+        d.message instanceof Array
+          ? d.message[0].msg
+          : d.message || d.error || `HTTP ${response.status}`;
+      throw new APIError(message, response.status, {
         response: data,
       });
     }
     return data;
   }
 
-  async createClientSession(params: {
-    priceId: string;
-    externalId: string;
-    email: string;
-    clientMetadata?: Record<string, any>;
-    region?: string;
-    countryCode?: string;
-  }) {
-    const payload: any = {
+  async createClientSession(
+    params: CreateClientSessionOptions
+  ): Promise<CreateClientSessionResponse> {
+    const payload: CreateClientSessionRequest = {
       region: params.region || 'default',
       integration_type: 'primer',
       pp_ident: params.priceId,
@@ -97,10 +109,10 @@ class APIClient {
     if (params.countryCode !== undefined) {
       payload.country_code = params.countryCode;
     }
-    return await this.request(API_ENDPOINTS.CREATE_CLIENT_SESSION, {
+    return (await this.request(API_ENDPOINTS.CREATE_CLIENT_SESSION, {
       method: 'POST',
       body: JSON.stringify(payload),
-    });
+    })) as CreateClientSessionResponse;
   }
 
   async updateClientSession(params: {
@@ -119,29 +131,35 @@ class APIClient {
     });
   }
 
-  async createPayment(params: { orderId: string; paymentMethodToken: string }) {
-    const payload = {
+  async createPayment(params: {
+    orderId: string;
+    paymentMethodToken: string;
+  }): Promise<CreatePaymentResponse> {
+    const payload: CreatePaymentRequest = {
       order_id: params.orderId,
       payment_method_token: params.paymentMethodToken,
     };
-    return await this.request(API_ENDPOINTS.CREATE_PAYMENT, {
+    return (await this.request(API_ENDPOINTS.CREATE_PAYMENT, {
       method: 'POST',
       body: JSON.stringify(payload),
-    });
+    })) as CreatePaymentResponse;
   }
 
-  async resumePayment(params: { orderId: string; resumeToken: string }) {
+  async resumePayment(params: {
+    orderId: string;
+    resumeToken: string;
+  }): Promise<CreatePaymentResponse> {
     const payload = {
       order_id: params.orderId,
       resume_token: params.resumeToken,
     };
-    return await this.request(API_ENDPOINTS.RESUME_PAYMENT, {
+    return (await this.request(API_ENDPOINTS.RESUME_PAYMENT, {
       method: 'POST',
       body: JSON.stringify(payload),
-    });
+    })) as CreatePaymentResponse;
   }
 
-  processSessionResponse(response: any) {
+  processSessionResponse(response: CreateClientSessionResponse) {
     if (response.status === 'error') {
       const firstError = response.error?.[0];
       const message = firstError?.msg || 'Session creation failed';
@@ -152,7 +170,7 @@ class APIClient {
         response,
       });
     }
-    const data = response.data || response;
+    const data = response.data;
     return {
       type: 'session_created',
       orderId: data.order_id,
@@ -160,19 +178,20 @@ class APIClient {
     };
   }
 
-  processPaymentResponse(response: any) {
+  processPaymentResponse(
+    response: CreatePaymentResponse
+  ): PaymentProcessResult {
     if (response.status === 'error') {
       const firstError = response.error?.[0];
       const message = firstError?.msg || 'Payment request failed';
       throw new APIError(message, null, {
         errorCode: firstError?.code,
         errorType: firstError?.type,
-        requestId: response.req_id,
         response,
       });
     }
 
-    const data = response.data || response;
+    const data = response.data;
 
     if (data.action_required_token) {
       return {
@@ -189,16 +208,17 @@ class APIClient {
             type: 'success',
             orderId: data.order_id,
             status: 'succeeded',
-            transactionId: data.transaction_id,
           };
         case 'failed':
           throw new APIError(
             data.failed_message_for_user || 'Payment failed',
             null,
-            data
+            { response }
           );
         case 'cancelled':
-          throw new APIError('Payment was cancelled by user', null, data);
+          throw new APIError('Payment was cancelled by user', null, {
+            response,
+          });
         case 'processing':
           return {
             type: 'processing',
@@ -209,22 +229,11 @@ class APIClient {
           throw new APIError(
             `Unhandled checkout status: ${data.checkout_status}`,
             null,
-            data
+            { response }
           );
       }
     }
-    throw new APIError('Invalid payment response format', null, data);
-  }
-
-  processResponse(response: any) {
-    const data = response.data || response;
-    if (data.client_token && data.order_id && !data.checkout_status) {
-      return this.processSessionResponse(response);
-    }
-    if (data.checkout_status || data.action_required_token) {
-      return this.processPaymentResponse(response);
-    }
-    throw new APIError('Unknown response format', null, response);
+    throw new APIError('Invalid payment response format', null, { response });
   }
 }
 
