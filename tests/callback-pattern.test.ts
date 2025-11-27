@@ -3,6 +3,7 @@
  */
 
 import { configure, createCheckout, Billing } from '../src';
+import { PaymentResult, PrimerWrapperInterface } from '../src/types';
 
 jest.mock('../src/primer-wrapper', () => {
   return jest.fn().mockImplementation(() => ({
@@ -16,10 +17,43 @@ jest.mock('../src/primer-wrapper', () => {
 
 jest.mock('../src/skins/default', () => ({
   __esModule: true,
-  default: jest.fn((containerSelector: string) => {
-    const container = document.querySelector(containerSelector);
-    if (!container) return Promise.resolve(true);
-    container.innerHTML = `
+  default: jest.fn(
+    async (
+      _primerWrapper: PrimerWrapperInterface,
+      containerSelector: string
+    ) => {
+      const container = document.querySelector(containerSelector);
+      if (!container)
+        return Promise.resolve({
+          renderCardForm: jest.fn(),
+          renderButton: jest.fn(),
+          getCardInputSelectors: jest.fn().mockReturnValue({
+            cardNumber: '#cardNumberInput',
+            expiryDate: '#expiryInput',
+            cvv: '#cvvInput',
+            cardholderName: '#cardHolderInput',
+            button: '#submitButton',
+          }),
+          getCardInputElements: jest.fn().mockReturnValue({
+            cardNumber: document.createElement('div'),
+            expiryDate: document.createElement('div'),
+            cvv: document.createElement('div'),
+            cardholderName: document.createElement('div'),
+            button: document.createElement('button'),
+          }),
+          onLoaderChange: jest.fn(),
+          onError: jest.fn(),
+          onStatusChange: jest.fn(),
+          onSuccess: jest.fn(),
+          onDestroy: jest.fn(),
+          onInputError: jest.fn(),
+          onMethodRender: jest.fn(),
+          onStartPurchase: jest.fn(),
+          onPurchaseFailure: jest.fn(),
+          onPurchaseCompleted: jest.fn(),
+        });
+
+      container.innerHTML = `
       <div class="ff-payment-container">
         <div id="success-screen"></div>
         <div class="loader-container"></div>
@@ -43,8 +77,51 @@ jest.mock('../src/skins/default', () => ({
         <button id="submitButton"></button>
       </div>
     `;
-    return Promise.resolve(true);
-  }),
+
+      const cardNumber = container.querySelector(
+        '#cardNumberInput'
+      ) as HTMLElement;
+      const expiryDate = container.querySelector('#expiryInput') as HTMLElement;
+      const cvv = container.querySelector('#cvvInput') as HTMLElement;
+      const cardholderName = container.querySelector(
+        '#cardHolderInput'
+      ) as HTMLElement;
+      const button = container.querySelector(
+        '#submitButton'
+      ) as HTMLButtonElement;
+
+      const skin = {
+        renderCardForm: jest.fn(),
+        renderButton: jest.fn(),
+        getCardInputSelectors: jest.fn().mockReturnValue({
+          cardNumber: '#cardNumberInput',
+          expiryDate: '#expiryInput',
+          cvv: '#cvvInput',
+          cardholderName: '#cardHolderInput',
+          button: '#submitButton',
+        }),
+        getCardInputElements: jest.fn().mockReturnValue({
+          cardNumber,
+          expiryDate,
+          cvv,
+          cardholderName,
+          button,
+        }),
+        onLoaderChange: jest.fn(),
+        onError: jest.fn(),
+        onStatusChange: jest.fn(),
+        onSuccess: jest.fn(),
+        onDestroy: jest.fn(),
+        onInputError: jest.fn(),
+        onMethodRender: jest.fn(),
+        onStartPurchase: jest.fn(),
+        onPurchaseFailure: jest.fn(),
+        onPurchaseCompleted: jest.fn(),
+      };
+
+      return Promise.resolve(skin);
+    }
+  ),
 }));
 
 describe('Callback Pattern Tests', () => {
@@ -82,7 +159,7 @@ describe('Callback Pattern Tests', () => {
         container: '#test-container',
         onSuccess,
         onError,
-      } as any);
+      });
 
       checkout.emit('success', { orderId: 'order-123', status: 'succeeded' });
 
@@ -111,7 +188,7 @@ describe('Callback Pattern Tests', () => {
         container: '#test-container',
         onSuccess,
         onError,
-      } as any);
+      });
 
       const error = new Error('Payment failed');
       checkout.emit('error', error);
@@ -136,8 +213,9 @@ describe('Callback Pattern Tests', () => {
         },
         container: '#test-container',
         onStatusChange,
-      } as any);
+      });
 
+      // Cast to `unknown` then to the expected tuple type to satisfy typing
       checkout.emit('status-change', 'processing', 'ready');
 
       expect(onStatusChange).toHaveBeenCalledWith('processing', 'ready');
@@ -159,7 +237,7 @@ describe('Callback Pattern Tests', () => {
         },
         container: '#test-container',
         onDestroy,
-      } as any);
+      });
 
       checkout.emit('destroy');
 
@@ -186,7 +264,7 @@ describe('Callback Pattern Tests', () => {
         container: '#test-container',
         onSuccess,
         onError,
-      } as any);
+      });
 
       checkout.emit('success', { orderId: 'order-123', status: 'succeeded' });
 
@@ -216,11 +294,14 @@ describe('Callback Pattern Tests', () => {
         },
         container: '#test-container',
         onSuccess: callbackHandler,
-      } as any);
+      });
 
       checkout.on('success', eventHandler);
 
-      const result = { orderId: 'order-123', status: 'succeeded' };
+      const result = {
+        orderId: 'order-123',
+        status: 'succeeded',
+      } as PaymentResult;
       checkout.emit('success', result);
 
       expect(callbackHandler).toHaveBeenCalledWith(result);
@@ -243,7 +324,7 @@ describe('Callback Pattern Tests', () => {
         },
         container: '#test-container',
         onSuccess: callbackHandler,
-      } as any);
+      });
 
       checkout.off('success', callbackHandler);
 
@@ -267,7 +348,7 @@ describe('Callback Pattern Tests', () => {
           email: 'test@example.com',
         },
         container: '#test-container',
-      } as any);
+      });
 
       expect(() => {
         checkout.emit('success', {
@@ -275,7 +356,7 @@ describe('Callback Pattern Tests', () => {
           status: 'succeeded',
         });
         checkout.emit('error', new Error('Test error'));
-        checkout.emit('status-change', 'processing');
+        checkout.emit('status-change', 'processing', 'ready');
         checkout.emit('destroy');
       }).not.toThrow();
     });
@@ -296,7 +377,7 @@ describe('Callback Pattern Tests', () => {
         },
         container: '#test-container',
         onSuccess,
-      } as any);
+      });
 
       checkout.emit('success', { orderId: 'order-123', status: 'succeeded' });
       checkout.emit('error', new Error('Test error'));
