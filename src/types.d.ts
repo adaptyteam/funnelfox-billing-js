@@ -11,6 +11,8 @@ import type {
 
 import type { PaymentMethod } from './enums';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type MetadataType = Record<string, any>;
 export interface SDKConfig {
   orgId: string;
   baseUrl?: string;
@@ -41,7 +43,7 @@ export interface CheckoutConfig extends PrimerCheckoutConfig {
   customer: Customer;
   priceId: string;
   container: string;
-  clientMetadata?: Record<string, any>;
+  clientMetadata?: MetadataType;
 }
 
 export interface PaymentButtonSelectors {
@@ -63,6 +65,7 @@ export interface CheckoutOptions
     error: string | null
   ) => void;
   onMethodRender: (method: PaymentMethod) => void;
+  onSubmitError: (error: Error) => void;
 }
 
 export interface CheckoutConfigWithCallbacks extends CheckoutConfig {
@@ -82,7 +85,7 @@ export interface PaymentResult {
   status: 'succeeded' | 'failed' | 'cancelled' | 'processing';
   transactionId?: string;
   failureReason?: string;
-  metadata?: Record<string, any>;
+  metadata?: MetadataType;
 }
 
 export type CheckoutState =
@@ -130,7 +133,7 @@ export interface CheckoutInstance {
     handler: (newState: CheckoutState, oldState?: CheckoutState) => void
   ): this;
   on(eventName: 'destroy', handler: () => void): this;
-  on(eventName: CheckoutEventName, handler: (...args: any[]) => void): this;
+  on(eventName: CheckoutEventName, handler: (...args: unknown[]) => void): this;
 
   off(eventName: CheckoutEventName, handler?: Function): this;
   once(eventName: CheckoutEventName, handler: Function): this;
@@ -150,12 +153,12 @@ export interface ClientSessionResponse {
 
 export interface PaymentMethodTokenData {
   token: string;
-  metadata?: Record<string, any>;
+  metadata?: MetadataType;
 }
 
 export interface ResumeTokenData {
   resumeToken: string;
-  metadata?: Record<string, any>;
+  metadata?: MetadataType;
 }
 
 export interface PrimerHandler {
@@ -167,12 +170,12 @@ export interface PrimerHandler {
 // Error types
 export interface FunnefoxSDKError extends Error {
   code: string;
-  details: any;
+  details: unknown;
 }
 
 export interface ValidationError extends FunnefoxSDKError {
   field: string;
-  value: any;
+  value: unknown;
 }
 
 export interface APIError extends FunnefoxSDKError {
@@ -180,11 +183,11 @@ export interface APIError extends FunnefoxSDKError {
   errorCode: string | null;
   errorType: string | null;
   requestId: string | null;
-  response: any;
+  response: unknown;
 }
 
 export interface PrimerError extends FunnefoxSDKError {
-  primerError: any;
+  primerError: unknown;
 }
 
 export interface CheckoutError extends FunnefoxSDKError {
@@ -195,7 +198,7 @@ export interface CheckoutError extends FunnefoxSDKError {
 export interface ConfigurationError extends FunnefoxSDKError {}
 
 export interface NetworkError extends FunnefoxSDKError {
-  originalError: any;
+  originalError: unknown;
 }
 
 // Function signatures
@@ -206,12 +209,13 @@ export declare function createCheckout(
 ): Promise<CheckoutInstance>;
 
 export interface CreateClientSessionOptions {
+  region?: string;
   priceId: string;
   externalId: string;
   email: string;
   orgId?: string;
   apiConfig?: APIConfig;
-  clientMetadata?: Record<string, any>;
+  clientMetadata?: MetadataType;
   countryCode?: string;
 }
 
@@ -244,4 +248,94 @@ export interface CardInputSelectors {
   cvv: string;
   cardholderName: string;
   button: string;
+}
+
+export interface CreateClientSessionRequest {
+  region: string;
+  integration_type: string;
+  pp_ident: string;
+  external_id: string;
+  email_address: string;
+  country_code?: string;
+  client_metadata?: MetadataType;
+}
+
+export interface CreateClientSessionResponse {
+  status: 'success' | 'error';
+  data: {
+    client_token: string;
+    order_id: string;
+  };
+  error?: {
+    code: string;
+    msg: string;
+    type: string;
+  }[];
+  req_id: string;
+}
+
+export interface CreatePaymentRequest {
+  order_id: string;
+  payment_method_token: string;
+}
+
+export interface CreatePaymentResponse {
+  status: 'success' | 'error';
+  data: {
+    action_required_token: string;
+    checkout_status: 'processing' | 'succeeded' | 'failed' | 'cancelled';
+    failed_message_for_user: string;
+    order_id: string;
+  };
+  error?: {
+    code: string;
+    msg: string;
+    type: string;
+  }[];
+}
+
+export interface PaymentProcessResult {
+  type: string;
+  orderId: string;
+  clientToken?: string;
+  status?: string;
+}
+
+export interface PaymentMethodInterface {
+  setDisabled: (disabled: boolean) => void;
+}
+
+export interface PrimerWrapperInterface {
+  isInitialized: boolean;
+  isPrimerAvailable(): boolean;
+  ensurePrimerAvailable(): void;
+  renderCardCheckout({
+    cardSelectors,
+    onSubmit,
+    onInputChange,
+  }: {
+    cardSelectors: CardInputSelectors;
+    onSubmit: (isSubmitting: boolean) => void;
+    onInputChange: (
+      inputName: keyof CardInputSelectors,
+      error: string | null
+    ) => void;
+  }): Promise<PaymentMethodInterface>;
+  renderButton(
+    allowedPaymentMethod: 'GOOGLE_PAY' | 'APPLE_PAY' | 'PAYPAL',
+    options: {
+      container: string;
+    }
+  ): Promise<void>;
+  renderCheckout(clientToken: string, options: CheckoutOptions): Promise<void>;
+  destroy(): Promise<void>;
+  createHandlers(handlers: {
+    onSuccess?: () => void;
+    onError?: (e: Error) => void;
+    onActionRequired?: (token: string) => void;
+  }): PrimerHandler;
+  getCurrentCheckout(): (() => void)[];
+  isActive(): boolean;
+  validateContainer(selector: string): Element;
+  disableButtons(disabled: boolean): void;
 }

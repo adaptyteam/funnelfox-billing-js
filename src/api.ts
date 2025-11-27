@@ -6,7 +6,12 @@ import CheckoutInstance from './checkout';
 import APIClient from './api-client';
 import PrimerWrapper from './primer-wrapper';
 import { DEFAULTS } from './constants';
-import type { SDKConfig, CreateCheckoutOptions, APIConfig } from './types';
+import type {
+  SDKConfig,
+  CreateCheckoutOptions,
+  APIConfig,
+  CreateClientSessionOptions,
+} from './types';
 
 let defaultConfig: SDKConfig | null = null;
 
@@ -58,15 +63,9 @@ export async function createCheckout(
   return checkout;
 }
 
-export async function createClientSession(params: {
-  priceId: string;
-  externalId: string;
-  email: string;
-  orgId?: string;
-  apiConfig?: APIConfig;
-  clientMetadata?: Record<string, any>;
-  countryCode?: string;
-}): Promise<{ clientToken: string; orderId: string; type: string }> {
+export async function createClientSession(
+  params: CreateClientSessionOptions
+): Promise<{ clientToken: string; orderId: string; type: string }> {
   const { priceId, externalId, email, clientMetadata, countryCode } = params;
 
   const config = resolveConfig(params, 'createClientSession');

@@ -5,7 +5,7 @@
 import type { CheckoutStyle } from '@primer-io/checkout-web';
 import { PaymentMethod } from './enums';
 
-export const SDK_VERSION = '0.2.1';
+export const SDK_VERSION = '0.3.0';
 
 export const DEFAULTS = {
   BASE_URL: 'https://billing.funnelfox.com',
@@ -35,6 +35,9 @@ export const EVENTS = {
   INPUT_ERROR: 'input-error',
   LOADER_CHANGE: 'loader-change',
   METHOD_RENDER: 'method-render',
+  START_PURCHASE: 'start-purchase',
+  PURCHASE_FAILURE: 'purchase-failure',
+  PURCHASE_COMPLETED: 'purchase-completed',
 } as const;
 
 export const API_ENDPOINTS = {

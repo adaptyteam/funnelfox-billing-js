@@ -4,14 +4,14 @@
 
 import { ValidationError } from '../errors';
 
-export function validateSDKConfig(config: any) {
+export function validateSDKConfig(config: unknown) {
   if (!config || typeof config !== 'object') {
     throw new ValidationError('config', 'SDK configuration must be an object');
   }
-  if (!config.orgId || typeof config.orgId !== 'string') {
+  if (!('orgId' in config) || typeof config.orgId !== 'string') {
     throw new ValidationError('orgId', 'must be a non-empty string');
   }
-  if (config.baseUrl) {
+  if ('baseUrl' in config) {
     if (typeof config.baseUrl !== 'string') {
       throw new ValidationError('baseUrl', 'must be a valid URL string');
     }
@@ -19,44 +19,44 @@ export function validateSDKConfig(config: any) {
       throw new ValidationError('baseUrl', 'must be a valid URL format');
     }
   }
-  if (config.region && typeof config.region !== 'string') {
+  if ('region' in config && typeof config.region !== 'string') {
     throw new ValidationError('region', 'must be a string if provided');
   }
-  if (config.sandbox !== undefined && typeof config.sandbox !== 'boolean') {
+  if ('sandbox' in config && typeof config.sandbox !== 'boolean') {
     throw new ValidationError('sandbox', 'must be a boolean if provided');
   }
   return true;
 }
 
-export function validateCheckoutConfig(config: any) {
+export function validateCheckoutConfig(config: unknown) {
   if (!config || typeof config !== 'object') {
     throw new ValidationError('checkoutConfig', 'must be an object');
   }
-  if (!config.priceId || typeof config.priceId !== 'string') {
+  if (!('priceId' in config) || typeof config.priceId !== 'string') {
     throw new ValidationError('priceId', 'must be a non-empty string');
   }
-  if (!config.externalId || typeof config.externalId !== 'string') {
+  if (!('externalId' in config) || typeof config.externalId !== 'string') {
     throw new ValidationError('externalId', 'must be a non-empty string');
   }
-  if (!config.email || typeof config.email !== 'string') {
+  if (!('email' in config) || typeof config.email !== 'string') {
     throw new ValidationError('email', 'must be a non-empty string');
   }
   if (!isValidEmail(config.email)) {
     throw new ValidationError('email', 'must be a valid email address');
   }
-  if (!config.container || typeof config.container !== 'string') {
+  if (!('container' in config) || typeof config.container !== 'string') {
     throw new ValidationError(
       'container',
       'must be a valid DOM selector string'
     );
   }
-  if (config.clientMetadata && typeof config.clientMetadata !== 'object') {
+  if ('clientMetadata' in config && typeof config.clientMetadata !== 'object') {
     throw new ValidationError(
       'clientMetadata',
       'must be an object if provided'
     );
   }
-  if (config.primerOptions && typeof config.primerOptions !== 'object') {
+  if ('primerOptions' in config && typeof config.primerOptions !== 'object') {
     throw new ValidationError('primerOptions', 'must be an object if provided');
   }
   return true;
@@ -88,14 +88,11 @@ export function isValidSelector(selector: string) {
   }
 }
 
-export function sanitizeString(input: any): string {
-  if (input === null || input === undefined) {
-    return '';
-  }
-  return String(input).trim();
+export function sanitizeString(input?: string | null): string {
+  return input?.trim() || '';
 }
 
-export function requireString(value: any, fieldName: string) {
+export function requireString(value: string, fieldName: string) {
   const sanitized = sanitizeString(value);
   if (sanitized.length === 0) {
     throw new ValidationError(fieldName, 'must be a non-empty string', value);
@@ -120,9 +117,9 @@ export function deepFreeze<T>(obj: T): T {
   if (obj === null || typeof obj !== 'object') {
     return obj;
   }
-  Object.keys(obj as any).forEach(prop => {
-    if (typeof (obj as any)[prop] === 'object' && (obj as any)[prop] !== null) {
-      deepFreeze((obj as any)[prop]);
+  Object.keys(obj).forEach(prop => {
+    if (typeof obj[prop] === 'object' && obj[prop] !== null) {
+      deepFreeze(obj[prop]);
     }
   });
   return Object.freeze(obj);

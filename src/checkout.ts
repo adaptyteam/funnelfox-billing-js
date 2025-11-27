@@ -15,6 +15,7 @@ import {
   type CheckoutState,
   CardInputSelectors,
   CheckoutOptions,
+  PaymentProcessResult,
 } from './types';
 import type {
   OnResumeSuccess,
@@ -23,8 +24,23 @@ import type {
   OnTokenizeSuccessHandler,
 } from '@primer-io/checkout-web';
 import { PaymentMethod } from './enums';
+import type { Skin, SkinFactory } from './skins/types';
 
-class CheckoutInstance extends EventEmitter {
+interface CheckoutEventMap {
+  [EVENTS.SUCCESS]: PaymentResult;
+  [EVENTS.ERROR]:
+    | [Error | unknown | undefined]
+    | [Error | unknown | undefined, PaymentMethod];
+  [EVENTS.STATUS_CHANGE]: [CheckoutState, CheckoutState];
+  [EVENTS.DESTROY]: void;
+  [EVENTS.INPUT_ERROR]: { name: keyof CardInputSelectors; error: string };
+  [EVENTS.METHOD_RENDER]: PaymentMethod;
+  [EVENTS.LOADER_CHANGE]: boolean;
+  [EVENTS.START_PURCHASE]: PaymentMethod;
+  [EVENTS.PURCHASE_FAILURE]: Error | unknown | undefined;
+  [EVENTS.PURCHASE_COMPLETED]: void;
+}
+class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   id: string;
   orgId: string;
   baseUrl?: string;
@@ -39,7 +55,7 @@ class CheckoutInstance extends EventEmitter {
     ) => void;
     onDestroy?: () => void;
   };
-  state: string;
+  state: CheckoutState;
   orderId: string | null;
   clientToken: string | null;
   primerWrapper: PrimerWrapper;
@@ -96,22 +112,6 @@ class CheckoutInstance extends EventEmitter {
     }
   }
 
-  on(eventName: string, handler: Function): this {
-    return super.on(eventName, handler);
-  }
-
-  once(eventName: string, handler: Function): this {
-    return super.once(eventName, handler);
-  }
-
-  off(eventName: string, handler: Function | null = null): this {
-    return super.off(eventName, handler);
-  }
-
-  emit(eventName: string, ...args: any[]): boolean {
-    return super.emit(eventName, ...args);
-  }
-
   removeAllListeners(): this {
     return super.removeAllListeners();
   }
@@ -146,7 +146,7 @@ class CheckoutInstance extends EventEmitter {
       return this;
     } catch (error) {
       this._setState('error');
-      this.emit(EVENTS.ERROR, error);
+      this.emit(EVENTS.ERROR, error as Error);
       throw error;
     }
   }
@@ -169,15 +169,15 @@ class CheckoutInstance extends EventEmitter {
       onSubmit: this.handleSubmit,
       onInputChange: this.handleInputChange,
       onMethodRender: this.handleMethodRender,
+      onSubmitError: (error: Error) =>
+        this.emit(EVENTS.PURCHASE_FAILURE, error),
     };
 
     if (
       !this.checkoutConfig.cardSelectors ||
       !this.checkoutConfig.paymentButtonSelectors
     ) {
-      const cardSelectors = await this.createCardElements(
-        this.checkoutConfig.container
-      );
+      const cardSelectors = await this.createCardElements();
       const paymentButtonSelectors = {
         paypal: '#paypalButton',
         googlePay: '#googlePayButton',
@@ -208,16 +208,17 @@ class CheckoutInstance extends EventEmitter {
     );
   }
 
-  private handleMethodRender = (
-    method: 'GOOGLE_PAY' | 'APPLE_PAY' | 'PAYPAL' | 'PAYMENT_CARD'
-  ) => {
+  private handleMethodRender = (method: PaymentMethod) => {
     this.emit(EVENTS.METHOD_RENDER, method);
   };
 
   private handleSubmit = (isSubmitting: boolean) => {
+    if (isSubmitting) {
+      // Clear any previous errors
+      this.emit(EVENTS.ERROR, undefined);
+      this.emit(EVENTS.START_PURCHASE, PaymentMethod.PAYMENT_CARD);
+    }
     this.onLoaderChangeWithRace(isSubmitting);
-    // Clear any previous errors
-    this.emit(EVENTS.ERROR);
     this._setState(isSubmitting ? 'processing' : 'ready');
   };
 
@@ -226,6 +227,10 @@ class CheckoutInstance extends EventEmitter {
     primerHandler
   ) => {
     try {
+      this.emit(
+        EVENTS.START_PURCHASE,
+        paymentMethodTokenData.paymentInstrumentType as PaymentMethod
+      );
       this.onLoaderChangeWithRace(true);
       this._setState('processing');
       const paymentResponse = await this.apiClient.createPayment({
@@ -234,10 +239,12 @@ class CheckoutInstance extends EventEmitter {
       });
       const result = this.apiClient.processPaymentResponse(paymentResponse);
       await this._processPaymentResult(result, primerHandler);
-    } catch (error: any) {
+    } catch (error: unknown) {
       this._setState('error');
-      this.emit(EVENTS.ERROR, error);
-      primerHandler.handleFailure(error.message || 'Payment processing failed');
+      this.emit(EVENTS.PURCHASE_FAILURE, error);
+      primerHandler.handleFailure(
+        (error as Error).message || 'Payment processing failed'
+      );
     } finally {
       this.onLoaderChangeWithRace(false);
       this._setState('ready');
@@ -257,18 +264,21 @@ class CheckoutInstance extends EventEmitter {
       });
       const result = this.apiClient.processPaymentResponse(resumeResponse);
       await this._processPaymentResult(result, primerHandler);
-    } catch (error: any) {
+    } catch (error: unknown) {
       this._setState('error');
-      this.emit(EVENTS.ERROR, error);
-      primerHandler.handleFailure(error.message || 'Payment processing failed');
+      this.emit(EVENTS.PURCHASE_FAILURE, error);
+      primerHandler.handleFailure(
+        (error as Error).message || 'Payment processing failed'
+      );
     } finally {
+      this.emit(EVENTS.PURCHASE_COMPLETED);
       this.onLoaderChangeWithRace(false);
       this._setState('ready');
     }
   };
 
   async _processPaymentResult(
-    result: any,
+    result: PaymentProcessResult,
     primerHandler: OnResumeSuccessHandler | OnTokenizeSuccessHandler
   ) {
     if (result.orderId) {
@@ -280,9 +290,11 @@ class CheckoutInstance extends EventEmitter {
         this._setState('completed');
         this.emit(EVENTS.SUCCESS, {
           orderId: result.orderId,
-          status: result.status,
-          transactionId: result.transactionId,
-          metadata: result.metadata,
+          status: result.status as
+            | 'succeeded'
+            | 'failed'
+            | 'cancelled'
+            | 'processing',
         });
         primerHandler.handleSuccess();
         break;
@@ -322,7 +334,6 @@ class CheckoutInstance extends EventEmitter {
       });
       this.checkoutConfig.priceId = newPriceId;
       this._setState('ready');
-      this.emit(EVENTS.STATUS_CHANGE, 'price-updated');
     } catch (error) {
       this._setState('error');
       this.emit(EVENTS.ERROR, error);
@@ -333,7 +344,7 @@ class CheckoutInstance extends EventEmitter {
   getStatus() {
     return {
       id: this.id,
-      state: this.state as CheckoutState,
+      state: this.state,
       orderId: this.orderId,
       priceId: this.checkoutConfig.priceId,
       isDestroyed: this.isDestroyed,
@@ -388,88 +399,26 @@ class CheckoutInstance extends EventEmitter {
 
   // Creates containers to render hosted inputs with labels and error messages,
   // a card holder input with label and error, and a submit button.
-  private async createCardElements(
-    container: string
-  ): Promise<CardInputSelectors> {
-    await import('./skins/default')
-      .then(module => module.default)
-      .then(init => init(this.checkoutConfig.container));
-    const cardNumberContainer = document.querySelector(
-      `${container} #cardNumberInput`
-    );
-    const cardExpiryContainer = document.querySelector(
-      `${container} #expiryInput`
-    );
-    const cardCvvContainer = document.querySelector(`${container} #cvvInput`);
-
-    const elementsMap = {
-      cardNumber: cardNumberContainer.parentElement,
-      expiryDate: cardExpiryContainer.parentElement,
-      cvv: cardCvvContainer.parentElement,
-    };
-    const onLoaderChange = (isLoading: boolean) => {
-      this.primerWrapper.disableButtons(isLoading);
-      document
-        .querySelectorAll<HTMLDivElement>(`${container} .loader-container`)
-        ?.forEach(loaderEl => {
-          loaderEl.style.display = isLoading ? 'flex' : 'none';
-        });
-    };
-    this.on(EVENTS.INPUT_ERROR, event => {
-      const { name, error } = event;
-      const errorContainer =
-        elementsMap[name]?.querySelector('.errorContainer');
-      if (errorContainer) {
-        errorContainer.textContent = error || '';
-      }
-    });
-    this.on(
-      EVENTS.STATUS_CHANGE,
-      (state: CheckoutState, oldState: CheckoutState) => {
-        const isLoading = ['initializing'].includes(state);
-        if (!isLoading && oldState === 'initializing') {
-          onLoaderChange(false);
-        }
-      }
+  private async createCardElements(): Promise<CardInputSelectors> {
+    const skinFactory = (await import('./skins/default'))
+      .default as SkinFactory;
+    const skin: Skin = await skinFactory(
+      this.primerWrapper,
+      this.checkoutConfig.container
     );
 
-    function setError(error?: Error) {
-      const errorContainer = document.querySelector(
-        '.payment-errors-container'
-      );
-      if (errorContainer) {
-        errorContainer.textContent = error?.message || '';
-      }
-    }
-    this.on(EVENTS.ERROR, (error: Error) => {
-      setError(error);
-    });
-    this.on(EVENTS.LOADER_CHANGE, onLoaderChange);
-    this.on(EVENTS.DESTROY, () => {
-      this.primerWrapper.validateContainer(container)?.remove();
-    });
-    this.on(EVENTS.METHOD_RENDER, (method: PaymentMethod) => {
-      const methodContainer = document.querySelector(
-        `.ff-payment-method-${method.replace('_', '-').toLowerCase()}`
-      );
-      methodContainer.classList.add('visible');
-    });
-    this.on(EVENTS.SUCCESS, () => {
-      const successScreenString =
-        document.querySelector('#success-screen')?.innerHTML;
-      const containers = document.querySelectorAll('.ff-payment-container');
-      containers.forEach(container => {
-        container.innerHTML = successScreenString;
-      });
-      onLoaderChange(false);
-    });
-    return {
-      cardNumber: '#cardNumberInput',
-      expiryDate: '#expiryInput',
-      cvv: '#cvvInput',
-      cardholderName: '#cardHolderInput',
-      button: '#submitButton',
-    };
+    this.on(EVENTS.INPUT_ERROR, skin.onInputError);
+    this.on(EVENTS.STATUS_CHANGE, skin.onStatusChange);
+
+    this.on(EVENTS.ERROR, (error: Error) => skin.onError(error));
+    this.on(EVENTS.LOADER_CHANGE, skin.onLoaderChange);
+    this.on(EVENTS.DESTROY, skin.onDestroy);
+    this.on(EVENTS.METHOD_RENDER, skin.onMethodRender);
+    this.on(EVENTS.SUCCESS, skin.onSuccess);
+    this.on(EVENTS.START_PURCHASE, skin.onStartPurchase);
+    this.on(EVENTS.PURCHASE_FAILURE, skin.onPurchaseFailure);
+    this.on(EVENTS.PURCHASE_COMPLETED, skin.onPurchaseCompleted);
+    return skin.getCardInputSelectors();
   }
   private onLoaderChangeWithRace = (state: boolean) => {
     const isLoading = !!(state ? ++this.counter : --this.counter);

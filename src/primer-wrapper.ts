@@ -19,18 +19,20 @@ import type {
 import { PrimerError } from './errors';
 import { merge } from './utils/helpers';
 import { ALLOWED_PAYMENT_METHODS, inputStyle } from './constants';
-import { CardInputSelectors, CheckoutOptions } from './types';
+import {
+  CardInputSelectors,
+  CheckoutOptions,
+  PaymentMethodInterface,
+  PrimerWrapperInterface,
+} from './types';
 import { PaymentMethod } from './enums';
 
-interface PaymentMethodInterface {
-  setDisabled: (disabled: boolean) => void;
-}
 declare global {
   interface Window {
     Primer?: typeof Primer;
   }
 }
-class PrimerWrapper {
+class PrimerWrapper implements PrimerWrapperInterface {
   isInitialized: boolean = false;
   private destroyCallbacks: (() => void)[] = [];
   private headless: PrimerHeadlessCheckout | null = null;
@@ -42,7 +44,7 @@ class PrimerWrapper {
   isPrimerAvailable(): boolean {
     return (
       typeof window !== 'undefined' &&
-      (window as any).Primer &&
+      window.Primer &&
       typeof window.Primer?.createHeadless === 'function'
     );
   }
@@ -85,7 +87,7 @@ class PrimerWrapper {
       );
       await headless.start();
       this.headless = headless;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw new PrimerError('Failed to create Primer headless checkout', error);
     }
   }
@@ -112,10 +114,12 @@ class PrimerWrapper {
   }
 
   async renderCardCheckout({
+    onSubmitError,
     onSubmit,
     cardSelectors,
     onInputChange,
   }: {
+    onSubmitError: (error: Error) => void;
     cardSelectors: CardInputSelectors;
     onSubmit: (isSubmitting: boolean) => void;
     onInputChange: (
@@ -185,8 +189,13 @@ class PrimerWrapper {
         try {
           onSubmit(true);
           await pmManager.submit();
-        } catch (error: any) {
-          throw new PrimerError('Failed to submit payment', error);
+        } catch (error: unknown) {
+          const primerError = new PrimerError(
+            'Failed to submit payment',
+            error
+          );
+          onSubmitError(primerError);
+          throw primerError;
         } finally {
           onSubmit(false);
         }
@@ -226,7 +235,7 @@ class PrimerWrapper {
           elements.button.disabled = disabled;
         },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw new PrimerError('Failed to initialize Primer checkout', error);
     }
   }
@@ -254,7 +263,7 @@ class PrimerWrapper {
       button = pmManager.createButton();
       await button.render(containerEl, {});
       this.destroyCallbacks.push(() => button.clean());
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw new PrimerError('Failed to initialize Primer checkout', error);
     }
   }
@@ -269,6 +278,7 @@ class PrimerWrapper {
       onSubmit,
       onInputChange,
       onMethodRender,
+      onSubmitError,
       ...restPrimerOptions
     } = options;
     await this.createHeadlessCheckout(clientToken, {
@@ -297,6 +307,7 @@ class PrimerWrapper {
       container,
       onSubmit,
       onInputChange,
+      onSubmitError,
     };
     this.availableMethods.forEach(async (method: PaymentMethod) => {
       if (method === PaymentMethod.PAYMENT_CARD) {
@@ -384,8 +395,8 @@ class PrimerWrapper {
     return this.destroyCallbacks;
   }
 
-  isActive() {
-    return this.isInitialized && this.destroyCallbacks.length;
+  isActive(): boolean {
+    return this.isInitialized && this.destroyCallbacks.length > 0;
   }
 
   validateContainer(selector: string) {
@@ -394,7 +405,7 @@ class PrimerWrapper {
       throw new PrimerError(`Checkout container not found: ${selector}`);
     }
     const computedStyle = window.getComputedStyle(element as Element);
-    if ((computedStyle as any).display === 'none') {
+    if (computedStyle.display === 'none') {
       // eslint-disable-next-line no-console
       console.warn(
         'Checkout container is hidden, this may cause display issues'
