@@ -65,6 +65,7 @@ export interface CheckoutOptions
     error: string | null
   ) => void;
   onMethodRender: (method: PaymentMethod) => void;
+  onSubmitError: (error: Error) => void;
 }
 
 export interface CheckoutConfigWithCallbacks extends CheckoutConfig {
@@ -298,4 +299,43 @@ export interface PaymentProcessResult {
   orderId: string;
   clientToken?: string;
   status?: string;
+}
+
+export interface PaymentMethodInterface {
+  setDisabled: (disabled: boolean) => void;
+}
+
+export interface PrimerWrapperInterface {
+  isInitialized: boolean;
+  isPrimerAvailable(): boolean;
+  ensurePrimerAvailable(): void;
+  renderCardCheckout({
+    cardSelectors,
+    onSubmit,
+    onInputChange,
+  }: {
+    cardSelectors: CardInputSelectors;
+    onSubmit: (isSubmitting: boolean) => void;
+    onInputChange: (
+      inputName: keyof CardInputSelectors,
+      error: string | null
+    ) => void;
+  }): Promise<PaymentMethodInterface>;
+  renderButton(
+    allowedPaymentMethod: 'GOOGLE_PAY' | 'APPLE_PAY' | 'PAYPAL',
+    options: {
+      container: string;
+    }
+  ): Promise<void>;
+  renderCheckout(clientToken: string, options: CheckoutOptions): Promise<void>;
+  destroy(): Promise<void>;
+  createHandlers(handlers: {
+    onSuccess?: () => void;
+    onError?: (e: Error) => void;
+    onActionRequired?: (token: string) => void;
+  }): PrimerHandler;
+  getCurrentCheckout(): (() => void)[];
+  isActive(): boolean;
+  validateContainer(selector: string): Element;
+  disableButtons(disabled: boolean): void;
 }
