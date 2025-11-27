@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Browser Support**: Compatible with all modern browsers
 - **Build System**: UMD, ES modules, and minified distributions
 
-## [2.0.0] - 2025-11-11
+## [0.2.0] - 2025-11-11
 
 ### 🚀 Features
 
@@ -45,6 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The SDK’s `createCheckout` API has changed due to the move to Headless Checkout
 - TypeScript definitions are now included and required for integrations
 
-## [2.0.1] - 2025-11-21
+## [0.2.1] - 2025-11-21
 
 - eslint and build fixes
+
+## [0.3.0] - 2025-11-27
+- bug fixes
