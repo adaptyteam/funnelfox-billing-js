@@ -8,6 +8,6 @@
     "serve": "npx http-server dist -p 8000 -c-1"
   },
   "dependencies": {
-    "@funnelfox/billing": "file:../../funnelfox-billing-0.3.0.tgz"
+    "@funnelfox/billing": "file:../../funnelfox-billing-0.3.1.tgz"
   }
 }

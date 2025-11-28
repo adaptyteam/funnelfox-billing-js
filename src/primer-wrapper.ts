@@ -114,12 +114,10 @@ class PrimerWrapper implements PrimerWrapperInterface {
   }
 
   async renderCardCheckout({
-    onSubmitError,
     onSubmit,
     cardSelectors,
     onInputChange,
   }: {
-    onSubmitError: (error: Error) => void;
     cardSelectors: CardInputSelectors;
     onSubmit: (isSubmitting: boolean) => void;
     onInputChange: (
@@ -194,7 +192,6 @@ class PrimerWrapper implements PrimerWrapperInterface {
             'Failed to submit payment',
             error
           );
-          onSubmitError(primerError);
           throw primerError;
         } finally {
           onSubmit(false);
@@ -278,7 +275,6 @@ class PrimerWrapper implements PrimerWrapperInterface {
       onSubmit,
       onInputChange,
       onMethodRender,
-      onSubmitError,
       ...restPrimerOptions
     } = options;
     await this.createHeadlessCheckout(clientToken, {
@@ -293,21 +289,12 @@ class PrimerWrapper implements PrimerWrapperInterface {
           throw new PrimerError('No allowed payment methods found');
         }
       },
-      onCheckoutFail: error => {
-        // eslint-disable-next-line no-console
-        console.error(error);
-      },
-      onTokenizeError: error => {
-        // eslint-disable-next-line no-console
-        console.error(error);
-      },
     });
     const methodOptions = {
       cardSelectors,
       container,
       onSubmit,
       onInputChange,
-      onSubmitError,
     };
     this.availableMethods.forEach(async (method: PaymentMethod) => {
       if (method === PaymentMethod.PAYMENT_CARD) {
