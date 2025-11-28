@@ -169,8 +169,31 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       onSubmit: this.handleSubmit,
       onInputChange: this.handleInputChange,
       onMethodRender: this.handleMethodRender,
-      onSubmitError: (error: Error) =>
-        this.emit(EVENTS.PURCHASE_FAILURE, error),
+      onResumeError: error => {
+        if (
+          error.stack?.includes('PROCESSOR_3DS') &&
+          error.code === 'RESUME_ERROR' &&
+          error.message?.includes('fetch resume key')
+        ) {
+          // Ignore 3DS close error, because it is not understandable by user
+          return;
+        }
+        this.emit(EVENTS.PURCHASE_FAILURE, error);
+      },
+      onCheckoutFail: error => {
+        this.emit(EVENTS.PURCHASE_FAILURE, error);
+      },
+      onTokenizeError: error => {
+        this.emit(EVENTS.PURCHASE_FAILURE, error);
+      },
+      onTokenizeShouldStart: data => {
+        this.emit(EVENTS.ERROR, undefined);
+        this.emit(
+          EVENTS.START_PURCHASE,
+          data.paymentMethodType as PaymentMethod
+        );
+        return true;
+      },
     };
 
     if (
@@ -213,11 +236,6 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   };
 
   private handleSubmit = (isSubmitting: boolean) => {
-    if (isSubmitting) {
-      // Clear any previous errors
-      this.emit(EVENTS.ERROR, undefined);
-      this.emit(EVENTS.START_PURCHASE, PaymentMethod.PAYMENT_CARD);
-    }
     this.onLoaderChangeWithRace(isSubmitting);
     this._setState(isSubmitting ? 'processing' : 'ready');
   };
@@ -227,10 +245,6 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     primerHandler
   ) => {
     try {
-      this.emit(
-        EVENTS.START_PURCHASE,
-        paymentMethodTokenData.paymentInstrumentType as PaymentMethod
-      );
       this.onLoaderChangeWithRace(true);
       this._setState('processing');
       const paymentResponse = await this.apiClient.createPayment({
@@ -241,7 +255,10 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       await this._processPaymentResult(result, primerHandler);
     } catch (error: unknown) {
       this._setState('error');
-      this.emit(EVENTS.PURCHASE_FAILURE, error);
+      this.emit(
+        EVENTS.PURCHASE_FAILURE,
+        new Error((error as Error).message || 'Payment processing failed')
+      );
       primerHandler.handleFailure(
         (error as Error).message || 'Payment processing failed'
       );
@@ -266,7 +283,10 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       await this._processPaymentResult(result, primerHandler);
     } catch (error: unknown) {
       this._setState('error');
-      this.emit(EVENTS.PURCHASE_FAILURE, error);
+      this.emit(
+        EVENTS.PURCHASE_FAILURE,
+        new Error((error as Error).message || 'Payment processing failed')
+      );
       primerHandler.handleFailure(
         (error as Error).message || 'Payment processing failed'
       );

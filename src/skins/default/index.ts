@@ -145,9 +145,15 @@ class DefaultSkin implements Skin {
       });
   };
   onError = (error?: Error, paymentMethod?: PaymentMethod) => {
-    let errorContainer = this.containerEl.querySelector(
-      '.payment-errors-container'
-    );
+    if (!error) {
+      this.containerEl
+        .querySelectorAll('.payment-errors-container')
+        ?.forEach(container => {
+          container.innerHTML = '';
+        });
+      return;
+    }
+    let errorContainer: HTMLElement | null = null;
     if (paymentMethod) {
       const methodKey = paymentMethod.replace('_', '-').toLowerCase();
       errorContainer = this.containerEl.querySelector(
@@ -208,7 +214,9 @@ class DefaultSkin implements Skin {
     this.currentPurchaseMethod = paymentMethod;
   };
   onPurchaseFailure = (error: Error) => {
-    this.onError(error, this.currentPurchaseMethod);
+    if (this.currentPurchaseMethod) {
+      this.onError(error, this.currentPurchaseMethod);
+    }
     this.currentPurchaseMethod = null;
   };
   onPurchaseCompleted = () => {

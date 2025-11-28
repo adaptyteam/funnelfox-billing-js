@@ -52,3 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.0] - 2025-11-27
 
 - bug fixes
+
+## [0.3.1] - 2025-11-27
+
+- fix errors displaying for payment methods

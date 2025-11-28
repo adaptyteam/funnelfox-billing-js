@@ -81,13 +81,9 @@ class APIClient {
 
     if (!response.ok) {
       const d = data as {
-        message?: string | { msg: string }[];
-        error?: string;
+        error?: { msg: string }[];
       };
-      const message =
-        d.message instanceof Array
-          ? d.message[0].msg
-          : d.message || d.error || `HTTP ${response.status}`;
+      const message = d.error?.[0]?.msg || 'Failed to create payment';
       throw new APIError(message, response.status, {
         response: data,
       });
