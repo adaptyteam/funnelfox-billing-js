@@ -56,3 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.1] - 2025-11-27
 
 - fix errors displaying for payment methods
+
+## [0.3.2] - 2025-11-28
+
+- fix container rendering

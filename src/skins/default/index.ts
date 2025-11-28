@@ -101,7 +101,6 @@ class DefaultSkin implements Skin {
 
   private async init() {
     this.containerEl.innerHTML = template;
-    document.body.appendChild(this.containerEl);
     this.initAccordion();
     this.wireCardInputs();
   }
