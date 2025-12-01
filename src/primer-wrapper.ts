@@ -296,7 +296,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
       onSubmit,
       onInputChange,
     };
-    this.availableMethods.forEach(async (method: PaymentMethod) => {
+    for (const method of this.availableMethods) {
       if (method === PaymentMethod.PAYMENT_CARD) {
         await this.renderCardCheckout(methodOptions);
         onMethodRender(PaymentMethod.PAYMENT_CARD);
@@ -311,7 +311,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
 
         onMethodRender(method);
       }
-    });
+    }
     this.isInitialized = true;
   }
 

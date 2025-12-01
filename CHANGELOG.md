@@ -64,3 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.3] - 2025-11-28
 
 - add initialization loader
+
+## [0.4.0] - 2025-11-28
+
+- move checkout initialization to constructor
+- add `onInitialized` callback to checkout config

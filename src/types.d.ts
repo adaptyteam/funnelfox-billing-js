@@ -68,6 +68,7 @@ export interface CheckoutOptions
 }
 
 export interface CheckoutConfigWithCallbacks extends CheckoutConfig {
+  onInitialized?: () => void;
   onSuccess?: (result: PaymentResult) => void;
   onError?: (error: Error) => void;
   onStatusChange?: (newState: CheckoutState, oldState?: CheckoutState) => void;
