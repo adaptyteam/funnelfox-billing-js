@@ -76,7 +76,7 @@ export interface CheckoutConfigWithCallbacks extends CheckoutConfig {
 }
 
 export interface CreateCheckoutOptions extends CheckoutConfigWithCallbacks {
-  orgId?: string;
+  orgId: string;
   apiConfig?: APIConfig;
 }
 

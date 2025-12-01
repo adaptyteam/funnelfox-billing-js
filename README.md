@@ -90,6 +90,7 @@ Creates a new checkout instance.
 ```javascript
 const checkout = await createCheckout({
   // Required
+  orgId: 'your-org-id',
   priceId: 'price_123',
   customer: {
     externalId: 'user_456',
@@ -97,9 +98,6 @@ const checkout = await createCheckout({
     countryCode: 'US', // Optional
   },
   container: '#checkout-container',
-
-  // Optional
-  orgId: 'your-org-id', // If not configured globally
   clientMetadata: { source: 'web' },
   cardSelectors: {
     // Custom card input selectors (optional, defaults to auto-generated)
@@ -140,6 +138,7 @@ const checkout = await createCheckout({
 - `options.paypalButtonContainer` (string, optional) - Container selector for PayPal button
 - `options.googlePayButtonContainer` (string, optional) - Container selector for Google Pay button
 - `options.applePayButtonContainer` (string, optional) - Container selector for Apple Pay button
+- `options.onInitialized` (function, optional) - Initialized callback
 - `options.onSuccess` (function, optional) - Success callback
 - `options.onError` (function, optional) - Error callback
 - `options.onStatusChange` (function, optional) - State change callback
