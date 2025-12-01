@@ -25,6 +25,7 @@ import type {
 } from '@primer-io/checkout-web';
 import { PaymentMethod } from './enums';
 import type { Skin, SkinFactory } from './skins/types';
+import { renderLoader, hideLoader } from './assets/loader/loader';
 
 interface CheckoutEventMap {
   [EVENTS.SUCCESS]: PaymentResult;
@@ -141,6 +142,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       this.orderId = sessionData.orderId;
       this.clientToken = sessionData.clientToken;
 
+      this.showInitializingLoader();
       await this._initializePrimerCheckout();
       this._setState('ready');
       return this;
@@ -148,6 +150,8 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       this._setState('error');
       this.emit(EVENTS.ERROR, error as Error);
       throw error;
+    } finally {
+      this.hideInitializingLoader();
     }
   }
 
@@ -445,6 +449,12 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
 
     this.emit(EVENTS.LOADER_CHANGE, isLoading);
   };
+  showInitializingLoader() {
+    renderLoader(this.checkoutConfig.container);
+  }
+  hideInitializingLoader() {
+    hideLoader();
+  }
 }
 
 export default CheckoutInstance;
