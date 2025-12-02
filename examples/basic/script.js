@@ -6,18 +6,17 @@ import { Billing } from '@funnelfox/billing';
   const orgId = document.getElementById('orgId');
   const priceId = document.getElementById('priceId');
   const createCheckoutButton = document.getElementById('create-checkout');
-  fetch(`https://billing.funnelfox.com/${orgId.value}/v1/price_points`, {
-    method: 'POST',
-  })
-    .then(response => response.json())
-    .then(data => {
-      console.log(data);
-    });
+  const containerParent =
+    document.getElementById('checkout-container')?.parentElement;
+
   createCheckoutButton.addEventListener('click', async () => {
     createCheckoutButton.disabled = true;
     createCheckoutButton.textContent = 'Creating...';
     if (checkout) {
       await checkout.destroy();
+      const div = document.createElement('div');
+      div.id = 'checkout-container';
+      containerParent.appendChild(div);
     }
     checkout = await Billing.createCheckout({
       orgId: orgId.value,

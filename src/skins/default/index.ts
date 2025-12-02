@@ -100,7 +100,7 @@ class DefaultSkin implements Skin {
   }
 
   private async init() {
-    this.containerEl.innerHTML = template;
+    this.containerEl.insertAdjacentHTML('beforeend', template);
     this.initAccordion();
     this.wireCardInputs();
   }
