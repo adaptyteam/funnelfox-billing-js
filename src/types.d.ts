@@ -208,6 +208,10 @@ export declare function createCheckout(
   options: CreateCheckoutOptions
 ): Promise<CheckoutInstance>;
 
+export declare function createBillingClient(
+  options: CreateCheckoutOptions
+): Promise<CheckoutInstance>;
+
 export interface CreateClientSessionOptions {
   region?: string;
   priceId: string;

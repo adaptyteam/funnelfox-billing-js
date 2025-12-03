@@ -96,9 +96,6 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.isDestroyed = false;
 
     this._setupCallbackBridges();
-    this.initialize().then(() => {
-      this.checkoutConfig?.onInitialized?.();
-    });
   }
 
   _setupCallbackBridges() {
@@ -120,7 +117,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     return super.removeAllListeners();
   }
 
-  private async initialize(): Promise<this> {
+  async initialize(): Promise<this> {
     try {
       this.showInitializingLoader();
       this._setState('initializing');
@@ -147,6 +144,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       this.clientToken = sessionData.clientToken;
       await this._initializePrimerCheckout();
       this._setState('ready');
+      this.checkoutConfig?.onInitialized?.();
       return this;
     } catch (error) {
       this._setState('error');
