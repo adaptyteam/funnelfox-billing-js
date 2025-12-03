@@ -53,19 +53,15 @@ export async function createCheckout(
   primerWrapper.ensurePrimerAvailable();
 
   const config = resolveConfig(options, 'createCheckout');
-  return new Promise(resolve => {
-    const onInitialized = () => {
-      resolve(checkout);
-      checkoutConfig.onInitialized?.();
-    };
-    const checkout = new CheckoutInstance({
-      ...config,
-      checkoutConfig: {
-        ...checkoutConfig,
-        onInitialized,
-      },
-    });
+
+  const checkout = new CheckoutInstance({
+    ...config,
+    checkoutConfig: {
+      ...checkoutConfig,
+    },
   });
+  await checkout.initialize();
+  return checkout;
 }
 
 export async function createClientSession(

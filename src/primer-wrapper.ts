@@ -217,19 +217,28 @@ class PrimerWrapper implements PrimerWrapperInterface {
           style: inputStyle,
         }),
       ]);
-      this.destroyCallbacks.push(() => {
+      const onDestroy = () => {
         pmManager.removeHostedInputs();
         elements.cardholderName.removeEventListener(
           'change',
           cardHolderOnChange
         );
-      });
+        elements.button.removeEventListener('click', onSubmitHandler);
+      };
+      this.destroyCallbacks.push(onDestroy);
       return {
         setDisabled: (disabled: boolean) => {
           cardNumberInput.setDisabled(disabled);
           expiryInput.setDisabled(disabled);
           cvvInput.setDisabled(disabled);
           elements.button.disabled = disabled;
+        },
+        submit: () => onSubmitHandler(),
+        destroy: () => {
+          this.destroyCallbacks = this.destroyCallbacks.filter(
+            callback => callback !== onDestroy
+          );
+          onDestroy();
         },
       };
     } catch (error: unknown) {
