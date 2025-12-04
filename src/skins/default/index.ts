@@ -119,7 +119,7 @@ class DefaultSkin implements Skin {
     }
   }
 
-  getCardInputSelectors() {
+  getCardInputSelectors(): CardInputSelectors {
     return {
       cardNumber: '#cardNumberInput',
       expiryDate: '#expiryInput',
@@ -131,6 +131,37 @@ class DefaultSkin implements Skin {
 
   getCardInputElements(): CardInputElements {
     return this.cardInputElements;
+  }
+
+  getCheckoutOptions(): ReturnType<Skin['getCheckoutOptions']> {
+    return {
+      cardSelectors: this.getCardInputSelectors(),
+      paymentButtonSelectors: {
+        paypal: '#paypalButton',
+        googlePay: '#googlePayButton',
+        applePay: '#applePayButton',
+      },
+      card: {
+        cardholderName: {
+          required: false,
+        },
+      },
+      applePay: {
+        buttonStyle: 'black',
+      },
+      paypal: {
+        buttonColor: 'gold',
+        buttonShape: 'pill',
+        buttonLabel: 'pay',
+        buttonSize: 'large',
+        buttonHeight: 54,
+      },
+      googlePay: {
+        buttonColor: 'black',
+        buttonSizeMode: 'fill',
+        buttonType: 'pay',
+      },
+    };
   }
 
   onLoaderChange = (isLoading: boolean) => {

@@ -2,7 +2,8 @@
 .ff-skin-default {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  text-align: left;
+  gap: 8px;
   width: 100%;
   max-width: 400px;
   margin: 0 auto;
@@ -17,14 +18,11 @@
   padding: 20px;
   transition: border-color 0.2s ease;
   height: auto;
+  box-shadow: 0px 0px 10px 0px #eee;
 }
 
 .ff-payment-method-card.visible {
   display: block;
-}
-
-.ff-payment-method-card:hover {
-  border-color: #b0b0b0;
 }
 
 .payment-errors-container {
@@ -76,7 +74,7 @@
   color: #ffffff;
   border: none;
   font-size: 16px;
-  margin-top: 16px;
+  margin: 0;
 }
 
 .ff-payment-method-radio:checked {
@@ -144,12 +142,13 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .ff-payment-feature {
   display: flex;
-  align-items: flex-start;
+  align-items: baseline;
+  text-align: left;
   gap: 8px;
 }
 
@@ -172,16 +171,21 @@
 .ff-google-pay-button-container {
   display: flex;
   justify-content: center;
-  margin: 8px 0;
+}
+
+/* hack for FFB-169 */
+.ff-google-pay-button-container button {
+  height: 54px !important;
+  border-radius: 28px !important;
 }
 
 /* Security message */
 .ff-security-message {
   text-align: center;
-  color: #757575;
-  font-size: 12px;
-  margin: 8px 0 0 0;
+  color: #999999;
+  font-size: 14px;
   padding: 0;
+  margin: 0
 }
 
 /* Card logos container */

@@ -282,9 +282,20 @@ class PrimerWrapper implements PrimerWrapperInterface {
       onTokenizeSuccess: this.wrapTokenizeHandler(onTokenizeSuccess),
       onResumeSuccess: this.wrapResumeHandler(onResumeSuccess),
       onAvailablePaymentMethodsLoad: (items: PaymentMethodInfo[]) => {
-        this.availableMethods = ALLOWED_PAYMENT_METHODS.filter(method =>
-          items.some((item: PaymentMethodInfo) => item.type === method)
-        );
+        let isApplePayAvailable = false;
+        this.availableMethods = ALLOWED_PAYMENT_METHODS.filter(method => {
+          return items.some((item: PaymentMethodInfo) => {
+            if (item.type === PaymentMethod.APPLE_PAY) {
+              isApplePayAvailable = true;
+            }
+            return item.type === method;
+          });
+        });
+        if (isApplePayAvailable) {
+          this.availableMethods = this.availableMethods.filter(
+            method => method !== PaymentMethod.GOOGLE_PAY
+          );
+        }
         if (this.availableMethods.length === 0) {
           throw new PrimerError('No allowed payment methods found');
         }

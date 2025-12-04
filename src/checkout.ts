@@ -206,29 +206,9 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       !this.checkoutConfig.cardSelectors ||
       !this.checkoutConfig.paymentButtonSelectors
     ) {
-      const cardSelectors = await this.createCardElements();
-      const paymentButtonSelectors = {
-        paypal: '#paypalButton',
-        googlePay: '#googlePayButton',
-        applePay: '#applePayButton',
-      };
-      checkoutOptions.cardSelectors = cardSelectors;
-      checkoutOptions.paymentButtonSelectors = paymentButtonSelectors;
-      checkoutOptions.card = {
-        cardholderName: {
-          required: false,
-        },
-      };
-      checkoutOptions.applePay = {
-        buttonStyle: 'black',
-      };
-      checkoutOptions.paypal = {
-        buttonColor: 'gold',
-        buttonShape: 'pill',
-      };
-      checkoutOptions.googlePay = {
-        buttonColor: 'black',
-      };
+      const defaultSkinCheckoutOptions =
+        await this.getDefaultSkinCheckoutOptions();
+      Object.assign(checkoutOptions, defaultSkinCheckoutOptions);
     }
 
     await this.primerWrapper.renderCheckout(
@@ -425,7 +405,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
 
   // Creates containers to render hosted inputs with labels and error messages,
   // a card holder input with label and error, and a submit button.
-  private async createCardElements(): Promise<CardInputSelectors> {
+  private async getDefaultSkinCheckoutOptions() {
     const skinFactory = (await import('./skins/default'))
       .default as SkinFactory;
     const skin: Skin = await skinFactory(
@@ -444,7 +424,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.on(EVENTS.START_PURCHASE, skin.onStartPurchase);
     this.on(EVENTS.PURCHASE_FAILURE, skin.onPurchaseFailure);
     this.on(EVENTS.PURCHASE_COMPLETED, skin.onPurchaseCompleted);
-    return skin.getCardInputSelectors();
+    return skin.getCheckoutOptions();
   }
   private onLoaderChangeWithRace = (state: boolean) => {
     const isLoading = !!(state ? ++this.counter : --this.counter);

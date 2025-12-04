@@ -1,5 +1,6 @@
 import type {
   CardInputSelectors,
+  CheckoutOptions,
   CheckoutState,
   PrimerWrapperInterface,
 } from '../types';
@@ -25,10 +26,15 @@ export interface Skin {
    */
   renderButton(paymentMethod: PaymentMethod): void;
 
-  /**
-   * Get the CSS selectors that Primer will use to mount hosted inputs.
-   */
-  getCardInputSelectors(): CardInputSelectors;
+  getCheckoutOptions(): Pick<
+    CheckoutOptions,
+    | 'cardSelectors'
+    | 'paymentButtonSelectors'
+    | 'card'
+    | 'applePay'
+    | 'paypal'
+    | 'googlePay'
+  >;
 
   /**
    * Get the DOM nodes corresponding to the card input selectors, for wiring

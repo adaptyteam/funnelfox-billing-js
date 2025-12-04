@@ -74,3 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - move checkout initialization to constructor
 - add `onInitialized` callback to checkout config
+
+## [0.4.3] - 2025-12-4
+
+- fix styles
