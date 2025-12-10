@@ -35,9 +35,11 @@ export const EVENTS = {
   INPUT_ERROR: 'input-error',
   LOADER_CHANGE: 'loader-change',
   METHOD_RENDER: 'method-render',
+  METHOD_RENDER_ERROR: 'method-render-error',
   START_PURCHASE: 'start-purchase',
   PURCHASE_FAILURE: 'purchase-failure',
   PURCHASE_COMPLETED: 'purchase-completed',
+  PURCHASE_CANCELLED: 'purchase-cancelled',
 } as const;
 
 export const API_ENDPOINTS = {
