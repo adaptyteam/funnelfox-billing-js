@@ -1,5 +1,6 @@
 import type {
   CardInputSelectors,
+  PaymentButtonSelectors,
   CheckoutOptions,
   CheckoutState,
   PrimerWrapperInterface,
@@ -26,15 +27,14 @@ export interface Skin {
    */
   renderButton(paymentMethod: PaymentMethod): void;
 
-  getCheckoutOptions(): Pick<
-    CheckoutOptions,
-    | 'cardSelectors'
-    | 'paymentButtonSelectors'
-    | 'card'
-    | 'applePay'
-    | 'paypal'
-    | 'googlePay'
-  >;
+  getCheckoutOptions(): {
+    cardSelectors: CardInputSelectors;
+    paymentButtonSelectors: PaymentButtonSelectors;
+    card?: CheckoutOptions['card'];
+    applePay?: CheckoutOptions['applePay'];
+    paypal?: CheckoutOptions['paypal'];
+    googlePay?: CheckoutOptions['googlePay'];
+  };
 
   /**
    * Get the DOM nodes corresponding to the card input selectors, for wiring
