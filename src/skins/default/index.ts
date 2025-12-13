@@ -1,19 +1,22 @@
 import template from './template.html';
 import './styles.css';
-import type { Skin, CardInputElements, SkinFactory } from '../types';
+import type { Skin, CardInputElementsWithButton, SkinFactory } from '../types';
 import type { PaymentMethod } from '../../enums';
 import {
   CardInputSelectors,
   CheckoutState,
+  PaymentButtonElements,
   PrimerWrapperInterface,
 } from '../../types';
+import CardSkin from '../card';
 
 class DefaultSkin implements Skin {
   private containerSelector: string;
   private containerEl: HTMLElement;
-  private cardInputElements: CardInputElements;
+  private cardInputElements: CardInputElementsWithButton;
   private primerWrapper: PrimerWrapperInterface;
   currentPurchaseMethod: PaymentMethod;
+  cardInstance: CardSkin;
 
   constructor(
     primerWrapper: PrimerWrapperInterface,
@@ -29,14 +32,6 @@ class DefaultSkin implements Skin {
     }
 
     this.containerEl = containerEl;
-
-    // Initialize with placeholders; real nodes will be wired in `init`.
-    this.cardInputElements = {
-      cardNumber: document.createElement('div'),
-      expiryDate: document.createElement('div'),
-      cvv: document.createElement('div'),
-      button: document.createElement('button'),
-    };
     this.primerWrapper = primerWrapper;
   }
 
@@ -77,30 +72,26 @@ class DefaultSkin implements Skin {
   }
 
   private wireCardInputs() {
-    const cardNumber =
-      this.containerEl.querySelector<HTMLElement>('#cardNumberInput');
-    const expiryDate =
-      this.containerEl.querySelector<HTMLElement>('#expiryInput');
-    const cvv = this.containerEl.querySelector<HTMLElement>('#cvvInput');
+    this.cardInstance.wireCardInputs();
     const button =
       this.containerEl.querySelector<HTMLButtonElement>('#submitButton');
 
-    if (!cardNumber || !expiryDate || !cvv || !button) {
+    if (!button) {
       throw new Error(
         'One or more card input elements are missing in the default skin'
       );
     }
 
     this.cardInputElements = {
-      cardNumber,
-      expiryDate,
-      cvv,
+      ...this.cardInstance.getCardInputElements(),
       button,
     };
   }
 
-  private async init() {
+  async init() {
     this.containerEl.insertAdjacentHTML('beforeend', template);
+    this.cardInstance = new CardSkin(document.querySelector('#cardForm'));
+    this.cardInstance.init();
     this.initAccordion();
     this.wireCardInputs();
   }
@@ -109,43 +100,33 @@ class DefaultSkin implements Skin {
     // Card form is part of the base template; no-op for default skin.
   }
 
-  renderButton(paymentMethod: PaymentMethod): void {
-    const methodKey = paymentMethod.replace('_', '-').toLowerCase();
-    const methodContainer = this.containerEl.querySelector(
-      `.ff-payment-method-${methodKey}`
-    );
-    if (methodContainer) {
-      methodContainer.classList.add('visible');
-    }
-  }
-
   getCardInputSelectors(): CardInputSelectors {
     return {
-      cardNumber: '#cardNumberInput',
-      expiryDate: '#expiryInput',
-      cvv: '#cvvInput',
-      cardholderName: '#cardHolderInput',
+      ...this.cardInstance.getCardInputSelectors(),
       button: '#submitButton',
     };
   }
 
-  getCardInputElements(): CardInputElements {
-    return this.cardInputElements;
+  getCardInputElements(): CardInputElementsWithButton {
+    return {
+      ...this.cardInstance.getCardInputElements(),
+      button: this.cardInputElements.button,
+    };
+  }
+  getPaymentButtonElements(): PaymentButtonElements {
+    return {
+      paypal: this.containerEl.querySelector<HTMLElement>('#paypalButton'),
+      googlePay:
+        this.containerEl.querySelector<HTMLElement>('#googlePayButton'),
+      applePay: this.containerEl.querySelector<HTMLElement>('#applePayButton'),
+    };
   }
 
   getCheckoutOptions(): ReturnType<Skin['getCheckoutOptions']> {
     return {
-      cardSelectors: this.getCardInputSelectors(),
-      paymentButtonSelectors: {
-        paypal: '#paypalButton',
-        googlePay: '#googlePayButton',
-        applePay: '#applePayButton',
-      },
-      card: {
-        cardholderName: {
-          required: false,
-        },
-      },
+      ...this.cardInstance.getCheckoutOptions(),
+      cardElements: this.getCardInputElements(),
+      paymentButtonElements: this.getPaymentButtonElements(),
       applePay: {
         buttonStyle: 'black',
       },
@@ -219,17 +200,7 @@ class DefaultSkin implements Skin {
     this.containerEl.remove();
   };
   onInputError = (event: { name: keyof CardInputSelectors; error: string }) => {
-    const { name, error } = event;
-    const cardInputElements: CardInputElements = this.getCardInputElements();
-    const elementsMap = {
-      cardNumber: cardInputElements.cardNumber.parentElement,
-      expiryDate: cardInputElements.expiryDate.parentElement,
-      cvv: cardInputElements.cvv.parentElement,
-    };
-    const errorContainer = elementsMap[name]?.querySelector('.errorContainer');
-    if (errorContainer) {
-      errorContainer.textContent = error || '';
-    }
+    this.cardInstance.onInputError(event);
   };
   onMethodRender = (paymentMethod: PaymentMethod) => {
     const methodKey = paymentMethod.replace('_', '-').toLowerCase();
