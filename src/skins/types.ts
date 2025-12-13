@@ -1,9 +1,9 @@
 import type {
   CardInputSelectors,
-  PaymentButtonSelectors,
   CheckoutOptions,
   CheckoutState,
   PrimerWrapperInterface,
+  PaymentButtonElements,
 } from '../types';
 import type { PaymentMethod } from '../enums';
 
@@ -12,24 +12,24 @@ export interface CardInputElements {
   expiryDate: HTMLElement;
   cvv: HTMLElement;
   cardholderName?: HTMLElement;
+}
+
+export interface CardInputElementsWithButton extends CardInputElements {
   button: HTMLButtonElement;
 }
 
 export interface Skin {
+  init(): Promise<void>;
+
   /**
    * Render or initialize the card form section within the container.
    * Implementations may be a no-op if the form is part of the base template.
    */
   renderCardForm(): void;
 
-  /**
-   * Ensure the UI for a given payment method is visible/active.
-   */
-  renderButton(paymentMethod: PaymentMethod): void;
-
   getCheckoutOptions(): {
-    cardSelectors: CardInputSelectors;
-    paymentButtonSelectors: PaymentButtonSelectors;
+    cardElements?: CardInputElements | CardInputElementsWithButton;
+    paymentButtonElements?: PaymentButtonElements;
     card?: CheckoutOptions['card'];
     applePay?: CheckoutOptions['applePay'];
     paypal?: CheckoutOptions['paypal'];
