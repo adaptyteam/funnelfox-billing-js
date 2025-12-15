@@ -309,14 +309,16 @@ export interface CreatePaymentRequest {
   payment_method_token: string;
 }
 
+export interface PaymentResponseData {
+  action_required_token: string;
+  checkout_status: 'processing' | 'succeeded' | 'failed' | 'cancelled';
+  failed_message_for_user: string;
+  order_id: string;
+}
+
 export interface CreatePaymentResponse {
   status: 'success' | 'error';
-  data: {
-    action_required_token: string;
-    checkout_status: 'processing' | 'succeeded' | 'failed' | 'cancelled';
-    failed_message_for_user: string;
-    order_id: string;
-  };
+  data: PaymentResponseData;
   error?: {
     code: string;
     msg: string;
@@ -362,4 +364,9 @@ export interface PrimerWrapperInterface {
   isActive(): boolean;
   validateContainer(selector: string): Element;
   disableButtons(disabled: boolean): void;
+}
+export interface OneClickRequest {
+  pp_ident: string;
+  external_id: string;
+  client_metadata: Record<string, string | number | boolean>;
 }

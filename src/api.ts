@@ -12,6 +12,7 @@ import type {
   APIConfig,
   CreateClientSessionOptions,
 } from './types';
+import { APIError } from './errors';
 
 let defaultConfig: SDKConfig | null = null;
 
@@ -88,4 +89,36 @@ export async function createClientSession(
   });
 
   return apiClient.processSessionResponse(sessionResponse);
+}
+
+export async function silentPurchase(options: {
+  priceId: string;
+  externalId: string;
+  clientMetadata: Record<string, string | number | boolean>;
+  orgId: string;
+  baseUrl: string;
+}) {
+  const { priceId, externalId, clientMetadata, orgId, baseUrl } = options;
+  const apiClient = new APIClient({
+    baseUrl: baseUrl,
+    orgId: orgId,
+    timeout: DEFAULTS.REQUEST_TIMEOUT,
+    retryAttempts: DEFAULTS.RETRY_ATTEMPTS,
+  });
+
+  const response = await apiClient.oneClick({
+    pp_ident: priceId,
+    external_id: externalId,
+    client_metadata: clientMetadata,
+  });
+  if (
+    response.status !== 'success' &&
+    response.error.some(({ code }) => code === 'double_purchase')
+  ) {
+    throw new APIError('This product was already purchased');
+  } else if (response.status !== 'success') {
+    return false;
+  }
+
+  return true;
 }
