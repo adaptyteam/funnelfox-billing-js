@@ -27,9 +27,12 @@ export const Billing = {
   configure: api.configure,
   createCheckout: api.createCheckout,
   createClientSession: api.createClientSession,
+  initMethod: api.initMethod,
 };
 
 export default Billing;
+
+export { PaymentMethod } from './enums';
 
 declare global {
   interface Window {

@@ -74,10 +74,6 @@ class PrimerWrapper implements PrimerWrapperInterface {
       {
         paymentHandling: 'MANUAL',
         apiVersion: '2.4',
-        paypal: {
-          buttonColor: 'blue',
-          paymentFlow: 'PREFER_VAULT' as PaymentFlow,
-        },
       },
       options
     );
