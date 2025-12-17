@@ -11,7 +11,6 @@ import type {
   PaymentMethodInfo,
   PaymentMethodToken,
   IHeadlessPaymentMethodButton,
-  PaymentFlow,
   PrimerHeadlessCheckout,
   EventTypes,
   InputMetadata,

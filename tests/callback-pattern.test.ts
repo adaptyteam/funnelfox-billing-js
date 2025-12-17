@@ -22,68 +22,9 @@ jest.mock('../src/skins/default', () => ({
       _primerWrapper: PrimerWrapperInterface,
       containerSelector: string
     ) => {
-      const baseSkin = {
-        renderCardForm: jest.fn(),
-        renderButton: jest.fn(),
-        getCardInputSelectors: jest.fn().mockReturnValue({
-          cardNumber: '#cardNumberInput',
-          expiryDate: '#expiryInput',
-          cvv: '#cvvInput',
-          cardholderName: '#cardHolderInput',
-          button: '#submitButton',
-        }),
-        getCardInputElements: jest.fn().mockReturnValue({
-          cardNumber: document.createElement('div'),
-          expiryDate: document.createElement('div'),
-          cvv: document.createElement('div'),
-          cardholderName: document.createElement('div'),
-          button: document.createElement('button'),
-        }),
-        onLoaderChange: jest.fn(),
-        onError: jest.fn(),
-        onStatusChange: jest.fn(),
-        onSuccess: jest.fn(),
-        onDestroy: jest.fn(),
-        onInputError: jest.fn(),
-        onMethodRender: jest.fn(),
-        onStartPurchase: jest.fn(),
-        onPurchaseFailure: jest.fn(),
-        onPurchaseCompleted: jest.fn(),
-      };
-
       const container = document.querySelector(containerSelector);
       if (!container) {
-        return Promise.resolve({
-          ...baseSkin,
-          getCheckoutOptions: jest.fn().mockReturnValue({
-            cardSelectors: baseSkin.getCardInputSelectors(),
-            paymentButtonSelectors: {
-              paypal: '#paypalButton',
-              googlePay: '#googlePayButton',
-              applePay: '#applePayButton',
-            },
-            card: {
-              cardholderName: {
-                required: false,
-              },
-            },
-            applePay: {
-              buttonStyle: 'black',
-            },
-            paypal: {
-              buttonColor: 'gold',
-              buttonShape: 'pill',
-              buttonLabel: 'pay',
-              buttonSize: 'large',
-              buttonHeight: 54,
-            },
-            googlePay: {
-              buttonColor: 'black',
-              buttonSizeMode: 'fill',
-              buttonType: 'pay',
-            },
-          }),
-        });
+        throw new Error(`Container not found: ${containerSelector}`);
       }
 
       container.innerHTML = `
@@ -94,9 +35,15 @@ jest.mock('../src/skins/default', () => ({
         <div class="ff-payment-method-card ff-payment-method-payment-card">
           <div class="errorContainer"></div>
         </div>
-        <div class="ff-payment-method-google-pay"></div>
-        <div class="ff-payment-method-apple-pay"></div>
-        <div class="ff-payment-method-paypal"></div>
+        <div class="ff-payment-method-google-pay">
+          <div id="googlePayButton"></div>
+        </div>
+        <div class="ff-payment-method-apple-pay">
+          <div id="applePayButton"></div>
+        </div>
+        <div class="ff-payment-method-paypal">
+          <div id="paypalButton"></div>
+        </div>
         <div>
           <div id="cardNumberInput"></div>
         </div>
@@ -123,25 +70,47 @@ jest.mock('../src/skins/default', () => ({
         '#submitButton'
       ) as HTMLButtonElement;
 
+      const paypalButton = container.querySelector(
+        '#paypalButton'
+      ) as HTMLElement;
+      const googlePayButton = container.querySelector(
+        '#googlePayButton'
+      ) as HTMLElement;
+      const applePayButton = container.querySelector(
+        '#applePayButton'
+      ) as HTMLElement;
+
       const skin = {
-        ...baseSkin,
+        init: jest.fn().mockResolvedValue(undefined),
+        renderCardForm: jest.fn(),
         getCardInputElements: jest.fn().mockReturnValue({
           cardNumber,
           expiryDate,
           cvv,
           cardholderName,
-          button,
         }),
-      };
-
-      return Promise.resolve({
-        ...skin,
+        onLoaderChange: jest.fn(),
+        onError: jest.fn(),
+        onStatusChange: jest.fn(),
+        onSuccess: jest.fn(),
+        onDestroy: jest.fn(),
+        onInputError: jest.fn(),
+        onMethodRender: jest.fn(),
+        onStartPurchase: jest.fn(),
+        onPurchaseFailure: jest.fn(),
+        onPurchaseCompleted: jest.fn(),
         getCheckoutOptions: jest.fn().mockReturnValue({
-          cardSelectors: skin.getCardInputSelectors(),
-          paymentButtonSelectors: {
-            paypal: '#paypalButton',
-            googlePay: '#googlePayButton',
-            applePay: '#applePayButton',
+          cardElements: {
+            cardNumber,
+            expiryDate,
+            cvv,
+            cardholderName,
+            button,
+          },
+          paymentButtonElements: {
+            paypal: paypalButton,
+            googlePay: googlePayButton,
+            applePay: applePayButton,
           },
           card: {
             cardholderName: {
@@ -164,7 +133,9 @@ jest.mock('../src/skins/default', () => ({
             buttonType: 'pay',
           },
         }),
-      });
+      };
+
+      return Promise.resolve(skin);
     }
   ),
 }));
