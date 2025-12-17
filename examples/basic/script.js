@@ -1,4 +1,4 @@
-import { Billing } from '@funnelfox/billing';
+import { Billing, PaymentMethod } from '@funnelfox/billing';
 
 (async function main() {
   let checkout = null;
@@ -30,5 +30,90 @@ import { Billing } from '@funnelfox/billing';
     });
     createCheckoutButton.disabled = false;
     createCheckoutButton.textContent = 'Create';
+  });
+
+  const createFFIntegrationButton = document.getElementById(
+    'create-ff-integration'
+  );
+
+  createFFIntegrationButton.addEventListener('click', async () => {
+    createFFIntegrationButton.disabled = true;
+    createFFIntegrationButton.textContent = 'Creating...';
+
+    // initialize ff integration
+    const ffIntegrationCardContainer = document.getElementById(
+      'ff-integration-card-container'
+    );
+    const ffIntegrationApplePay = document.getElementById(
+      'ff-integration-applepay'
+    );
+    const ffIntegrationGooglePay = document.getElementById(
+      'ff-integration-googlepay'
+    );
+    const ffIntegrationPaypal = document.getElementById(
+      'ff-integration-paypal'
+    );
+
+    const options = {
+      orgId: orgId.value,
+      priceId: priceId.value,
+      externalId,
+      email: `${externalId}@example.com`,
+
+      onRenderSuccess: () => {
+        console.log('FF integration onRenderSuccess rendered');
+      },
+      onRenderError: () => {
+        console.log('FF integration onRenderError rendered');
+      },
+      onPaymentSuccess: () => {
+        console.log('FF integration onPaymentSuccess rendered');
+      },
+      onRenderError: err => {
+        console.log('FF integration onRenderError rendered', err);
+      },
+      onPaymentSuccess: () => {
+        console.log('FF integration onPaymentSuccess rendered');
+      },
+      onPaymentFail: () => {
+        console.log('FF integration onPaymentFail rendered');
+      },
+      onPaymentCancel: () => {
+        console.log('FF integration onPaymentCancel rendered');
+      },
+      onErrorMessageChange: () => {
+        console.log('FF integration onErrorMessageChange rendered');
+      },
+      onLoaderChange: () => {
+        console.log('FF integration onLoaderChange rendered');
+      },
+    }; /* 
+    const cardHandler = await Billing.initMethod(
+      PaymentMethod.PAYMENT_CARD,
+      ffIntegrationCardContainer,
+      options
+    ); */
+    const paypalHandler = await Billing.initMethod(
+      PaymentMethod.PAYPAL,
+      ffIntegrationPaypal,
+      {
+        paypal: {
+          buttonColor: 'gold',
+          buttonShape: 'pill',
+          buttonLabel: 'pay',
+          buttonSize: 'large',
+          buttonHeight: 54,
+        },
+        ...options,
+      }
+    );
+    const cardSubmitButton = document.getElementById(
+      'ff-integration-card-submit'
+    );
+    cardSubmitButton.addEventListener('click', () => {
+      cardHandler.submit();
+    });
+    createFFIntegrationButton.disabled = false;
+    createFFIntegrationButton.textContent = 'Create';
   });
 })();
