@@ -27,6 +27,12 @@ import { Billing, PaymentMethod } from '@funnelfox/billing';
         countryCode: 'US',
       },
       container: '#checkout-container',
+      paymentMethodOrder: [
+        PaymentMethod.PAYMENT_CARD,
+        PaymentMethod.PAYPAL,
+        PaymentMethod.GOOGLE_PAY,
+        PaymentMethod.APPLE_PAY,
+      ],
     });
     createCheckoutButton.disabled = false;
     createCheckoutButton.textContent = 'Create';

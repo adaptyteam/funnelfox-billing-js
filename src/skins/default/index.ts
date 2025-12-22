@@ -1,7 +1,11 @@
 import template from './template.html';
+import cardTemplate from './card.html';
+import paypalTemplate from './paypal.html';
+import googlePayTemplate from './google-pay.html';
+import applePayTemplate from './apple-pay.html';
 import './styles.css';
 import type { Skin, CardInputElementsWithButton, SkinFactory } from '../types';
-import type { PaymentMethod } from '../../enums';
+import { PaymentMethod } from '../../enums';
 import {
   CardInputSelectors,
   CheckoutState,
@@ -10,6 +14,13 @@ import {
 } from '../../types';
 import CardSkin from '../card';
 
+const paymentMethodTemplates: Record<PaymentMethod, string> = {
+  [PaymentMethod.PAYMENT_CARD]: cardTemplate,
+  [PaymentMethod.PAYPAL]: paypalTemplate,
+  [PaymentMethod.GOOGLE_PAY]: googlePayTemplate,
+  [PaymentMethod.APPLE_PAY]: applePayTemplate,
+};
+
 class DefaultSkin implements Skin {
   private containerSelector: string;
   private containerEl: HTMLElement;
@@ -17,12 +28,15 @@ class DefaultSkin implements Skin {
   private primerWrapper: PrimerWrapperInterface;
   currentPurchaseMethod: PaymentMethod;
   cardInstance: CardSkin;
+  paymentMethodOrder: PaymentMethod[];
 
   constructor(
     primerWrapper: PrimerWrapperInterface,
-    containerSelector: string
+    containerSelector: string,
+    paymentMethodOrder: PaymentMethod[]
   ) {
     this.containerSelector = containerSelector;
+    this.paymentMethodOrder = paymentMethodOrder;
     const containerEl = document.querySelector<HTMLElement>(containerSelector);
 
     if (!containerEl) {
@@ -57,9 +71,14 @@ class DefaultSkin implements Skin {
       });
     };
 
-    const checkedRadio = Array.from(radioButtons).find(radio => radio.checked);
+    const checkedRadio = Array.from(radioButtons)[0];
+    if (!checkedRadio) {
+      throw new Error(
+        'Default skin accordion initialization error: No radio button found'
+      );
+    }
     setTimeout(() => {
-      handleAccordion(checkedRadio || null);
+      checkedRadio.click();
     }, 0);
 
     radioButtons.forEach(radio => {
@@ -90,6 +109,15 @@ class DefaultSkin implements Skin {
 
   async init() {
     this.containerEl.insertAdjacentHTML('beforeend', template);
+    const paymentMethodContainers = this.containerEl.querySelector(
+      '#ff-payment-method-containers'
+    );
+    this.paymentMethodOrder.forEach(paymentMethod => {
+      paymentMethodContainers.insertAdjacentHTML(
+        'beforeend',
+        paymentMethodTemplates[paymentMethod]
+      );
+    });
     this.cardInstance = new CardSkin(document.querySelector('#cardForm'));
     this.cardInstance.init();
     this.initAccordion();
@@ -227,9 +255,14 @@ class DefaultSkin implements Skin {
 
 const createDefaultSkin: SkinFactory = async (
   primerWrapper: PrimerWrapperInterface,
-  containerSelector: string
+  containerSelector: string,
+  paymentMethodOrder: PaymentMethod[]
 ): Promise<Skin> => {
-  const skin = new DefaultSkin(primerWrapper, containerSelector);
+  const skin = new DefaultSkin(
+    primerWrapper,
+    containerSelector,
+    paymentMethodOrder
+  );
   await skin['init']();
   return skin;
 };

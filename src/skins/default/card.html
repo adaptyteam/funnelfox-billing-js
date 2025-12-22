@@ -1,0 +1,35 @@
+<!-- Card Payments Section -->
+<div class="ff-payment-method-card ff-payment-method-payment-card">
+  <label class="ff-payment-method-label">
+    <input
+      type="radio"
+      name="payment-method"
+      value="card"
+      class="ff-payment-method-radio"
+    />
+    <div class="ff-payment-method-header">
+      <div class="ff-card-logos">
+        <img
+          class="payment-method-icon"
+          style="max-height: 30px"
+          src="https://assets.fnlfx.com/common/checkout/cards.webp"
+          alt="visa, mastercard"
+        />
+      </div>
+    </div>
+  </label>
+  <div class="ff-payment-method-content">
+    <div class="ff-card-form-container ff-payment-container" id="cardForm">
+      <div class="loader-container">
+        <div class="loader"></div>
+      </div>
+      <div class="payment-errors-container"></div>
+      <button class="ff-card-form-submit-button" id="submitButton">
+        Continue
+      </button>
+      <p class="ff-security-message">
+        Your payment information is secure with SSL/TLS encryption
+      </p>
+    </div>
+  </div>
+</div>

@@ -83,7 +83,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - fix apple pay border-radius
 
-## [0.5.0-beta.0] - 2025-12-4
+## [0.4.5] - 2025-12-22
+
+- export enum PaymentMethod
+- support for customizing the display order of payment methods in the default skin via the paymentMethodOrder configuration option
+- fix default skin behavior: open first payment method in accordion
+
+## [0.5.0-beta.1] - 2025-12-22
 
 - add ability to render payment methods through `initMethod()`
 - add `silentPurchase()` method
