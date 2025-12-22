@@ -110,6 +110,7 @@ const checkout = await createCheckout({
   paypalButtonContainer: '#paypalButton', // Optional
   googlePayButtonContainer: '#googlePayButton', // Optional
   applePayButtonContainer: '#applePayButton', // Optional
+  paymentMethodOrder: ['PAYMENT_CARD', 'PAYPAL', 'GOOGLE_PAY', 'APPLE_PAY'], // Optional
 
   // Callbacks (alternative to events)
   onSuccess: result => {
@@ -138,6 +139,7 @@ const checkout = await createCheckout({
 - `options.paypalButtonContainer` (string, optional) - Container selector for PayPal button
 - `options.googlePayButtonContainer` (string, optional) - Container selector for Google Pay button
 - `options.applePayButtonContainer` (string, optional) - Container selector for Apple Pay button
+- `options.paymentMethodOrder` (array, optional) - Custom order for payment methods. Available values: `'PAYMENT_CARD'`, `'PAYPAL'`, `'GOOGLE_PAY'`, `'APPLE_PAY'`. Defaults to `['PAYMENT_CARD', 'PAYPAL', 'GOOGLE_PAY', 'APPLE_PAY']`
 - `options.onInitialized` (function, optional) - Initialized callback
 - `options.onSuccess` (function, optional) - Success callback
 - `options.onError` (function, optional) - Error callback
@@ -427,6 +429,7 @@ import {
   CheckoutInstance,
   PaymentResult,
   CheckoutConfig,
+  PaymentMethod,
 } from '@funnelfox/billing';
 
 // Configure
@@ -447,6 +450,12 @@ const checkout: CheckoutInstance = await createCheckout({
     source: 'web',
     campaign: 'summer-sale',
   },
+  paymentMethodOrder: [
+    PaymentMethod.PAYPAL,
+    PaymentMethod.PAYMENT_CARD,
+    PaymentMethod.GOOGLE_PAY,
+    PaymentMethod.APPLE_PAY,
+  ],
 });
 
 // Type-safe event handlers
@@ -511,6 +520,33 @@ const checkout = await createCheckout({
   applePayButtonContainer: '#my-apple-pay-button',
 });
 ```
+
+### Custom Payment Method Order
+
+You can customize the order in which payment methods are displayed to your customers:
+
+```javascript
+const checkout = await createCheckout({
+  priceId: 'price_123',
+  customer: {
+    externalId: 'user_456',
+    email: 'user@example.com',
+  },
+  container: '#checkout',
+
+  // Customize payment method order
+  paymentMethodOrder: ['PAYPAL', 'GOOGLE_PAY', 'APPLE_PAY', 'PAYMENT_CARD'],
+});
+```
+
+**Available payment methods:**
+
+- `'PAYMENT_CARD'` - Credit/debit card payment
+- `'PAYPAL'` - PayPal payment
+- `'GOOGLE_PAY'` - Google Pay payment
+- `'APPLE_PAY'` - Apple Pay payment
+
+By default, payment methods are shown in the order: Card, PayPal, Google Pay, Apple Pay. You can reorder them to match your business priorities or regional preferences.
 
 ### Manual Session Creation
 

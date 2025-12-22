@@ -65,5 +65,6 @@ export interface Skin {
 
 export type SkinFactory = (
   primerWrapper: PrimerWrapperInterface,
-  containerSelector: string
+  containerSelector: string,
+  paymentMethodOrder: PaymentMethod[]
 ) => Promise<Skin>;

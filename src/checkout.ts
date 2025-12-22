@@ -63,6 +63,12 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   isDestroyed: boolean;
   apiClient!: APIClient;
   private counter: number = 0;
+  paymentMethodOrder: PaymentMethod[] = [
+    PaymentMethod.APPLE_PAY,
+    PaymentMethod.GOOGLE_PAY,
+    PaymentMethod.PAYPAL,
+    PaymentMethod.PAYMENT_CARD,
+  ];
 
   constructor(config: {
     orgId: string;
@@ -206,11 +212,19 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       !this.checkoutConfig.cardSelectors ||
       !this.checkoutConfig.paymentButtonSelectors
     ) {
+      if (this.checkoutConfig.paymentMethodOrder) {
+        this.paymentMethodOrder = this.checkoutConfig.paymentMethodOrder;
+      }
       const defaultSkinCheckoutOptions =
         await this.getDefaultSkinCheckoutOptions();
       Object.assign(checkoutOptions, defaultSkinCheckoutOptions);
     }
-
+    if (this.checkoutConfig.paymentMethodOrder) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        'paymentMethodOrder is using only for default skin and will be ignored if you are using custom checkout'
+      );
+    }
     await this.primerWrapper.renderCheckout(
       this.clientToken as string,
       checkoutOptions as CheckoutOptions
@@ -410,7 +424,8 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       .default as SkinFactory;
     const skin: Skin = await skinFactory(
       this.primerWrapper,
-      this.checkoutConfig.container
+      this.checkoutConfig.container,
+      this.paymentMethodOrder
     );
 
     this.on(EVENTS.INPUT_ERROR, skin.onInputError);

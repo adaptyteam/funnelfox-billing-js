@@ -13,6 +13,8 @@ export {
   NetworkError,
 } from './errors';
 
+export { PaymentMethod } from './enums';
+
 export {
   SDK_VERSION,
   DEFAULTS,

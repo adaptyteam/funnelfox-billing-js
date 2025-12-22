@@ -44,6 +44,7 @@ export interface CheckoutConfig extends PrimerCheckoutConfig {
   priceId: string;
   container: string;
   clientMetadata?: MetadataType;
+  paymentMethodOrder?: PaymentMethod[];
 }
 
 export interface PaymentButtonSelectors {
