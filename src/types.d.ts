@@ -344,12 +344,22 @@ export interface PrimerWrapperInterface {
   isInitialized: boolean;
   isPrimerAvailable(): boolean;
   ensurePrimerAvailable(): void;
+  initMethod(
+    method: PaymentMethod,
+    htmlNode: HTMLElement,
+    options: CheckoutRenderOptions
+  ): Promise<PaymentMethodInterface>;
   renderButton(
-    allowedPaymentMethod: 'GOOGLE_PAY' | 'APPLE_PAY' | 'PAYPAL',
+    allowedPaymentMethod:
+      | PaymentMethod.GOOGLE_PAY
+      | PaymentMethod.APPLE_PAY
+      | PaymentMethod.PAYPAL,
     options: {
-      container: string;
+      htmlNode: HTMLElement;
+      onMethodRenderError: (method: PaymentMethod) => void;
+      onMethodRender: (method: PaymentMethod) => void;
     }
-  ): Promise<void>;
+  ): Promise<PaymentMethodInterface>;
   renderCheckout(
     clientToken: string,
     checkoutOptions: CheckoutOptions,
