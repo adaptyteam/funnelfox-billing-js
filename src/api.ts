@@ -11,6 +11,7 @@ import type {
   CreateCheckoutOptions,
   APIConfig,
   CreateClientSessionOptions,
+  InitMethodOptions,
 } from './types';
 import { APIError } from './errors';
 import { PaymentMethod } from './enums';
@@ -127,29 +128,7 @@ export async function silentPurchase(options: {
 export async function initMethod(
   method: PaymentMethod,
   element: HTMLElement,
-  options: {
-    orgId: string;
-    baseUrl?: string;
-    priceId: string;
-    externalId: string;
-    email: string;
-    styles: object;
-    meta: {
-      ff_price_id: '...';
-      ff_session_id: '...';
-      ff_project_id: '...';
-    };
-    onRenderSuccess: () => void;
-    onRenderError: (err) => void;
-
-    onPaymentSuccess: () => void;
-    onPaymentFail: (err) => void;
-    // Triggered when the customer manually cancels the payment — we need to know about it.
-    onPaymentCancel: () => void;
-
-    onErrorMessageChange: (msg) => void;
-    onLoaderChange: (state) => void; // optional for now, but likely needed later
-  }
+  options: InitMethodOptions
 ) {
   const checkoutInstance = new CheckoutInstance({
     orgId: options.orgId,

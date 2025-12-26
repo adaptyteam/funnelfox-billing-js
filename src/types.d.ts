@@ -9,7 +9,7 @@ import type {
   OnTokenizeSuccess,
 } from '@primer-io/checkout-web';
 
-import type { PaymentMethod } from './enums';
+export { PaymentMethod } from './enums';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MetadataType = Record<string, any>;
@@ -246,11 +246,38 @@ export declare function createClientSession(
   params: CreateClientSessionOptions
 ): Promise<ClientSessionData>;
 
+export interface InitMethodOptions {
+  orgId: string;
+  baseUrl?: string;
+  priceId: string;
+  externalId: string;
+  email: string;
+  styles: object;
+  meta: MetadataType;
+  onRenderSuccess: () => void;
+  onRenderError: (err) => void;
+
+  onPaymentSuccess: () => void;
+  onPaymentFail: (err) => void;
+  // Triggered when the customer manually cancels the payment — we need to know about it.
+  onPaymentCancel: () => void;
+
+  onErrorMessageChange: (msg) => void;
+  onLoaderChange: (state) => void; // optional for now, but likely needed later
+}
+
+export declare function initMethod(
+  method: PaymentMethod,
+  htmlNode: HTMLElement,
+  options: InitMethodOptions
+): Promise<PaymentMethodInterface>;
+
 // Billing namespace
 export declare const Billing: {
   configure: typeof configure;
   createCheckout: typeof createCheckout;
   createClientSession: typeof createClientSession;
+  initMethod: typeof initMethod;
 };
 
 // Constants
