@@ -357,8 +357,10 @@ class PrimerWrapper implements PrimerWrapperInterface {
       onInputChange,
       onMethodRender,
       onMethodRenderError,
+      onMethodsAvailable,
     } = checkoutRenderOptions;
     await this.initializeHeadlessCheckout(clientToken, checkoutOptions);
+    onMethodsAvailable?.(this.availableMethods);
     for (const method of this.availableMethods) {
       if (method === PaymentMethod.PAYMENT_CARD) {
         // For card, use the main container

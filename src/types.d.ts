@@ -70,6 +70,7 @@ export interface CheckoutRenderOptions {
   ) => void;
   onMethodRender?: (method: PaymentMethod) => void;
   onMethodRenderError?: (method: PaymentMethod) => void;
+  onMethodsAvailable?: (methods: PaymentMethod[]) => void;
 }
 
 export interface CheckoutConfigWithCallbacks extends CheckoutConfig {

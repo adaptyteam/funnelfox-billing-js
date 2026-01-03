@@ -40,6 +40,7 @@ export const EVENTS = {
   PURCHASE_FAILURE: 'purchase-failure',
   PURCHASE_COMPLETED: 'purchase-completed',
   PURCHASE_CANCELLED: 'purchase-cancelled',
+  METHODS_AVAILABLE: 'methods-available',
 } as const;
 
 export const API_ENDPOINTS = {
