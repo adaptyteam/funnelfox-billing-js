@@ -66,6 +66,7 @@ export interface CheckoutOptions
     error: string | null
   ) => void;
   onMethodRender: (method: PaymentMethod) => void;
+  onMethodsAvailable: (methods: PaymentMethod[]) => void;
 }
 
 export interface CheckoutConfigWithCallbacks extends CheckoutConfig {

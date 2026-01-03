@@ -40,6 +40,7 @@ interface CheckoutEventMap {
   [EVENTS.START_PURCHASE]: PaymentMethod;
   [EVENTS.PURCHASE_FAILURE]: Error | unknown | undefined;
   [EVENTS.PURCHASE_COMPLETED]: void;
+  [EVENTS.METHODS_AVAILABLE]: [PaymentMethod[]];
 }
 class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   id: string;
@@ -181,6 +182,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       onSubmit: this.handleSubmit,
       onInputChange: this.handleInputChange,
       onMethodRender: this.handleMethodRender,
+      onMethodsAvailable: this.handleMethodsAvailable,
       onResumeError: error => {
         if (
           error.stack?.includes('PROCESSOR_3DS') &&
@@ -295,6 +297,10 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       this.onLoaderChangeWithRace(false);
       this._setState('ready');
     }
+  };
+
+  handleMethodsAvailable = (methods: PaymentMethod[]) => {
+    this.emit(EVENTS.METHODS_AVAILABLE, methods);
   };
 
   async _processPaymentResult(
@@ -439,6 +445,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.on(EVENTS.START_PURCHASE, skin.onStartPurchase);
     this.on(EVENTS.PURCHASE_FAILURE, skin.onPurchaseFailure);
     this.on(EVENTS.PURCHASE_COMPLETED, skin.onPurchaseCompleted);
+    this.on(EVENTS.METHODS_AVAILABLE, skin.onMethodsAvailable);
     return skin.getCheckoutOptions();
   }
   private onLoaderChangeWithRace = (state: boolean) => {

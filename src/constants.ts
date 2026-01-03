@@ -38,6 +38,7 @@ export const EVENTS = {
   START_PURCHASE: 'start-purchase',
   PURCHASE_FAILURE: 'purchase-failure',
   PURCHASE_COMPLETED: 'purchase-completed',
+  METHODS_AVAILABLE: 'methods-available',
 } as const;
 
 export const API_ENDPOINTS = {
