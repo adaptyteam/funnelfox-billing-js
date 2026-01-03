@@ -49,6 +49,7 @@ jest.mock('../src/skins/default', () => ({
         onStartPurchase: jest.fn(),
         onPurchaseFailure: jest.fn(),
         onPurchaseCompleted: jest.fn(),
+        onMethodsAvailable: jest.fn(),
       };
 
       const container = document.querySelector(containerSelector);
