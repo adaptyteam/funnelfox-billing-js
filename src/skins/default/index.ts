@@ -26,6 +26,7 @@ class DefaultSkin implements Skin {
   private primerWrapper: PrimerWrapperInterface;
   currentPurchaseMethod: PaymentMethod;
   paymentMethodOrder: PaymentMethod[];
+  availableMethods: PaymentMethod[];
 
   constructor(
     primerWrapper: PrimerWrapperInterface,
@@ -76,14 +77,17 @@ class DefaultSkin implements Skin {
       });
     };
 
-    const checkedRadio = Array.from(radioButtons)[0];
+    const checkedRadio = Array.from(radioButtons).find(radio =>
+      this.availableMethods.includes(radio.value as PaymentMethod)
+    );
     if (!checkedRadio) {
       throw new Error(
         'Default skin accordion initialization error: No radio button found'
       );
     }
     setTimeout(() => {
-      checkedRadio.click();
+      checkedRadio.checked = true;
+      handleAccordion(checkedRadio);
     }, 0);
 
     radioButtons.forEach(radio => {
@@ -129,8 +133,6 @@ class DefaultSkin implements Skin {
         paymentMethodTemplates[paymentMethod]
       );
     });
-    this.initAccordion();
-    this.wireCardInputs();
   }
 
   renderCardForm(): void {
@@ -267,6 +269,11 @@ class DefaultSkin implements Skin {
     if (methodContainer) {
       methodContainer.classList.add('visible');
     }
+  };
+  onMethodsAvailable = (methods: PaymentMethod[]) => {
+    this.availableMethods = methods;
+    this.initAccordion();
+    this.wireCardInputs();
   };
   onStartPurchase = (paymentMethod: PaymentMethod) => {
     this.currentPurchaseMethod = paymentMethod;
