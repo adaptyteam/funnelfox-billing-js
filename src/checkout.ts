@@ -33,6 +33,7 @@ import type {
   SkinFactory,
 } from './skins/types';
 import { renderLoader, hideLoader } from './assets/loader/loader';
+import type { CreateClientSessionResponse } from './types';
 
 interface CheckoutEventMap {
   [EVENTS.SUCCESS]: PaymentResult;
@@ -79,6 +80,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     PaymentMethod.PAYPAL,
     PaymentMethod.PAYMENT_CARD,
   ];
+  private static sessionCache = new Map<string, CreateClientSessionResponse>();
 
   constructor(config: {
     orgId: string;
@@ -167,14 +169,32 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       retryAttempts: DEFAULTS.RETRY_ATTEMPTS,
     });
 
-    const sessionResponse = await this.apiClient.createClientSession({
+    const sessionParams = {
       priceId: this.checkoutConfig.priceId,
       externalId: this.checkoutConfig.customer.externalId,
       email: this.checkoutConfig.customer.email,
       region: this.region || DEFAULTS.REGION,
       clientMetadata: this.checkoutConfig.clientMetadata,
       countryCode: this.checkoutConfig.customer.countryCode,
-    });
+    };
+    const cacheKey = [
+      this.orgId,
+      this.checkoutConfig.priceId,
+      this.checkoutConfig.customer.externalId,
+      this.checkoutConfig.customer.email,
+    ].join('-');
+
+    let sessionResponse: CreateClientSessionResponse;
+
+    // Return cached response if payload hasn't changed
+    const cachedResponse = CheckoutInstance.sessionCache.get(cacheKey);
+    if (cachedResponse) {
+      sessionResponse = cachedResponse;
+    } else {
+      sessionResponse = await this.apiClient.createClientSession(sessionParams);
+      // Cache the successful response
+      CheckoutInstance.sessionCache.set(cacheKey, sessionResponse);
+    }
 
     const sessionData = this.apiClient.processSessionResponse(sessionResponse);
     this.orderId = sessionData.orderId;
@@ -477,9 +497,11 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
 
     try {
       this._setState('updating');
+      // Invalidate session cache
+      CheckoutInstance.sessionCache.clear();
       await this.apiClient.updateClientSession({
-        orderId: this.orderId as string,
-        clientToken: this.clientToken as string,
+        orderId: this.orderId,
+        clientToken: this.clientToken,
         priceId: newPriceId,
       });
       this.checkoutConfig.priceId = newPriceId;
