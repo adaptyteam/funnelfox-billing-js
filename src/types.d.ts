@@ -256,15 +256,15 @@ export interface InitMethodOptions {
   styles: object;
   meta: MetadataType;
   onRenderSuccess: () => void;
-  onRenderError: (err) => void;
+  onRenderError: (err: PaymentMethod) => void;
 
   onPaymentSuccess: () => void;
-  onPaymentFail: (err) => void;
+  onPaymentFail: (err: Error) => void;
   // Triggered when the customer manually cancels the payment — we need to know about it.
   onPaymentCancel: () => void;
 
-  onErrorMessageChange: (msg) => void;
-  onLoaderChange: (state) => void; // optional for now, but likely needed later
+  onErrorMessageChange: (msg: string) => void;
+  onLoaderChange: (state: boolean) => void; // optional for now, but likely needed later
 }
 
 export declare function initMethod(

@@ -298,6 +298,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         onInputChange: this.handleInputChange,
         onMethodRender: this.handleMethodRender,
         onMethodsAvailable: this.handleMethodsAvailable,
+        onMethodRenderError: this.handleMethodRenderError,
       }
     );
   }

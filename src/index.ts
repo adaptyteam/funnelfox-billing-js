@@ -28,6 +28,7 @@ export const Billing = {
   createCheckout: api.createCheckout,
   createClientSession: api.createClientSession,
   initMethod: api.initMethod,
+  silentPurchase: api.silentPurchase,
 };
 
 export default Billing;
