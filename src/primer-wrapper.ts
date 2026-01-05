@@ -275,6 +275,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
       onSubmit,
       onInputChange,
       onMethodRender,
+      onMethodsAvailable,
       ...restPrimerOptions
     } = options;
     await this.createHeadlessCheckout(clientToken, {
@@ -299,6 +300,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
         if (this.availableMethods.length === 0) {
           throw new PrimerError('No allowed payment methods found');
         }
+        onMethodsAvailable(this.availableMethods);
       },
     });
     const methodOptions = {

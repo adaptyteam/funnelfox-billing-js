@@ -61,6 +61,8 @@ export interface Skin {
   onPurchaseFailure?(error: Error): void;
 
   onPurchaseCompleted?(): void;
+
+  onMethodsAvailable?(methods: PaymentMethod[]): void;
 }
 
 export type SkinFactory = (
