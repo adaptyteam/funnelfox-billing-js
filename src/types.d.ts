@@ -289,6 +289,7 @@ export declare const Billing: {
   createCheckout: typeof createCheckout;
   createClientSession: typeof createClientSession;
   initMethod: typeof initMethod;
+  silentPurchase: typeof silentPurchase;
 };
 
 // Constants
