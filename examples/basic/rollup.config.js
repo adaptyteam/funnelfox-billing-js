@@ -3,6 +3,7 @@ import resolve from '@rollup/plugin-node-resolve';
 import terser from '@rollup/plugin-terser';
 import importCss from 'rollup-plugin-import-css';
 import htmlTemplate from 'rollup-plugin-generate-html-template';
+import typescript from '@rollup/plugin-typescript';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 
@@ -11,7 +12,7 @@ const outDir = path.join(basicDir, 'dist');
 
 export default [
   {
-    input: path.join(basicDir, 'script.js'),
+    input: path.join(basicDir, 'script.ts'),
     output: {
       //file: path.join(outDir, 'bundle.js'),
       dir: outDir,
@@ -22,6 +23,7 @@ export default [
       sourcemap: true,
     },
     plugins: [
+      typescript(),
       resolve(),
       importCss(),
       terser(),
@@ -39,6 +41,7 @@ export default [
       htmlTemplate({
         template: path.join(basicDir, 'index.html'),
         target: path.join(outDir, 'index.html'),
+        attrs: ['type="module"'],
       }),
     ],
   },
