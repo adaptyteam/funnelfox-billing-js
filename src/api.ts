@@ -159,7 +159,8 @@ export async function initMethod(
     const cardDefaultOptions =
       await checkoutInstance['getCardDefaultSkinCheckoutOptions'](element);
     const checkoutOptions = checkoutInstance['getCheckoutOptions']({
-      style: options.styles,
+      style: options.style,
+      card: options.card,
       ...cardDefaultOptions,
     });
     await checkoutInstance.primerWrapper.initializeHeadlessCheckout(
@@ -177,7 +178,10 @@ export async function initMethod(
   await checkoutInstance.primerWrapper.initializeHeadlessCheckout(
     checkoutInstance.clientToken as string,
     checkoutInstance['getCheckoutOptions']({
-      style: options.styles,
+      style: options.style,
+      applePay: options.applePay,
+      paypal: options.paypal,
+      googlePay: options.googlePay,
     })
   );
   return checkoutInstance.primerWrapper.initMethod(method, element, {

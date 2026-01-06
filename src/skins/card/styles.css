@@ -32,6 +32,8 @@
   .errorContainer {
     color: #d10000;
     font-size: 16px;
+    line-height: 1;
+    margin: 0 0 10px;
   }
 
   #cvvInput {

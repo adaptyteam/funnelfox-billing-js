@@ -247,13 +247,18 @@ export declare function createClientSession(
   params: CreateClientSessionOptions
 ): Promise<ClientSessionData>;
 
-export interface InitMethodOptions {
+export interface InitMethodOptions
+  extends Partial<
+    Pick<
+      HeadlessUniversalCheckoutOptions,
+      'style' | 'card' | 'applePay' | 'paypal' | 'googlePay'
+    >
+  > {
   orgId: string;
   baseUrl?: string;
   priceId: string;
   externalId: string;
   email: string;
-  styles: object;
   meta: MetadataType;
   onRenderSuccess: () => void;
   onRenderError: (err: PaymentMethod) => void;

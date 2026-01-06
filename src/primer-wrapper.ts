@@ -283,11 +283,11 @@ class PrimerWrapper implements PrimerWrapperInterface {
       ]);
       const onDestroy = () => {
         pmManager.removeHostedInputs();
-        elements.cardholderName.removeEventListener(
+        elements.cardholderName?.removeEventListener(
           'change',
           cardHolderOnChange
         );
-        elements.button.removeEventListener('click', onSubmitHandler);
+        elements.button?.removeEventListener('click', onSubmitHandler);
       };
       this.destroyCallbacks.push(onDestroy);
       onMethodRender(PaymentMethod.PAYMENT_CARD);
