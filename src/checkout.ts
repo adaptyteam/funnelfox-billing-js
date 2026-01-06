@@ -281,6 +281,12 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       paymentButtonElements = defaultSkinCheckoutOptions.paymentButtonElements;
       checkoutOptions = this.getCheckoutOptions(defaultSkinCheckoutOptions);
     } else {
+      if (this.checkoutConfig.paymentMethodOrder) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          'paymentMethodOrder is using only for default skin and will be ignored if you are using custom checkout'
+        );
+      }
       cardElements = this.convertCardSelectorsToElements(
         this.checkoutConfig.cardSelectors,
         containerElement
@@ -289,12 +295,6 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         this.checkoutConfig.paymentButtonSelectors
       );
       checkoutOptions = this.getCheckoutOptions({});
-    }
-    if (this.checkoutConfig.paymentMethodOrder) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        'paymentMethodOrder is using only for default skin and will be ignored if you are using custom checkout'
-      );
     }
     await this.primerWrapper.renderCheckout(
       this.clientToken as string,

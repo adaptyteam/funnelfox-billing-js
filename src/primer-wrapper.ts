@@ -38,9 +38,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
   private destroyCallbacks: (() => void)[] = [];
   private headless: PrimerHeadlessCheckout | null = null;
   private availableMethods: PaymentMethod[] = [];
-  private paymentMethodsInterfaces?: {
-    [key in PaymentMethod]: PaymentMethodInterface;
-  };
+  private paymentMethodsInterfaces?: PaymentMethodInterface[];
 
   isPrimerAvailable(): boolean {
     return (
@@ -91,10 +89,8 @@ class PrimerWrapper implements PrimerWrapperInterface {
 
   disableButtons(disabled: boolean) {
     if (!this.paymentMethodsInterfaces) return;
-    for (const method in this.paymentMethodsInterfaces) {
-      this.paymentMethodsInterfaces[method as PaymentMethod].setDisabled(
-        disabled
-      );
+    for (const paymentMethodInterface of this.paymentMethodsInterfaces) {
+      paymentMethodInterface.setDisabled(disabled);
     }
   }
   private waitForPayPalReady() {
@@ -194,7 +190,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
         );
       }
 
-      return this.renderCardCheckoutWithElements(
+      return await this.renderCardCheckoutWithElements(
         options.cardElements as CardInputElementsWithButton,
         {
           onSubmit: options.onSubmit,
@@ -403,31 +399,35 @@ class PrimerWrapper implements PrimerWrapperInterface {
     } = checkoutRenderOptions;
     await this.initializeHeadlessCheckout(clientToken, checkoutOptions);
     onMethodsAvailable?.(this.availableMethods);
-    for (const method of this.availableMethods) {
-      if (method === PaymentMethod.PAYMENT_CARD) {
-        // For card, use the main container
-        await this.initMethod(method, container, {
-          cardElements,
-          onSubmit,
-          onInputChange,
-          onMethodRender,
-          onMethodRenderError,
-        });
-      } else {
-        const buttonElementsMap = {
-          [PaymentMethod.PAYPAL]: paymentButtonElements.paypal,
-          [PaymentMethod.GOOGLE_PAY]: paymentButtonElements.googlePay,
-          [PaymentMethod.APPLE_PAY]: paymentButtonElements.applePay,
-        };
-        // For buttons, use the specific button container element
-        const buttonElement = buttonElementsMap[method];
-        await this.initMethod(method, buttonElement, {
-          onMethodRender,
-          onMethodRenderError,
-        });
-      }
-    }
-    this.isInitialized = true;
+    return Promise.all(
+      this.availableMethods.map(method => {
+        if (method === PaymentMethod.PAYMENT_CARD) {
+          // For card, use the main container
+          return this.initMethod(method, container, {
+            cardElements,
+            onSubmit,
+            onInputChange,
+            onMethodRender,
+            onMethodRenderError,
+          });
+        } else {
+          const buttonElementsMap = {
+            [PaymentMethod.PAYPAL]: paymentButtonElements.paypal,
+            [PaymentMethod.GOOGLE_PAY]: paymentButtonElements.googlePay,
+            [PaymentMethod.APPLE_PAY]: paymentButtonElements.applePay,
+          };
+          // For buttons, use the specific button container element
+          const buttonElement = buttonElementsMap[method];
+          return this.initMethod(method, buttonElement, {
+            onMethodRender,
+            onMethodRenderError,
+          });
+        }
+      })
+    ).then((interfaces: PaymentMethodInterface[]) => {
+      this.paymentMethodsInterfaces = interfaces;
+      this.isInitialized = true;
+    });
   }
 
   private wrapTokenizeHandler(handler: OnTokenizeSuccess): OnTokenizeSuccess {
