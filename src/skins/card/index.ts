@@ -24,6 +24,7 @@ class CardSkin implements Skin {
       expiryDate: document.createElement('div'),
       cvv: document.createElement('div'),
     };
+    this.containerEl.style.display = 'none';
   }
 
   wireCardInputs() {
@@ -110,6 +111,9 @@ class CardSkin implements Skin {
         cardInputElements.cardholderName?.classList?.remove('error');
       }
     }
+  };
+  onMethodRender = () => {
+    this.containerEl.style.display = 'block';
   };
 }
 

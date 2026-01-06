@@ -591,6 +591,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     const skin: Skin = new CardSkin(node, this.checkoutConfig);
     skin.init();
     this.on(EVENTS.INPUT_ERROR, skin.onInputError);
+    this.on(EVENTS.METHOD_RENDER, skin.onMethodRender);
     return skin.getCheckoutOptions();
   }
   private onLoaderChangeWithRace = (state: boolean) => {

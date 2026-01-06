@@ -245,6 +245,9 @@ class DefaultSkin implements Skin {
     const methodContainer = this.containerEl.querySelector(
       `.ff-payment-method-${methodKey}`
     );
+    if (paymentMethod === PaymentMethod.PAYMENT_CARD) {
+      this.cardInstance.onMethodRender();
+    }
     if (methodContainer) {
       methodContainer.classList.add('visible');
     }
