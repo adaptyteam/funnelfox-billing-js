@@ -283,6 +283,14 @@ export declare function initMethod(
   options: InitMethodOptions
 ): Promise<PaymentMethodInterface>;
 
+export declare function silentPurchase(options: {
+  priceId: string;
+  externalId: string;
+  clientMetadata: Record<string, string | number | boolean>;
+  orgId: string;
+  baseUrl: string;
+}): Promise<boolean>;
+
 // Billing namespace
 export declare const Billing: {
   configure: typeof configure;

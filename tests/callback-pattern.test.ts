@@ -3,7 +3,11 @@
  */
 
 import { configure, createCheckout, Billing } from '../src';
-import { CheckoutConfig, PaymentResult, PrimerWrapperInterface } from '../src/types';
+import {
+  CheckoutConfig,
+  PaymentResult,
+  PrimerWrapperInterface,
+} from '../src/types';
 
 jest.mock('../src/primer-wrapper', () => {
   return jest.fn().mockImplementation(() => ({

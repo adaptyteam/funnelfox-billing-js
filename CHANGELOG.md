@@ -89,6 +89,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - support for customizing the display order of payment methods in the default skin via the paymentMethodOrder configuration option
 - fix default skin behavior: open first payment method in accordion
 
+## [0.4.6] - 2025-01-03
+
+- fix default skin: first method should be expanded on init
+
 ## [0.5.0-beta.1] - 2025-12-22
 
 - add ability to render payment methods through `initMethod()`
