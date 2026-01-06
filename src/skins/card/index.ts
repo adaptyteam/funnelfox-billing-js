@@ -1,8 +1,12 @@
 import template from './template.html';
 import './styles.css';
-import type { Skin, CardInputElements } from '../types';
-import type { PaymentMethod } from '../../enums';
-import { CardInputSelectors, CheckoutConfig } from '../../types';
+import type { Skin } from '../types';
+import type { PaymentMethod } from '../../types';
+import {
+  CardInputSelectors,
+  CheckoutConfig,
+  CardInputElements,
+} from '../../types';
 
 class CardSkin implements Skin {
   private containerEl: HTMLElement;
@@ -17,13 +21,6 @@ class CardSkin implements Skin {
 
     this.containerEl = containerEl;
     this.checkoutConfig = checkoutConfig;
-
-    // Initialize with placeholders; real nodes will be wired in `init`.
-    this.cardInputElements = {
-      cardNumber: document.createElement('div'),
-      expiryDate: document.createElement('div'),
-      cvv: document.createElement('div'),
-    };
     this.containerEl.style.display = 'none';
   }
 

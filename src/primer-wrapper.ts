@@ -24,6 +24,7 @@ import {
   PaymentMethodInterface,
   PrimerWrapperInterface,
   CheckoutRenderOptions,
+  CardInputElementsWithButton,
 } from './types';
 import { PaymentMethod } from './enums';
 
@@ -96,6 +97,41 @@ class PrimerWrapper implements PrimerWrapperInterface {
       );
     }
   }
+  private waitForPayPalReady() {
+    return new Promise<void>((resolve, reject) => {
+      let counter = 0;
+      const checkPayPalEnabler = async () => {
+        /**
+         * Wait 1000 seconds for PayPal SDK to initialize
+         */
+        await new Promise<void>(resolve => {
+          setTimeout(() => {
+            resolve();
+          }, 1000);
+        });
+
+        /**
+         * @link https://github.com/krakenjs/zoid/issues/334
+         */
+        // @ts-expect-error paymentMethod is private property
+        const isPayPalReady = !!window?.paypalPrimer?.Buttons?.instances?.[0];
+
+        if (++counter < 20 && !isPayPalReady) {
+          setTimeout(checkPayPalEnabler, 0);
+        } else if (!isPayPalReady) {
+          reject(
+            new PrimerError(
+              'PayPal paypal_js_sdk_v5_unhandled_exception was detected',
+              PaymentMethod.PAYPAL
+            )
+          );
+        } else {
+          resolve();
+        }
+      };
+      checkPayPalEnabler();
+    });
+  }
 
   async renderButton(
     allowedPaymentMethod:
@@ -125,6 +161,9 @@ class PrimerWrapper implements PrimerWrapperInterface {
       }
       button = pmManager.createButton();
       await button.render(htmlNode, {});
+      if (allowedPaymentMethod === PaymentMethod.PAYPAL) {
+        await this.waitForPayPalReady();
+      }
       this.destroyCallbacks.push(() => button.clean());
       onMethodRender(allowedPaymentMethod);
       return {
@@ -155,12 +194,15 @@ class PrimerWrapper implements PrimerWrapperInterface {
         );
       }
 
-      return this.renderCardCheckoutWithElements(options.cardElements, {
-        onSubmit: options.onSubmit,
-        onInputChange: options.onInputChange,
-        onMethodRenderError: options.onMethodRenderError,
-        onMethodRender: options.onMethodRender,
-      });
+      return this.renderCardCheckoutWithElements(
+        options.cardElements as CardInputElementsWithButton,
+        {
+          onSubmit: options.onSubmit,
+          onInputChange: options.onInputChange,
+          onMethodRenderError: options.onMethodRenderError,
+          onMethodRender: options.onMethodRender,
+        }
+      );
     } else {
       try {
         return await this.renderButton(method, {

@@ -4,9 +4,10 @@ import paypalTemplate from './paypal.html';
 import googlePayTemplate from './google-pay.html';
 import applePayTemplate from './apple-pay.html';
 import './styles.css';
-import type { Skin, CardInputElementsWithButton, SkinFactory } from '../types';
+import type { Skin, SkinFactory } from '../types';
 import { PaymentMethod } from '../../enums';
 import {
+  CardInputElementsWithButton,
   CardInputSelectors,
   CheckoutConfig,
   CheckoutState,

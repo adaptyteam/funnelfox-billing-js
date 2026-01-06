@@ -9,7 +9,12 @@ import type {
   OnTokenizeSuccess,
 } from '@primer-io/checkout-web';
 
-export { PaymentMethod } from './enums';
+export enum PaymentMethod {
+  GOOGLE_PAY = 'GOOGLE_PAY',
+  APPLE_PAY = 'APPLE_PAY',
+  PAYPAL = 'PAYPAL',
+  PAYMENT_CARD = 'PAYMENT_CARD',
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MetadataType = Record<string, any>;
@@ -259,7 +264,7 @@ export interface InitMethodOptions
   priceId: string;
   externalId: string;
   email: string;
-  meta: MetadataType;
+  meta?: MetadataType;
   onRenderSuccess: () => void;
   onRenderError: (err: PaymentMethod) => void;
 
@@ -305,9 +310,11 @@ export interface CardInputElements {
   expiryDate: HTMLElement;
   cvv: HTMLElement;
   cardholderName: HTMLElement;
-  button: HTMLButtonElement;
 }
 
+export interface CardInputElementsWithButton extends CardInputElements {
+  button: HTMLButtonElement;
+}
 export interface PaymentButtonElements {
   paypal: HTMLElement;
   googlePay: HTMLElement;

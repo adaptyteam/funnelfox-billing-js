@@ -5,19 +5,10 @@ import type {
   PrimerWrapperInterface,
   PaymentButtonElements,
   CheckoutConfig,
+  PaymentMethod,
+  CardInputElements,
+  CardInputElementsWithButton,
 } from '../types';
-import type { PaymentMethod } from '../enums';
-
-export interface CardInputElements {
-  cardNumber: HTMLElement;
-  expiryDate: HTMLElement;
-  cvv: HTMLElement;
-  cardholderName?: HTMLElement;
-}
-
-export interface CardInputElementsWithButton extends CardInputElements {
-  button: HTMLButtonElement;
-}
 
 export interface Skin {
   init(): Promise<void>;

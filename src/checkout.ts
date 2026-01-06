@@ -14,7 +14,7 @@ import {
   type PaymentResult,
   type CheckoutState,
   CardInputSelectors,
-  CardInputElements,
+  CardInputElementsWithButton,
   PaymentButtonSelectors,
   PaymentButtonElements,
   CheckoutOptions,
@@ -27,11 +27,7 @@ import type {
   OnTokenizeSuccessHandler,
 } from '@primer-io/checkout-web';
 import { PaymentMethod } from './enums';
-import type {
-  CardInputElementsWithButton,
-  Skin,
-  SkinFactory,
-} from './skins/types';
+import type { Skin, SkinFactory } from './skins/types';
 import { renderLoader, hideLoader } from './assets/loader/loader';
 import type { CreateClientSessionResponse } from './types';
 
@@ -198,7 +194,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   private convertCardSelectorsToElements(
     selectors: CardInputSelectors,
     container: HTMLElement
-  ): CardInputElements {
+  ): CardInputElementsWithButton {
     const cardNumber = container.querySelector(
       selectors.cardNumber
     ) as HTMLElement;
