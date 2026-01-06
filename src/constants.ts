@@ -145,3 +145,10 @@ export const loaderStyles = {
   borderRightColor: 'transparent',
   borderRadius: '50%',
 };
+
+export const DEFAULT_PAYMENT_METHOD_ORDER = [
+  PaymentMethod.APPLE_PAY,
+  PaymentMethod.GOOGLE_PAY,
+  PaymentMethod.PAYPAL,
+  PaymentMethod.PAYMENT_CARD,
+];

@@ -8,7 +8,7 @@ import { CheckoutError } from './errors';
 import { requireString } from './utils/validation';
 import { generateId } from './utils/helpers';
 import APIClient from './api-client';
-import { DEFAULTS, EVENTS } from './constants';
+import { DEFAULT_PAYMENT_METHOD_ORDER, DEFAULTS, EVENTS } from './constants';
 import {
   type CheckoutConfigWithCallbacks,
   type PaymentResult,
@@ -74,12 +74,6 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   isDestroyed: boolean;
   apiClient!: APIClient;
   private counter: number = 0;
-  paymentMethodOrder: PaymentMethod[] = [
-    PaymentMethod.APPLE_PAY,
-    PaymentMethod.GOOGLE_PAY,
-    PaymentMethod.PAYPAL,
-    PaymentMethod.PAYMENT_CARD,
-  ];
   private static sessionCache = new Map<string, CreateClientSessionResponse>();
 
   constructor(config: {
@@ -274,9 +268,8 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       !this.checkoutConfig.cardSelectors ||
       !this.checkoutConfig.paymentButtonSelectors
     ) {
-      if (this.checkoutConfig.paymentMethodOrder) {
-        this.paymentMethodOrder = this.checkoutConfig.paymentMethodOrder;
-      }
+      this.checkoutConfig.paymentMethodOrder =
+        this.checkoutConfig.paymentMethodOrder || DEFAULT_PAYMENT_METHOD_ORDER;
       const defaultSkinCheckoutOptions =
         await this.getDefaultSkinCheckoutOptions();
       if (
@@ -576,8 +569,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       .default as SkinFactory;
     const skin: Skin = await skinFactory(
       this.primerWrapper,
-      this.checkoutConfig.container,
-      this.paymentMethodOrder
+      this.checkoutConfig
     );
 
     this.on(EVENTS.INPUT_ERROR, skin.onInputError);
@@ -596,7 +588,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   }
   private async getCardDefaultSkinCheckoutOptions(node: HTMLElement) {
     const CardSkin = (await import('./skins/card')).default;
-    const skin: Skin = new CardSkin(node);
+    const skin: Skin = new CardSkin(node, this.checkoutConfig);
     skin.init();
     this.on(EVENTS.INPUT_ERROR, skin.onInputError);
     return skin.getCheckoutOptions();

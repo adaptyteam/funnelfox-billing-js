@@ -13,6 +13,7 @@
   }
   
   .ff-card-form-cardholder-input {
+    margin: 0 0 3px;
     padding-left: 10px;
     padding-right: 10px;
     box-sizing: border-box;
@@ -24,12 +25,13 @@
     border-radius: 6px;
     transition: all 0.3s ease;
     box-shadow: none;
+    outline: none;
   }
   .ff-card-form-cardholder-input.error {
     border-color: #e32f41;
   }
   
-  .errorContainer {
+  .errorContainer:not(:empty) {
     color: #d10000;
     font-size: 16px;
     line-height: 1;

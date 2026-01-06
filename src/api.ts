@@ -141,6 +141,11 @@ export async function initMethod(
       },
       container: '',
       clientMetadata: options.meta,
+      card: options.card,
+      style: options.style,
+      applePay: options.applePay,
+      paypal: options.paypal,
+      googlePay: options.googlePay,
     },
   });
   checkoutInstance._ensureNotDestroyed();
@@ -159,8 +164,6 @@ export async function initMethod(
     const cardDefaultOptions =
       await checkoutInstance['getCardDefaultSkinCheckoutOptions'](element);
     const checkoutOptions = checkoutInstance['getCheckoutOptions']({
-      style: options.style,
-      card: options.card,
       ...cardDefaultOptions,
     });
     await checkoutInstance.primerWrapper.initializeHeadlessCheckout(
@@ -177,12 +180,7 @@ export async function initMethod(
   }
   await checkoutInstance.primerWrapper.initializeHeadlessCheckout(
     checkoutInstance.clientToken as string,
-    checkoutInstance['getCheckoutOptions']({
-      style: options.style,
-      applePay: options.applePay,
-      paypal: options.paypal,
-      googlePay: options.googlePay,
-    })
+    checkoutInstance['getCheckoutOptions']({})
   );
   return checkoutInstance.primerWrapper.initMethod(method, element, {
     onMethodRender: checkoutInstance['handleMethodRender'],

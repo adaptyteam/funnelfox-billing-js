@@ -4,6 +4,7 @@ import type {
   CheckoutState,
   PrimerWrapperInterface,
   PaymentButtonElements,
+  CheckoutConfig,
 } from '../types';
 import type { PaymentMethod } from '../enums';
 
@@ -67,6 +68,5 @@ export interface Skin {
 
 export type SkinFactory = (
   primerWrapper: PrimerWrapperInterface,
-  containerSelector: string,
-  paymentMethodOrder: PaymentMethod[]
+  checkoutConfig: CheckoutConfig
 ) => Promise<Skin>;

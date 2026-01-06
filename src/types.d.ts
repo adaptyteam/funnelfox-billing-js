@@ -34,7 +34,7 @@ export interface Customer {
 export interface PrimerCheckoutConfig
   extends Pick<
     Partial<HeadlessUniversalCheckoutOptions>,
-    'paypal' | 'applePay' | 'googlePay' | 'style'
+    'paypal' | 'applePay' | 'googlePay' | 'style' | 'card'
   > {
   cardSelectors?: CardInputSelectors;
   paymentButtonSelectors?: PaymentButtonSelectors;

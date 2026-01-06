@@ -8,6 +8,7 @@ import type { Skin, CardInputElementsWithButton, SkinFactory } from '../types';
 import { PaymentMethod } from '../../enums';
 import {
   CardInputSelectors,
+  CheckoutConfig,
   CheckoutState,
   PaymentButtonElements,
   PrimerWrapperInterface,
@@ -30,24 +31,27 @@ class DefaultSkin implements Skin {
   cardInstance: CardSkin;
   paymentMethodOrder: PaymentMethod[];
   availableMethods: PaymentMethod[];
+  checkoutConfig: CheckoutConfig;
 
   constructor(
     primerWrapper: PrimerWrapperInterface,
-    containerSelector: string,
-    paymentMethodOrder: PaymentMethod[]
+    checkoutConfig: CheckoutConfig
   ) {
-    this.containerSelector = containerSelector;
-    this.paymentMethodOrder = paymentMethodOrder;
-    const containerEl = document.querySelector<HTMLElement>(containerSelector);
+    this.containerSelector = checkoutConfig.container;
+    this.paymentMethodOrder = checkoutConfig.paymentMethodOrder;
+    const containerEl = document.querySelector<HTMLElement>(
+      this.containerSelector
+    );
 
     if (!containerEl) {
       throw new Error(
-        `Container element not found for selector: ${containerSelector}`
+        `Container element not found for selector: ${this.containerSelector}`
       );
     }
 
     this.containerEl = containerEl;
     this.primerWrapper = primerWrapper;
+    this.checkoutConfig = checkoutConfig;
   }
 
   private initAccordion() {
@@ -122,7 +126,10 @@ class DefaultSkin implements Skin {
         paymentMethodTemplates[paymentMethod]
       );
     });
-    this.cardInstance = new CardSkin(document.querySelector('#cardForm'));
+    this.cardInstance = new CardSkin(
+      document.querySelector('#cardForm'),
+      this.checkoutConfig
+    );
     this.cardInstance.init();
     this.wireCardInputs();
   }
@@ -262,14 +269,9 @@ class DefaultSkin implements Skin {
 
 const createDefaultSkin: SkinFactory = async (
   primerWrapper: PrimerWrapperInterface,
-  containerSelector: string,
-  paymentMethodOrder: PaymentMethod[]
+  checkoutConfig: CheckoutConfig
 ): Promise<Skin> => {
-  const skin = new DefaultSkin(
-    primerWrapper,
-    containerSelector,
-    paymentMethodOrder
-  );
+  const skin = new DefaultSkin(primerWrapper, checkoutConfig);
   await skin['init']();
   return skin;
 };

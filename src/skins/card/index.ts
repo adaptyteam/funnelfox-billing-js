@@ -2,19 +2,21 @@ import template from './template.html';
 import './styles.css';
 import type { Skin, CardInputElements } from '../types';
 import type { PaymentMethod } from '../../enums';
-import { CardInputSelectors } from '../../types';
+import { CardInputSelectors, CheckoutConfig } from '../../types';
 
 class CardSkin implements Skin {
   private containerEl: HTMLElement;
   private cardInputElements: CardInputElements;
   currentPurchaseMethod: PaymentMethod;
+  checkoutConfig: CheckoutConfig;
 
-  constructor(containerEl: HTMLElement) {
+  constructor(containerEl: HTMLElement, checkoutConfig: CheckoutConfig) {
     if (!containerEl) {
       throw new Error('Container element not found');
     }
 
     this.containerEl = containerEl;
+    this.checkoutConfig = checkoutConfig;
 
     // Initialize with placeholders; real nodes will be wired in `init`.
     this.cardInputElements = {
@@ -30,6 +32,15 @@ class CardSkin implements Skin {
     const expiryDate =
       this.containerEl.querySelector<HTMLElement>('#expiryInput');
     const cvv = this.containerEl.querySelector<HTMLElement>('#cvvInput');
+    let cardholderName: HTMLElement | null = null;
+    if (this.checkoutConfig?.card?.cardholderName) {
+      cardholderName =
+        this.containerEl.querySelector<HTMLElement>('#cardHolderInput');
+    } else {
+      this.containerEl.querySelector<HTMLElement>(
+        '#cardHolderInput'
+      ).parentElement.style.display = 'none';
+    }
 
     if (!cardNumber || !expiryDate || !cvv) {
       throw new Error(
@@ -41,6 +52,7 @@ class CardSkin implements Skin {
       cardNumber,
       expiryDate,
       cvv,
+      cardholderName,
     };
   }
 
@@ -72,7 +84,7 @@ class CardSkin implements Skin {
       cardElements: this.getCardInputElements(),
       card: {
         cardholderName: {
-          required: false,
+          required: !!this.checkoutConfig?.card?.cardholderName,
         },
       },
     };
@@ -85,10 +97,18 @@ class CardSkin implements Skin {
       cardNumber: cardInputElements.cardNumber.parentElement,
       expiryDate: cardInputElements.expiryDate.parentElement,
       cvv: cardInputElements.cvv.parentElement,
+      cardholderName: cardInputElements.cardholderName?.parentElement,
     };
     const errorContainer = elementsMap[name]?.querySelector('.errorContainer');
     if (errorContainer) {
       errorContainer.textContent = error || '';
+    }
+    if (name === 'cardholderName') {
+      if (error) {
+        cardInputElements.cardholderName?.classList?.add('error');
+      } else {
+        cardInputElements.cardholderName?.classList?.remove('error');
+      }
     }
   };
 }
