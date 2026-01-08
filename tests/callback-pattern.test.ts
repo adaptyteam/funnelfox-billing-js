@@ -3,11 +3,7 @@
  */
 
 import { configure, createCheckout, Billing } from '../src';
-import {
-  CheckoutConfig,
-  PaymentResult,
-  PrimerWrapperInterface,
-} from '../src/types';
+import { CheckoutConfig, PaymentResult } from '../src/types';
 
 jest.mock('../src/primer-wrapper', () => {
   return jest.fn().mockImplementation(() => ({
@@ -21,14 +17,10 @@ jest.mock('../src/primer-wrapper', () => {
 
 jest.mock('../src/skins/default', () => ({
   __esModule: true,
-  default: jest.fn(
-    async (
-      _primerWrapper: PrimerWrapperInterface,
-      checkoutConfig: CheckoutConfig
-    ) => {
+  default: jest.fn(async (checkoutConfig: CheckoutConfig) => {
       const container = document.querySelector(checkoutConfig.container);
       if (!container) {
-        throw new Error(`Container not found: ${containerSelector}`);
+        throw new Error(`Container not found: ${checkoutConfig.container}`);
       }
 
       container.innerHTML = `
