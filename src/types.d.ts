@@ -318,7 +318,7 @@ export interface CardInputElements {
   cardNumber: HTMLElement;
   expiryDate: HTMLElement;
   cvv: HTMLElement;
-  cardholderName: HTMLElement;
+  cardholderName?: HTMLInputElement;
 }
 
 export interface CardInputElementsWithButton extends CardInputElements {

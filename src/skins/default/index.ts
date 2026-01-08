@@ -12,7 +12,6 @@ import {
   CheckoutConfig,
   CheckoutState,
   PaymentButtonElements,
-  PrimerWrapperInterface,
 } from '../../types';
 import CardSkin from '../card';
 
@@ -27,17 +26,13 @@ class DefaultSkin implements Skin {
   private containerSelector: string;
   private containerEl: HTMLElement;
   private cardInputElements: CardInputElementsWithButton;
-  private primerWrapper: PrimerWrapperInterface;
   currentPurchaseMethod: PaymentMethod;
   cardInstance: CardSkin;
   paymentMethodOrder: PaymentMethod[];
   availableMethods: PaymentMethod[];
   checkoutConfig: CheckoutConfig;
 
-  constructor(
-    primerWrapper: PrimerWrapperInterface,
-    checkoutConfig: CheckoutConfig
-  ) {
+  constructor(checkoutConfig: CheckoutConfig) {
     this.containerSelector = checkoutConfig.container;
     this.paymentMethodOrder = checkoutConfig.paymentMethodOrder;
     const containerEl = document.querySelector<HTMLElement>(
@@ -51,7 +46,6 @@ class DefaultSkin implements Skin {
     }
 
     this.containerEl = containerEl;
-    this.primerWrapper = primerWrapper;
     this.checkoutConfig = checkoutConfig;
   }
 
@@ -185,7 +179,6 @@ class DefaultSkin implements Skin {
   }
 
   onLoaderChange = (isLoading: boolean) => {
-    this.primerWrapper.disableButtons(isLoading);
     document
       .querySelectorAll<HTMLDivElement>(
         `${this.containerSelector} .loader-container`
@@ -272,10 +265,9 @@ class DefaultSkin implements Skin {
 }
 
 const createDefaultSkin: SkinFactory = async (
-  primerWrapper: PrimerWrapperInterface,
   checkoutConfig: CheckoutConfig
 ): Promise<Skin> => {
-  const skin = new DefaultSkin(primerWrapper, checkoutConfig);
+  const skin = new DefaultSkin(checkoutConfig);
   await skin['init']();
   return skin;
 };

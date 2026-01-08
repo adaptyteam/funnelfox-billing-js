@@ -30,17 +30,23 @@ class CardSkin implements Skin {
     const expiryDate =
       this.containerEl.querySelector<HTMLElement>('#expiryInput');
     const cvv = this.containerEl.querySelector<HTMLElement>('#cvvInput');
-    let cardholderName: HTMLElement | null = null;
-    if (this.checkoutConfig?.card?.cardholderName) {
+    const hasCardholderInput = !!this.checkoutConfig?.card?.cardholderName;
+    let cardholderName: HTMLInputElement | undefined = undefined;
+    if (hasCardholderInput) {
       cardholderName =
-        this.containerEl.querySelector<HTMLElement>('#cardHolderInput');
+        this.containerEl.querySelector<HTMLInputElement>('#cardHolderInput');
     } else {
-      this.containerEl.querySelector<HTMLElement>(
+      this.containerEl.querySelector<HTMLInputElement>(
         '#cardHolderInput'
       ).parentElement.style.display = 'none';
     }
 
-    if (!cardNumber || !expiryDate || !cvv) {
+    if (
+      !cardNumber ||
+      !expiryDate ||
+      !cvv ||
+      (hasCardholderInput && !cardholderName)
+    ) {
       throw new Error(
         'One or more card input elements are missing in the default skin'
       );
@@ -111,6 +117,9 @@ class CardSkin implements Skin {
   };
   onMethodRender = () => {
     this.containerEl.style.display = 'block';
+  };
+  onDestroy = () => {
+    this.containerEl.remove();
   };
 }
 

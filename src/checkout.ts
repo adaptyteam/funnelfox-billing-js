@@ -70,7 +70,10 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   isDestroyed: boolean;
   apiClient!: APIClient;
   private counter: number = 0;
-  private static sessionCache = new Map<string, CreateClientSessionResponse>();
+  private static sessionCache = new Map<
+    string,
+    Promise<CreateClientSessionResponse>
+  >();
 
   constructor(config: {
     orgId: string;
@@ -177,13 +180,14 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     let sessionResponse: CreateClientSessionResponse;
 
     // Return cached response if payload hasn't changed
-    const cachedResponse = CheckoutInstance.sessionCache.get(cacheKey);
+    const cachedResponse = await CheckoutInstance.sessionCache.get(cacheKey);
     if (cachedResponse) {
       sessionResponse = cachedResponse;
     } else {
-      sessionResponse = await this.apiClient.createClientSession(sessionParams);
+      const sessionRequest = this.apiClient.createClientSession(sessionParams);
       // Cache the successful response
-      CheckoutInstance.sessionCache.set(cacheKey, sessionResponse);
+      CheckoutInstance.sessionCache.set(cacheKey, sessionRequest);
+      sessionResponse = await sessionRequest;
     }
 
     const sessionData = this.apiClient.processSessionResponse(sessionResponse);
@@ -204,7 +208,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     const cvv = container.querySelector(selectors.cvv) as HTMLElement;
     const cardholderName = container.querySelector(
       selectors.cardholderName
-    ) as HTMLElement;
+    ) as HTMLInputElement;
     const button = container.querySelector(
       selectors.button
     ) as HTMLButtonElement;
@@ -563,10 +567,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   private async getDefaultSkinCheckoutOptions() {
     const skinFactory = (await import('./skins/default'))
       .default as SkinFactory;
-    const skin: Skin = await skinFactory(
-      this.primerWrapper,
-      this.checkoutConfig
-    );
+    const skin: Skin = await skinFactory(this.checkoutConfig);
 
     this.on(EVENTS.INPUT_ERROR, skin.onInputError);
     this.on(EVENTS.STATUS_CHANGE, skin.onStatusChange);
@@ -588,11 +589,12 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     skin.init();
     this.on(EVENTS.INPUT_ERROR, skin.onInputError);
     this.on(EVENTS.METHOD_RENDER, skin.onMethodRender);
+    this.on(EVENTS.SUCCESS, skin.onDestroy);
     return skin.getCheckoutOptions();
   }
   private onLoaderChangeWithRace = (state: boolean) => {
     const isLoading = !!(state ? ++this.counter : --this.counter);
-
+    this.primerWrapper.disableButtons(isLoading);
     this.emit(EVENTS.LOADER_CHANGE, isLoading);
   };
   showInitializingLoader() {

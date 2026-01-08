@@ -38,7 +38,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
   private destroyCallbacks: (() => void)[] = [];
   private headless: PrimerHeadlessCheckout | null = null;
   private availableMethods: PaymentMethod[] = [];
-  private paymentMethodsInterfaces?: PaymentMethodInterface[];
+  private paymentMethodsInterfaces?: PaymentMethodInterface[] = [];
 
   isPrimerAvailable(): boolean {
     return (
@@ -190,7 +190,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
         );
       }
 
-      return await this.renderCardCheckoutWithElements(
+      const cardInterface = await this.renderCardCheckoutWithElements(
         options.cardElements as CardInputElementsWithButton,
         {
           onSubmit: options.onSubmit,
@@ -199,13 +199,17 @@ class PrimerWrapper implements PrimerWrapperInterface {
           onMethodRender: options.onMethodRender,
         }
       );
+      this.paymentMethodsInterfaces.push(cardInterface);
+      return cardInterface;
     } else {
       try {
-        return await this.renderButton(method, {
+        const buttonInterface = await this.renderButton(method, {
           htmlNode,
           onMethodRenderError: options.onMethodRenderError,
           onMethodRender: options.onMethodRender,
         });
+        this.paymentMethodsInterfaces.push(buttonInterface);
+        return buttonInterface;
       } catch (error: unknown) {
         throw new PrimerError('Failed to initialize Primer checkout', error);
       }
@@ -213,13 +217,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
   }
 
   private async renderCardCheckoutWithElements(
-    elements: {
-      cardNumber: HTMLElement;
-      expiryDate: HTMLElement;
-      cvv: HTMLElement;
-      cardholderName: HTMLElement;
-      button: HTMLButtonElement;
-    },
+    elements: CardInputElementsWithButton,
     {
       onSubmit,
       onInputChange,
@@ -334,7 +332,12 @@ class PrimerWrapper implements PrimerWrapperInterface {
           cardNumberInput.setDisabled(disabled);
           expiryInput.setDisabled(disabled);
           cvvInput.setDisabled(disabled);
-          elements.button.disabled = disabled;
+          if (elements.button) {
+            elements.button.disabled = disabled;
+          }
+          if (elements.cardholderName) {
+            elements.cardholderName.disabled = disabled;
+          }
         },
         submit: () => onSubmitHandler(),
         destroy: () => {
@@ -399,7 +402,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
     } = checkoutRenderOptions;
     await this.initializeHeadlessCheckout(clientToken, checkoutOptions);
     onMethodsAvailable?.(this.availableMethods);
-    return Promise.all(
+    await Promise.all(
       this.availableMethods.map(method => {
         if (method === PaymentMethod.PAYMENT_CARD) {
           // For card, use the main container
@@ -424,10 +427,8 @@ class PrimerWrapper implements PrimerWrapperInterface {
           });
         }
       })
-    ).then((interfaces: PaymentMethodInterface[]) => {
-      this.paymentMethodsInterfaces = interfaces;
-      this.isInitialized = true;
-    });
+    );
+    this.isInitialized = true;
   }
 
   private wrapTokenizeHandler(handler: OnTokenizeSuccess): OnTokenizeSuccess {

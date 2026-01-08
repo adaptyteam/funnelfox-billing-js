@@ -2,7 +2,6 @@ import type {
   CardInputSelectors,
   CheckoutOptions,
   CheckoutState,
-  PrimerWrapperInterface,
   PaymentButtonElements,
   CheckoutConfig,
   PaymentMethod,
@@ -57,7 +56,4 @@ export interface Skin {
   onMethodsAvailable?(methods: PaymentMethod[]): void;
 }
 
-export type SkinFactory = (
-  primerWrapper: PrimerWrapperInterface,
-  checkoutConfig: CheckoutConfig
-) => Promise<Skin>;
+export type SkinFactory = (checkoutConfig: CheckoutConfig) => Promise<Skin>;
