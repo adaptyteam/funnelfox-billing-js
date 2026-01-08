@@ -102,9 +102,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - fixed types export `Billing.initMethod`, `PaymentMethod`
 
-## [0.5.0] - 2025-01-06
+## [0.5.0-beta.3] - 2025-01-06
 
 - fixed types export
 - increase default checkout initialization time
 - hide card fields until renderSuccess
 - cache clientSession for `initMethod`
+
+## [0.5.0-beta.4] - 2025-01-08
+
+- remove card elements on Payment Success
+- fix cache clientSession for `initMethod`
+- disable card fields & payment buttons on payment process

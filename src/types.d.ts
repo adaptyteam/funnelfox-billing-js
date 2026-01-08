@@ -36,11 +36,10 @@ export interface Customer {
   countryCode?: string;
 }
 
-export interface PrimerCheckoutConfig
-  extends Pick<
-    Partial<HeadlessUniversalCheckoutOptions>,
-    'paypal' | 'applePay' | 'googlePay' | 'style' | 'card'
-  > {
+export interface PrimerCheckoutConfig extends Pick<
+  Partial<HeadlessUniversalCheckoutOptions>,
+  'paypal' | 'applePay' | 'googlePay' | 'style' | 'card'
+> {
   cardSelectors?: CardInputSelectors;
   paymentButtonSelectors?: PaymentButtonSelectors;
 }
@@ -58,8 +57,7 @@ export interface PaymentButtonSelectors {
   applePay: string;
 }
 
-export interface CheckoutOptions
-  extends Partial<HeadlessUniversalCheckoutOptions> {
+export interface CheckoutOptions extends Partial<HeadlessUniversalCheckoutOptions> {
   onTokenizeSuccess: OnTokenizeSuccess;
   onResumeSuccess: OnResumeSuccess;
 }
@@ -252,13 +250,12 @@ export declare function createClientSession(
   params: CreateClientSessionOptions
 ): Promise<ClientSessionData>;
 
-export interface InitMethodOptions
-  extends Partial<
-    Pick<
-      HeadlessUniversalCheckoutOptions,
-      'style' | 'card' | 'applePay' | 'paypal' | 'googlePay'
-    >
-  > {
+export interface InitMethodOptions extends Partial<
+  Pick<
+    HeadlessUniversalCheckoutOptions,
+    'style' | 'card' | 'applePay' | 'paypal' | 'googlePay'
+  >
+> {
   orgId: string;
   baseUrl?: string;
   priceId: string;
