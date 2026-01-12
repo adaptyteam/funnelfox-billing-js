@@ -10,6 +10,7 @@ import {
   CreateClientSessionResponse,
   CreatePaymentRequest,
   CreatePaymentResponse,
+  OneClickRequest,
   PaymentProcessResult,
 } from './types';
 import { retry, withTimeout } from './utils/helpers';
@@ -230,6 +231,13 @@ class APIClient {
       }
     }
     throw new APIError('Invalid payment response format', null, { response });
+  }
+
+  async oneClick(payload?: OneClickRequest) {
+    return (await this.request(`/billing/${this.orgId}/v1/checkout/one_click`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })) as CreatePaymentResponse;
   }
 }
 

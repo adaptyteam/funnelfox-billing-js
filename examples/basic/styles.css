@@ -91,3 +91,8 @@ div[data-id='submitButton'] button {
   cursor: pointer;
   max-width: 128px;
 }
+
+.ff-integration-card-wrappers {
+  max-width: 358px;
+  margin: 0 auto;
+}

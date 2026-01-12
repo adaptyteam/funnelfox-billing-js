@@ -13,8 +13,6 @@ export {
   NetworkError,
 } from './errors';
 
-export { PaymentMethod } from './enums';
-
 export {
   SDK_VERSION,
   DEFAULTS,
@@ -29,9 +27,13 @@ export const Billing = {
   configure: api.configure,
   createCheckout: api.createCheckout,
   createClientSession: api.createClientSession,
+  initMethod: api.initMethod,
+  silentPurchase: api.silentPurchase,
 };
 
 export default Billing;
+
+export { PaymentMethod } from './enums';
 
 declare global {
   interface Window {

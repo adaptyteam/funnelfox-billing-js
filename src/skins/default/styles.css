@@ -74,7 +74,7 @@
   color: #ffffff;
   border: none;
   font-size: 16px;
-  margin: 0;
+  margin: 12px 0 16px;
 }
 
 .ff-payment-method-radio:checked {
@@ -204,40 +204,6 @@
   gap: 10px;
 }
 
-.ff-card-form-label {
-  display: block;
-  font-size: 16px;
-  margin-bottom: 5px;
-}
-
-.card-form-row {
-  display: flex;
-  flex-direction: row;
-  gap: 10px;
-}
-
-.ff-card-form-cardholder-input {
-  padding-left: 10px;
-  padding-right: 10px;
-  box-sizing: border-box;
-  height: 36px;
-  width: 100%;
-  font-size: 1rem;
-  background-color: transparent;
-  border: 1px solid rgb(0 0 0 / 10%);
-  border-radius: 6px;
-  transition: all 0.3s ease;
-  box-shadow: none;
-}
-.ff-card-form-cardholder-input.error {
-  border-color: #e32f41;
-}
-
-.errorContainer {
-  color: #d10000;
-  font-size: 16px;
-}
-
 .loader-container {
   position: absolute;
   top: 0;
@@ -299,17 +265,4 @@
   align-items: center;
   justify-content: center;
   gap: 16px;
-}
-
-#cvvInput {
-  position: relative;
-}
-
-#cvvInput > svg {
-  z-index: 1;
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 26px;
-  height: 26px;
 }

@@ -9,7 +9,12 @@ import type {
   OnTokenizeSuccess,
 } from '@primer-io/checkout-web';
 
-import type { PaymentMethod } from './enums';
+export enum PaymentMethod {
+  GOOGLE_PAY = 'GOOGLE_PAY',
+  APPLE_PAY = 'APPLE_PAY',
+  PAYPAL = 'PAYPAL',
+  PAYMENT_CARD = 'PAYMENT_CARD',
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MetadataType = Record<string, any>;
@@ -31,11 +36,10 @@ export interface Customer {
   countryCode?: string;
 }
 
-export interface PrimerCheckoutConfig
-  extends Pick<
-    Partial<HeadlessUniversalCheckoutOptions>,
-    'paypal' | 'applePay' | 'googlePay' | 'style'
-  > {
+export interface PrimerCheckoutConfig extends Pick<
+  Partial<HeadlessUniversalCheckoutOptions>,
+  'paypal' | 'applePay' | 'googlePay' | 'style' | 'card'
+> {
   cardSelectors?: CardInputSelectors;
   paymentButtonSelectors?: PaymentButtonSelectors;
 }
@@ -53,20 +57,23 @@ export interface PaymentButtonSelectors {
   applePay: string;
 }
 
-export interface CheckoutOptions
-  extends Partial<HeadlessUniversalCheckoutOptions> {
-  container: string;
-  cardSelectors: CardInputSelectors;
-  paymentButtonSelectors: PaymentButtonSelectors;
+export interface CheckoutOptions extends Partial<HeadlessUniversalCheckoutOptions> {
   onTokenizeSuccess: OnTokenizeSuccess;
   onResumeSuccess: OnResumeSuccess;
-  onSubmit: (isSubmitting: boolean) => void;
-  onInputChange: (
+}
+
+export interface CheckoutRenderOptions {
+  container?: HTMLElement;
+  cardElements?: CardInputElements | CardInputElementsWithButton;
+  paymentButtonElements?: PaymentButtonElements;
+  onSubmit?: (isSubmitting: boolean) => void;
+  onInputChange?: (
     inputName: keyof CardInputSelectors,
     error: string | null
   ) => void;
-  onMethodRender: (method: PaymentMethod) => void;
-  onMethodsAvailable: (methods: PaymentMethod[]) => void;
+  onMethodRender?: (method: PaymentMethod) => void;
+  onMethodRenderError?: (method: PaymentMethod) => void;
+  onMethodsAvailable?: (methods: PaymentMethod[]) => void;
 }
 
 export interface CheckoutConfigWithCallbacks extends CheckoutConfig {
@@ -119,6 +126,18 @@ export interface CheckoutInstance {
   readonly state: CheckoutState;
   readonly orderId: string | null;
   readonly isDestroyed: boolean;
+  initMethod(
+    method: PaymentMethod,
+    element: HTMLElement,
+    options?: {
+      cardElements?: CardInputElements;
+      onSubmit?: (isSubmitting: boolean) => void;
+      onInputChange?: (
+        inputName: keyof CardInputSelectors,
+        error: string | null
+      ) => void;
+    }
+  ): Promise<void | PaymentMethodInterface>;
 
   updatePrice(newPriceId: string): Promise<void>;
   getStatus(): CheckoutStatus;
@@ -231,11 +250,51 @@ export declare function createClientSession(
   params: CreateClientSessionOptions
 ): Promise<ClientSessionData>;
 
+export interface InitMethodOptions extends Partial<
+  Pick<
+    HeadlessUniversalCheckoutOptions,
+    'style' | 'card' | 'applePay' | 'paypal' | 'googlePay'
+  >
+> {
+  orgId: string;
+  baseUrl?: string;
+  priceId: string;
+  externalId: string;
+  email: string;
+  meta?: MetadataType;
+  onRenderSuccess: () => void;
+  onRenderError: (err: PaymentMethod) => void;
+
+  onPaymentSuccess: () => void;
+  onPaymentFail: (err: Error) => void;
+  // Triggered when the customer manually cancels the payment — we need to know about it.
+  onPaymentCancel: () => void;
+
+  onErrorMessageChange: (msg: string) => void;
+  onLoaderChange: (state: boolean) => void; // optional for now, but likely needed later
+}
+
+export declare function initMethod(
+  method: PaymentMethod,
+  htmlNode: HTMLElement,
+  options: InitMethodOptions
+): Promise<PaymentMethodInterface>;
+
+export declare function silentPurchase(options: {
+  priceId: string;
+  externalId: string;
+  clientMetadata: Record<string, string | number | boolean>;
+  orgId: string;
+  baseUrl: string;
+}): Promise<boolean>;
+
 // Billing namespace
 export declare const Billing: {
   configure: typeof configure;
   createCheckout: typeof createCheckout;
   createClientSession: typeof createClientSession;
+  initMethod: typeof initMethod;
+  silentPurchase: typeof silentPurchase;
 };
 
 // Constants
@@ -250,6 +309,22 @@ export interface CardInputSelectors {
   cvv: string;
   cardholderName: string;
   button: string;
+}
+
+export interface CardInputElements {
+  cardNumber: HTMLElement;
+  expiryDate: HTMLElement;
+  cvv: HTMLElement;
+  cardholderName?: HTMLInputElement;
+}
+
+export interface CardInputElementsWithButton extends CardInputElements {
+  button: HTMLButtonElement;
+}
+export interface PaymentButtonElements {
+  paypal: HTMLElement;
+  googlePay: HTMLElement;
+  applePay: HTMLElement;
 }
 
 export interface CreateClientSessionRequest {
@@ -281,14 +356,16 @@ export interface CreatePaymentRequest {
   payment_method_token: string;
 }
 
+export interface PaymentResponseData {
+  action_required_token: string;
+  checkout_status: 'processing' | 'succeeded' | 'failed' | 'cancelled';
+  failed_message_for_user: string;
+  order_id: string;
+}
+
 export interface CreatePaymentResponse {
   status: 'success' | 'error';
-  data: {
-    action_required_token: string;
-    checkout_status: 'processing' | 'succeeded' | 'failed' | 'cancelled';
-    failed_message_for_user: string;
-    order_id: string;
-  };
+  data: PaymentResponseData;
   error?: {
     code: string;
     msg: string;
@@ -305,31 +382,35 @@ export interface PaymentProcessResult {
 
 export interface PaymentMethodInterface {
   setDisabled: (disabled: boolean) => void;
+  submit?: () => Promise<void>;
+  destroy?: () => void;
 }
 
 export interface PrimerWrapperInterface {
   isInitialized: boolean;
   isPrimerAvailable(): boolean;
   ensurePrimerAvailable(): void;
-  renderCardCheckout({
-    cardSelectors,
-    onSubmit,
-    onInputChange,
-  }: {
-    cardSelectors: CardInputSelectors;
-    onSubmit: (isSubmitting: boolean) => void;
-    onInputChange: (
-      inputName: keyof CardInputSelectors,
-      error: string | null
-    ) => void;
-  }): Promise<PaymentMethodInterface>;
+  initMethod(
+    method: PaymentMethod,
+    htmlNode: HTMLElement,
+    options: CheckoutRenderOptions
+  ): Promise<PaymentMethodInterface>;
   renderButton(
-    allowedPaymentMethod: 'GOOGLE_PAY' | 'APPLE_PAY' | 'PAYPAL',
+    allowedPaymentMethod:
+      | PaymentMethod.GOOGLE_PAY
+      | PaymentMethod.APPLE_PAY
+      | PaymentMethod.PAYPAL,
     options: {
-      container: string;
+      htmlNode: HTMLElement;
+      onMethodRenderError: (method: PaymentMethod) => void;
+      onMethodRender: (method: PaymentMethod) => void;
     }
+  ): Promise<PaymentMethodInterface>;
+  renderCheckout(
+    clientToken: string,
+    checkoutOptions: CheckoutOptions,
+    checkoutRenderOptions: CheckoutRenderOptions
   ): Promise<void>;
-  renderCheckout(clientToken: string, options: CheckoutOptions): Promise<void>;
   destroy(): Promise<void>;
   createHandlers(handlers: {
     onSuccess?: () => void;
@@ -340,4 +421,9 @@ export interface PrimerWrapperInterface {
   isActive(): boolean;
   validateContainer(selector: string): Element;
   disableButtons(disabled: boolean): void;
+}
+export interface OneClickRequest {
+  pp_ident: string;
+  external_id: string;
+  client_metadata: Record<string, string | number | boolean>;
 }

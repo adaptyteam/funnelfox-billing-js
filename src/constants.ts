@@ -5,7 +5,7 @@
 import type { CheckoutStyle } from '@primer-io/checkout-web';
 import { PaymentMethod } from './enums';
 
-export const SDK_VERSION = '0.4.6';
+export const SDK_VERSION = '0.5.0';
 
 export const DEFAULTS = {
   BASE_URL: 'https://billing.funnelfox.com',
@@ -35,9 +35,11 @@ export const EVENTS = {
   INPUT_ERROR: 'input-error',
   LOADER_CHANGE: 'loader-change',
   METHOD_RENDER: 'method-render',
+  METHOD_RENDER_ERROR: 'method-render-error',
   START_PURCHASE: 'start-purchase',
   PURCHASE_FAILURE: 'purchase-failure',
   PURCHASE_COMPLETED: 'purchase-completed',
+  PURCHASE_CANCELLED: 'purchase-cancelled',
   METHODS_AVAILABLE: 'methods-available',
 } as const;
 
@@ -143,3 +145,10 @@ export const loaderStyles = {
   borderRightColor: 'transparent',
   borderRadius: '50%',
 };
+
+export const DEFAULT_PAYMENT_METHOD_ORDER = [
+  PaymentMethod.APPLE_PAY,
+  PaymentMethod.GOOGLE_PAY,
+  PaymentMethod.PAYPAL,
+  PaymentMethod.PAYMENT_CARD,
+];

@@ -8,12 +8,15 @@ import { CheckoutError } from './errors';
 import { requireString } from './utils/validation';
 import { generateId } from './utils/helpers';
 import APIClient from './api-client';
-import { DEFAULTS, EVENTS } from './constants';
+import { DEFAULT_PAYMENT_METHOD_ORDER, DEFAULTS, EVENTS } from './constants';
 import {
   type CheckoutConfigWithCallbacks,
   type PaymentResult,
   type CheckoutState,
   CardInputSelectors,
+  CardInputElementsWithButton,
+  PaymentButtonSelectors,
+  PaymentButtonElements,
   CheckoutOptions,
   PaymentProcessResult,
 } from './types';
@@ -26,6 +29,7 @@ import type {
 import { PaymentMethod } from './enums';
 import type { Skin, SkinFactory } from './skins/types';
 import { renderLoader, hideLoader } from './assets/loader/loader';
+import type { CreateClientSessionResponse } from './types';
 
 interface CheckoutEventMap {
   [EVENTS.SUCCESS]: PaymentResult;
@@ -36,10 +40,12 @@ interface CheckoutEventMap {
   [EVENTS.DESTROY]: void;
   [EVENTS.INPUT_ERROR]: { name: keyof CardInputSelectors; error: string };
   [EVENTS.METHOD_RENDER]: PaymentMethod;
+  [EVENTS.METHOD_RENDER_ERROR]: PaymentMethod;
   [EVENTS.LOADER_CHANGE]: boolean;
   [EVENTS.START_PURCHASE]: PaymentMethod;
   [EVENTS.PURCHASE_FAILURE]: Error | unknown | undefined;
   [EVENTS.PURCHASE_COMPLETED]: void;
+  [EVENTS.PURCHASE_CANCELLED]: void;
   [EVENTS.METHODS_AVAILABLE]: [PaymentMethod[]];
 }
 class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
@@ -64,12 +70,10 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   isDestroyed: boolean;
   apiClient!: APIClient;
   private counter: number = 0;
-  paymentMethodOrder: PaymentMethod[] = [
-    PaymentMethod.APPLE_PAY,
-    PaymentMethod.GOOGLE_PAY,
-    PaymentMethod.PAYPAL,
-    PaymentMethod.PAYMENT_CARD,
-  ];
+  private static sessionCache = new Map<
+    string,
+    Promise<CreateClientSessionResponse>
+  >();
 
   constructor(config: {
     orgId: string;
@@ -103,9 +107,6 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.isDestroyed = false;
 
     this._setupCallbackBridges();
-    this.initialize().then(() => {
-      this.checkoutConfig?.onInitialized?.();
-    });
   }
 
   _setupCallbackBridges() {
@@ -127,33 +128,15 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     return super.removeAllListeners();
   }
 
-  private async initialize(): Promise<this> {
+  async initialize(): Promise<this> {
     try {
       this.showInitializingLoader();
       this._setState('initializing');
 
-      this.apiClient = new APIClient({
-        baseUrl: this.baseUrl || DEFAULTS.BASE_URL,
-        orgId: this.orgId,
-        timeout: DEFAULTS.REQUEST_TIMEOUT,
-        retryAttempts: DEFAULTS.RETRY_ATTEMPTS,
-      });
-
-      const sessionResponse = await this.apiClient.createClientSession({
-        priceId: this.checkoutConfig.priceId,
-        externalId: this.checkoutConfig.customer.externalId,
-        email: this.checkoutConfig.customer.email,
-        region: this.region || DEFAULTS.REGION,
-        clientMetadata: this.checkoutConfig.clientMetadata,
-        countryCode: this.checkoutConfig.customer.countryCode,
-      });
-
-      const sessionData =
-        this.apiClient.processSessionResponse(sessionResponse);
-      this.orderId = sessionData.orderId;
-      this.clientToken = sessionData.clientToken;
+      await this.createSession();
       await this._initializePrimerCheckout();
       this._setState('ready');
+      this.checkoutConfig?.onInitialized?.();
       return this;
     } catch (error) {
       this._setState('error');
@@ -171,70 +154,174 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.emit(EVENTS.INPUT_ERROR, { name: inputName, error });
   };
 
-  async _initializePrimerCheckout() {
-    const checkoutOptions: Partial<
-      Pick<CheckoutOptions, 'cardSelectors' | 'paymentButtonSelectors'>
-    > &
-      Omit<CheckoutOptions, 'cardSelectors' | 'paymentButtonSelectors'> = {
-      ...this.checkoutConfig,
-      onTokenizeSuccess: this.handleTokenizeSuccess,
-      onResumeSuccess: this.handleResumeSuccess,
-      onSubmit: this.handleSubmit,
-      onInputChange: this.handleInputChange,
-      onMethodRender: this.handleMethodRender,
-      onMethodsAvailable: this.handleMethodsAvailable,
-      onResumeError: error => {
-        if (
-          error.stack?.includes('PROCESSOR_3DS') &&
-          error.code === 'RESUME_ERROR' &&
-          error.message?.includes('fetch resume key')
-        ) {
-          // Ignore 3DS close error, because it is not understandable by user
-          return;
-        }
-        this.emit(EVENTS.PURCHASE_FAILURE, error);
-      },
-      onCheckoutFail: error => {
-        this.emit(EVENTS.PURCHASE_FAILURE, error);
-      },
-      onTokenizeError: error => {
-        this.emit(EVENTS.PURCHASE_FAILURE, error);
-      },
-      onTokenizeShouldStart: data => {
-        this.emit(EVENTS.ERROR, undefined);
-        this.emit(
-          EVENTS.START_PURCHASE,
-          data.paymentMethodType as PaymentMethod
-        );
-        return true;
-      },
+  private async createSession() {
+    this.apiClient = new APIClient({
+      baseUrl: this.baseUrl || DEFAULTS.BASE_URL,
+      orgId: this.orgId,
+      timeout: DEFAULTS.REQUEST_TIMEOUT,
+      retryAttempts: DEFAULTS.RETRY_ATTEMPTS,
+    });
+
+    const sessionParams = {
+      priceId: this.checkoutConfig.priceId,
+      externalId: this.checkoutConfig.customer.externalId,
+      email: this.checkoutConfig.customer.email,
+      region: this.region || DEFAULTS.REGION,
+      clientMetadata: this.checkoutConfig.clientMetadata,
+      countryCode: this.checkoutConfig.customer.countryCode,
     };
+    const cacheKey = [
+      this.orgId,
+      this.checkoutConfig.priceId,
+      this.checkoutConfig.customer.externalId,
+      this.checkoutConfig.customer.email,
+    ].join('-');
+
+    let sessionResponse: CreateClientSessionResponse;
+
+    // Return cached response if payload hasn't changed
+    const cachedResponse = await CheckoutInstance.sessionCache.get(cacheKey);
+    if (cachedResponse) {
+      sessionResponse = cachedResponse;
+    } else {
+      const sessionRequest = this.apiClient.createClientSession(sessionParams);
+      // Cache the successful response
+      CheckoutInstance.sessionCache.set(cacheKey, sessionRequest);
+      sessionResponse = await sessionRequest;
+    }
+
+    const sessionData = this.apiClient.processSessionResponse(sessionResponse);
+    this.orderId = sessionData.orderId;
+    this.clientToken = sessionData.clientToken;
+  }
+
+  private convertCardSelectorsToElements(
+    selectors: CardInputSelectors,
+    container: HTMLElement
+  ): CardInputElementsWithButton {
+    const cardNumber = container.querySelector(
+      selectors.cardNumber
+    ) as HTMLElement;
+    const expiryDate = container.querySelector(
+      selectors.expiryDate
+    ) as HTMLElement;
+    const cvv = container.querySelector(selectors.cvv) as HTMLElement;
+    const cardholderName = container.querySelector(
+      selectors.cardholderName
+    ) as HTMLInputElement;
+    const button = container.querySelector(
+      selectors.button
+    ) as HTMLButtonElement;
+
+    if (!cardNumber || !expiryDate || !cvv || !button) {
+      throw new CheckoutError(
+        'Required card input elements not found in container'
+      );
+    }
+
+    return {
+      cardNumber,
+      expiryDate,
+      cvv,
+      cardholderName,
+      button,
+    };
+  }
+
+  private convertPaymentButtonSelectorsToElements(
+    selectors: PaymentButtonSelectors
+  ): PaymentButtonElements {
+    const paypal = document.querySelector(selectors.paypal) as HTMLElement;
+    const googlePay = document.querySelector(
+      selectors.googlePay
+    ) as HTMLElement;
+    const applePay = document.querySelector(selectors.applePay) as HTMLElement;
+
+    if (!paypal || !googlePay || !applePay) {
+      throw new CheckoutError(
+        'Required payment button elements not found in container'
+      );
+    }
+
+    return {
+      paypal,
+      googlePay,
+      applePay,
+    };
+  }
+
+  async _initializePrimerCheckout() {
+    // Get container element
+    const containerElement = this.getContainer() as HTMLElement;
+    if (!containerElement) {
+      throw new CheckoutError(
+        `Checkout container not found: ${this.checkoutConfig.container}`
+      );
+    }
+
+    // Get selectors (either from config or default skin)
+    let cardElements: CardInputElementsWithButton;
+    let paymentButtonElements: PaymentButtonElements;
+    let checkoutOptions: CheckoutOptions;
 
     if (
       !this.checkoutConfig.cardSelectors ||
       !this.checkoutConfig.paymentButtonSelectors
     ) {
-      if (this.checkoutConfig.paymentMethodOrder) {
-        this.paymentMethodOrder = this.checkoutConfig.paymentMethodOrder;
-      }
+      this.checkoutConfig.paymentMethodOrder =
+        this.checkoutConfig.paymentMethodOrder || DEFAULT_PAYMENT_METHOD_ORDER;
       const defaultSkinCheckoutOptions =
         await this.getDefaultSkinCheckoutOptions();
-      Object.assign(checkoutOptions, defaultSkinCheckoutOptions);
-    }
-    if (this.checkoutConfig.paymentMethodOrder) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        'paymentMethodOrder is using only for default skin and will be ignored if you are using custom checkout'
+      if (
+        !defaultSkinCheckoutOptions.cardElements ||
+        !defaultSkinCheckoutOptions.paymentButtonElements
+      ) {
+        throw new CheckoutError(
+          'Default skin must provide cardSelectors and paymentButtonSelectors'
+        );
+      }
+      cardElements =
+        defaultSkinCheckoutOptions.cardElements as CardInputElementsWithButton;
+      paymentButtonElements = defaultSkinCheckoutOptions.paymentButtonElements;
+      checkoutOptions = this.getCheckoutOptions(defaultSkinCheckoutOptions);
+    } else {
+      if (this.checkoutConfig.paymentMethodOrder) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          'paymentMethodOrder is using only for default skin and will be ignored if you are using custom checkout'
+        );
+      }
+      cardElements = this.convertCardSelectorsToElements(
+        this.checkoutConfig.cardSelectors,
+        containerElement
       );
+      paymentButtonElements = this.convertPaymentButtonSelectorsToElements(
+        this.checkoutConfig.paymentButtonSelectors
+      );
+      checkoutOptions = this.getCheckoutOptions({});
     }
     await this.primerWrapper.renderCheckout(
       this.clientToken as string,
-      checkoutOptions as CheckoutOptions
+      checkoutOptions,
+      {
+        container: containerElement,
+        cardElements,
+        paymentButtonElements,
+        onSubmit: this.handleSubmit,
+        onInputChange: this.handleInputChange,
+        onMethodRender: this.handleMethodRender,
+        onMethodsAvailable: this.handleMethodsAvailable,
+        onMethodRenderError: this.handleMethodRenderError,
+      }
     );
   }
 
   private handleMethodRender = (method: PaymentMethod) => {
     this.emit(EVENTS.METHOD_RENDER, method);
+  };
+
+  private handleMethodRenderError = (method: PaymentMethod) => {
+    this.emit(EVENTS.METHOD_RENDER_ERROR, method);
   };
 
   private handleSubmit = (isSubmitting: boolean) => {
@@ -342,6 +429,56 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     }
   }
 
+  private getCheckoutOptions(
+    options: Partial<CheckoutOptions>
+  ): CheckoutOptions {
+    let wasPaymentProcessedStarted = false;
+    return {
+      ...this.checkoutConfig,
+      ...options,
+      onTokenizeSuccess: this.handleTokenizeSuccess,
+      onResumeSuccess: this.handleResumeSuccess,
+      onResumeError: error => {
+        if (
+          error.stack?.includes('PROCESSOR_3DS') &&
+          error.code === 'RESUME_ERROR' &&
+          error.message?.includes('fetch resume key')
+        ) {
+          // Ignore 3DS close error, because it is not understandable by user
+          return;
+        }
+        this.emit(EVENTS.PURCHASE_FAILURE, error);
+      },
+      onCheckoutFail: error => {
+        this.emit(EVENTS.PURCHASE_FAILURE, error);
+      },
+      onTokenizeError: error => {
+        this.emit(EVENTS.PURCHASE_FAILURE, error);
+      },
+      onTokenizeShouldStart: data => {
+        this.emit(EVENTS.ERROR, undefined);
+        this.emit(
+          EVENTS.START_PURCHASE,
+          data.paymentMethodType as PaymentMethod
+        );
+        return true;
+      },
+      onPaymentMethodAction: action => {
+        switch (action) {
+          case 'PAYMENT_METHOD_SELECTED':
+            this.emit(EVENTS.ERROR, undefined);
+            break;
+          case 'PAYMENT_METHOD_UNSELECTED':
+            if (!wasPaymentProcessedStarted) {
+              this.emit(EVENTS.PURCHASE_CANCELLED);
+            }
+            wasPaymentProcessedStarted = false;
+            break;
+        }
+      },
+    };
+  }
+
   async updatePrice(newPriceId: string) {
     this._ensureNotDestroyed();
     requireString(newPriceId, 'priceId');
@@ -353,9 +490,11 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
 
     try {
       this._setState('updating');
+      // Invalidate session cache
+      CheckoutInstance.sessionCache.clear();
       await this.apiClient.updateClientSession({
-        orderId: this.orderId as string,
-        clientToken: this.clientToken as string,
+        orderId: this.orderId,
+        clientToken: this.clientToken,
         priceId: newPriceId,
       });
       this.checkoutConfig.priceId = newPriceId;
@@ -428,11 +567,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   private async getDefaultSkinCheckoutOptions() {
     const skinFactory = (await import('./skins/default'))
       .default as SkinFactory;
-    const skin: Skin = await skinFactory(
-      this.primerWrapper,
-      this.checkoutConfig.container,
-      this.paymentMethodOrder
-    );
+    const skin: Skin = await skinFactory(this.checkoutConfig);
 
     this.on(EVENTS.INPUT_ERROR, skin.onInputError);
     this.on(EVENTS.STATUS_CHANGE, skin.onStatusChange);
@@ -440,17 +575,26 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.on(EVENTS.ERROR, (error: Error) => skin.onError(error));
     this.on(EVENTS.LOADER_CHANGE, skin.onLoaderChange);
     this.on(EVENTS.DESTROY, skin.onDestroy);
-    this.on(EVENTS.METHOD_RENDER, skin.onMethodRender);
     this.on(EVENTS.SUCCESS, skin.onSuccess);
     this.on(EVENTS.START_PURCHASE, skin.onStartPurchase);
     this.on(EVENTS.PURCHASE_FAILURE, skin.onPurchaseFailure);
     this.on(EVENTS.PURCHASE_COMPLETED, skin.onPurchaseCompleted);
     this.on(EVENTS.METHODS_AVAILABLE, skin.onMethodsAvailable);
+    this.on(EVENTS.METHODS_AVAILABLE, this.hideInitializingLoader);
+    return skin.getCheckoutOptions();
+  }
+  private async getCardDefaultSkinCheckoutOptions(node: HTMLElement) {
+    const CardSkin = (await import('./skins/card')).default;
+    const skin: Skin = new CardSkin(node, this.checkoutConfig);
+    skin.init();
+    this.on(EVENTS.INPUT_ERROR, skin.onInputError);
+    this.on(EVENTS.METHOD_RENDER, skin.onMethodRender);
+    this.on(EVENTS.SUCCESS, skin.onDestroy);
     return skin.getCheckoutOptions();
   }
   private onLoaderChangeWithRace = (state: boolean) => {
     const isLoading = !!(state ? ++this.counter : --this.counter);
-
+    this.primerWrapper.disableButtons(isLoading);
     this.emit(EVENTS.LOADER_CHANGE, isLoading);
   };
   showInitializingLoader() {

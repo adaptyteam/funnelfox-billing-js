@@ -11,19 +11,21 @@ import type {
   PaymentMethodInfo,
   PaymentMethodToken,
   IHeadlessPaymentMethodButton,
-  PaymentFlow,
   PrimerHeadlessCheckout,
   EventTypes,
   InputMetadata,
 } from '@primer-io/checkout-web';
 import { PrimerError } from './errors';
 import { merge } from './utils/helpers';
+import { loadPrimerSDK } from './utils/primer-loader';
 import { ALLOWED_PAYMENT_METHODS, inputStyle } from './constants';
 import {
   CardInputSelectors,
   CheckoutOptions,
   PaymentMethodInterface,
   PrimerWrapperInterface,
+  CheckoutRenderOptions,
+  CardInputElementsWithButton,
 } from './types';
 import { PaymentMethod } from './enums';
 
@@ -37,9 +39,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
   private destroyCallbacks: (() => void)[] = [];
   private headless: PrimerHeadlessCheckout | null = null;
   private availableMethods: PaymentMethod[] = [];
-  private paymentMethodsInterfaces?: {
-    [key in PaymentMethod]: PaymentMethodInterface;
-  };
+  private paymentMethodsInterfaces?: PaymentMethodInterface[] = [];
 
   isPrimerAvailable(): boolean {
     return (
@@ -47,6 +47,22 @@ class PrimerWrapper implements PrimerWrapperInterface {
       window.Primer &&
       typeof window.Primer?.createHeadless === 'function'
     );
+  }
+
+  /**
+   * Loads Primer SDK if not already available
+   * @param version - Optional version to load (uses default if not specified)
+   */
+  async ensurePrimerLoaded(version?: string): Promise<void> {
+    if (this.isPrimerAvailable()) {
+      return;
+    }
+
+    try {
+      await loadPrimerSDK(version);
+    } catch (error) {
+      throw new PrimerError('Failed to load Primer SDK', error);
+    }
   }
 
   ensurePrimerAvailable() {
@@ -68,15 +84,12 @@ class PrimerWrapper implements PrimerWrapperInterface {
       return this.headless;
     }
 
-    this.ensurePrimerAvailable();
+    // Load Primer SDK if not already available
+    await this.ensurePrimerLoaded();
     const primerOptions = merge<HeadlessUniversalCheckoutOptions>(
       {
         paymentHandling: 'MANUAL',
         apiVersion: '2.4',
-        paypal: {
-          buttonColor: 'blue',
-          paymentFlow: 'PREFER_VAULT' as PaymentFlow,
-        },
       },
       options
     );
@@ -92,41 +105,147 @@ class PrimerWrapper implements PrimerWrapperInterface {
     }
   }
 
-  initializeCardElements(selectors: CardInputSelectors) {
-    const { cardNumber, expiryDate, cvv, cardholderName, button } = selectors;
-
-    return {
-      cardNumber: document.querySelector(cardNumber),
-      expiryDate: document.querySelector(expiryDate),
-      cvv: document.querySelector(cvv),
-      cardholderName: document.querySelector(cardholderName),
-      button: document.querySelector(button) as HTMLButtonElement,
-    };
-  }
-
   disableButtons(disabled: boolean) {
     if (!this.paymentMethodsInterfaces) return;
-    for (const method in this.paymentMethodsInterfaces) {
-      this.paymentMethodsInterfaces[method as PaymentMethod].setDisabled(
-        disabled
-      );
+    for (const paymentMethodInterface of this.paymentMethodsInterfaces) {
+      paymentMethodInterface.setDisabled(disabled);
+    }
+  }
+  private waitForPayPalReady() {
+    return new Promise<void>((resolve, reject) => {
+      let counter = 0;
+      const checkPayPalEnabler = async () => {
+        /**
+         * Wait 1000 seconds for PayPal SDK to initialize
+         */
+        await new Promise<void>(resolve => {
+          setTimeout(() => {
+            resolve();
+          }, 1000);
+        });
+
+        /**
+         * @link https://github.com/krakenjs/zoid/issues/334
+         */
+        // @ts-expect-error paymentMethod is private property
+        const isPayPalReady = !!window?.paypalPrimer?.Buttons?.instances?.[0];
+
+        if (++counter < 20 && !isPayPalReady) {
+          setTimeout(checkPayPalEnabler, 0);
+        } else if (!isPayPalReady) {
+          reject(
+            new PrimerError(
+              'PayPal paypal_js_sdk_v5_unhandled_exception was detected',
+              PaymentMethod.PAYPAL
+            )
+          );
+        } else {
+          resolve();
+        }
+      };
+      checkPayPalEnabler();
+    });
+  }
+
+  async renderButton(
+    allowedPaymentMethod:
+      | PaymentMethod.GOOGLE_PAY
+      | PaymentMethod.APPLE_PAY
+      | PaymentMethod.PAYPAL,
+    {
+      htmlNode,
+      onMethodRenderError,
+      onMethodRender,
+    }: {
+      htmlNode: HTMLElement;
+      onMethodRenderError: (method: PaymentMethod) => void;
+      onMethodRender: (method: PaymentMethod) => void;
+    }
+  ): Promise<PaymentMethodInterface> {
+    let button: IHeadlessPaymentMethodButton;
+    // Ensure Primer SDK is loaded
+    await this.ensurePrimerLoaded();
+    if (!this.headless) {
+      throw new PrimerError('Headless checkout not found');
+    }
+    try {
+      const pmManager =
+        await this.headless.createPaymentMethodManager(allowedPaymentMethod);
+      if (!pmManager) {
+        throw new Error('Payment method manager is not available');
+      }
+      button = pmManager.createButton();
+      await button.render(htmlNode, {});
+      if (allowedPaymentMethod === PaymentMethod.PAYPAL) {
+        await this.waitForPayPalReady();
+      }
+      this.destroyCallbacks.push(() => button.clean());
+      onMethodRender(allowedPaymentMethod);
+      return {
+        setDisabled: (disabled: boolean) => {
+          button.setDisabled(disabled);
+        },
+        destroy: () => button.clean(),
+      };
+    } catch (error: unknown) {
+      onMethodRenderError(allowedPaymentMethod);
+      throw new PrimerError('Failed to initialize Primer checkout', error);
     }
   }
 
-  async renderCardCheckout({
-    onSubmit,
-    cardSelectors,
-    onInputChange,
-  }: {
-    cardSelectors: CardInputSelectors;
-    onSubmit: (isSubmitting: boolean) => void;
-    onInputChange: (
-      inputName: keyof CardInputSelectors,
-      error: string | null
-    ) => void;
-  }): Promise<PaymentMethodInterface> {
+  async initMethod(
+    method: PaymentMethod,
+    htmlNode: HTMLElement,
+    options: CheckoutRenderOptions
+  ): Promise<PaymentMethodInterface> {
+    if (method === PaymentMethod.PAYMENT_CARD) {
+      if (
+        !options.cardElements ||
+        !options.onSubmit ||
+        !options.onInputChange
+      ) {
+        throw new PrimerError(
+          'Card elements, onSubmit, and onInputChange are required for PAYMENT_CARD method'
+        );
+      }
+
+      const cardInterface = await this.renderCardCheckoutWithElements(
+        options.cardElements as CardInputElementsWithButton,
+        {
+          onSubmit: options.onSubmit,
+          onInputChange: options.onInputChange,
+          onMethodRenderError: options.onMethodRenderError,
+          onMethodRender: options.onMethodRender,
+        }
+      );
+      this.paymentMethodsInterfaces.push(cardInterface);
+      return cardInterface;
+    } else {
+      try {
+        const buttonInterface = await this.renderButton(method, {
+          htmlNode,
+          onMethodRenderError: options.onMethodRenderError,
+          onMethodRender: options.onMethodRender,
+        });
+        this.paymentMethodsInterfaces.push(buttonInterface);
+        return buttonInterface;
+      } catch (error: unknown) {
+        throw new PrimerError('Failed to initialize Primer checkout', error);
+      }
+    }
+  }
+
+  private async renderCardCheckoutWithElements(
+    elements: CardInputElementsWithButton,
+    {
+      onSubmit,
+      onInputChange,
+
+      onMethodRenderError,
+      onMethodRender,
+    }: CheckoutRenderOptions
+  ): Promise<PaymentMethodInterface> {
     try {
-      const elements = this.initializeCardElements(cardSelectors);
       const pmManager =
         await this.headless.createPaymentMethodManager('PAYMENT_CARD');
       if (!pmManager) {
@@ -198,7 +317,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
         }
       };
 
-      elements.button.addEventListener('click', onSubmitHandler);
+      elements.button?.addEventListener('click', onSubmitHandler);
 
       await Promise.all([
         cardNumberInput.render(elements.cardNumber, {
@@ -217,71 +336,52 @@ class PrimerWrapper implements PrimerWrapperInterface {
           style: inputStyle,
         }),
       ]);
-      this.destroyCallbacks.push(() => {
+      const onDestroy = () => {
         pmManager.removeHostedInputs();
-        elements.cardholderName.removeEventListener(
+        elements.cardholderName?.removeEventListener(
           'change',
           cardHolderOnChange
         );
-      });
+        elements.button?.removeEventListener('click', onSubmitHandler);
+      };
+      this.destroyCallbacks.push(onDestroy);
+      onMethodRender(PaymentMethod.PAYMENT_CARD);
       return {
         setDisabled: (disabled: boolean) => {
           cardNumberInput.setDisabled(disabled);
           expiryInput.setDisabled(disabled);
           cvvInput.setDisabled(disabled);
-          elements.button.disabled = disabled;
+          if (elements.button) {
+            elements.button.disabled = disabled;
+          }
+          if (elements.cardholderName) {
+            elements.cardholderName.disabled = disabled;
+          }
+        },
+        submit: () => onSubmitHandler(),
+        destroy: () => {
+          this.destroyCallbacks = this.destroyCallbacks.filter(
+            callback => callback !== onDestroy
+          );
+          onDestroy();
         },
       };
     } catch (error: unknown) {
+      onMethodRenderError(PaymentMethod.PAYMENT_CARD);
       throw new PrimerError('Failed to initialize Primer checkout', error);
     }
   }
 
-  async renderButton(
-    allowedPaymentMethod: 'GOOGLE_PAY' | 'APPLE_PAY' | 'PAYPAL',
-    {
-      container,
-    }: {
-      container: string;
-    }
+  async initializeHeadlessCheckout(
+    clientToken: string,
+    primerOptions: CheckoutOptions
   ) {
-    const containerEl = this.validateContainer(container);
-    let button: IHeadlessPaymentMethodButton;
-    this.ensurePrimerAvailable();
-    if (!this.headless) {
-      throw new PrimerError('Headless checkout not found');
-    }
-    try {
-      const pmManager =
-        await this.headless.createPaymentMethodManager(allowedPaymentMethod);
-      if (!pmManager) {
-        throw new Error('Payment method manager is not available');
-      }
-      button = pmManager.createButton();
-      await button.render(containerEl, {});
-      this.destroyCallbacks.push(() => button.clean());
-    } catch (error: unknown) {
-      throw new PrimerError('Failed to initialize Primer checkout', error);
-    }
-  }
-
-  async renderCheckout(clientToken: string, options: CheckoutOptions) {
-    const {
-      cardSelectors,
-      paymentButtonSelectors,
-      container,
-      onTokenizeSuccess,
-      onResumeSuccess,
-      onSubmit,
-      onInputChange,
-      onMethodRender,
-      onMethodsAvailable,
-      ...restPrimerOptions
-    } = options;
     await this.createHeadlessCheckout(clientToken, {
-      ...restPrimerOptions,
-      onTokenizeSuccess: this.wrapTokenizeHandler(onTokenizeSuccess),
-      onResumeSuccess: this.wrapResumeHandler(onResumeSuccess),
+      ...primerOptions,
+      onTokenizeSuccess: this.wrapTokenizeHandler(
+        primerOptions.onTokenizeSuccess
+      ),
+      onResumeSuccess: this.wrapResumeHandler(primerOptions.onResumeSuccess),
       onAvailablePaymentMethodsLoad: (items: PaymentMethodInfo[]) => {
         let isApplePayAvailable = false;
         this.availableMethods = ALLOWED_PAYMENT_METHODS.filter(method => {
@@ -300,31 +400,53 @@ class PrimerWrapper implements PrimerWrapperInterface {
         if (this.availableMethods.length === 0) {
           throw new PrimerError('No allowed payment methods found');
         }
-        onMethodsAvailable(this.availableMethods);
       },
     });
-    const methodOptions = {
-      cardSelectors,
+  }
+
+  async renderCheckout(
+    clientToken: string,
+    checkoutOptions: CheckoutOptions,
+    checkoutRenderOptions: CheckoutRenderOptions
+  ) {
+    const {
+      cardElements,
+      paymentButtonElements,
       container,
       onSubmit,
       onInputChange,
-    };
-    for (const method of this.availableMethods) {
-      if (method === PaymentMethod.PAYMENT_CARD) {
-        await this.renderCardCheckout(methodOptions);
-        onMethodRender(PaymentMethod.PAYMENT_CARD);
-      } else {
-        const container =
-          method === PaymentMethod.PAYPAL
-            ? paymentButtonSelectors.paypal
-            : method === PaymentMethod.GOOGLE_PAY
-              ? paymentButtonSelectors.googlePay
-              : paymentButtonSelectors.applePay;
-        await this.renderButton(method, { container });
-
-        onMethodRender(method);
-      }
-    }
+      onMethodRender,
+      onMethodRenderError,
+      onMethodsAvailable,
+    } = checkoutRenderOptions;
+    await this.initializeHeadlessCheckout(clientToken, checkoutOptions);
+    onMethodsAvailable?.(this.availableMethods);
+    await Promise.all(
+      this.availableMethods.map(method => {
+        if (method === PaymentMethod.PAYMENT_CARD) {
+          // For card, use the main container
+          return this.initMethod(method, container, {
+            cardElements,
+            onSubmit,
+            onInputChange,
+            onMethodRender,
+            onMethodRenderError,
+          });
+        } else {
+          const buttonElementsMap = {
+            [PaymentMethod.PAYPAL]: paymentButtonElements.paypal,
+            [PaymentMethod.GOOGLE_PAY]: paymentButtonElements.googlePay,
+            [PaymentMethod.APPLE_PAY]: paymentButtonElements.applePay,
+          };
+          // For buttons, use the specific button container element
+          const buttonElement = buttonElementsMap[method];
+          return this.initMethod(method, buttonElement, {
+            onMethodRender,
+            onMethodRenderError,
+          });
+        }
+      })
+    );
     this.isInitialized = true;
   }
 
