@@ -119,3 +119,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - hide loader on default skin when methods available
 - automatic dynamically loading Primer via script/CSS injection
+
+## [0.5.1] - 2025-01-12
+
+- fix paypal error by caching primer headless
