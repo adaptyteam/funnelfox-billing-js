@@ -52,8 +52,9 @@ export async function createCheckout(
 ): Promise<CheckoutInstance> {
   const { ...checkoutConfig } = options;
 
+  // Ensure Primer SDK is loaded before creating checkout
   const primerWrapper = new PrimerWrapper();
-  primerWrapper.ensurePrimerAvailable();
+  await primerWrapper.ensurePrimerLoaded();
 
   const config = resolveConfig(options, 'createCheckout');
 
@@ -130,6 +131,10 @@ export async function initMethod(
   element: HTMLElement,
   options: InitMethodOptions
 ) {
+  // Ensure Primer SDK is loaded before initializing payment method
+  const primerWrapper = new PrimerWrapper();
+  await primerWrapper.ensurePrimerLoaded();
+
   const checkoutInstance = new CheckoutInstance({
     orgId: options.orgId,
     baseUrl: options.baseUrl,

@@ -17,6 +17,7 @@ import type {
 } from '@primer-io/checkout-web';
 import { PrimerError } from './errors';
 import { merge } from './utils/helpers';
+import { loadPrimerSDK } from './utils/primer-loader';
 import { ALLOWED_PAYMENT_METHODS, inputStyle } from './constants';
 import {
   CardInputSelectors,
@@ -48,6 +49,22 @@ class PrimerWrapper implements PrimerWrapperInterface {
     );
   }
 
+  /**
+   * Loads Primer SDK if not already available
+   * @param version - Optional version to load (uses default if not specified)
+   */
+  async ensurePrimerLoaded(version?: string): Promise<void> {
+    if (this.isPrimerAvailable()) {
+      return;
+    }
+
+    try {
+      await loadPrimerSDK(version);
+    } catch (error) {
+      throw new PrimerError('Failed to load Primer SDK', error);
+    }
+  }
+
   ensurePrimerAvailable() {
     if (!this.isPrimerAvailable()) {
       throw new PrimerError(
@@ -67,7 +84,8 @@ class PrimerWrapper implements PrimerWrapperInterface {
       return this.headless;
     }
 
-    this.ensurePrimerAvailable();
+    // Load Primer SDK if not already available
+    await this.ensurePrimerLoaded();
     const primerOptions = merge<HeadlessUniversalCheckoutOptions>(
       {
         paymentHandling: 'MANUAL',
@@ -145,7 +163,8 @@ class PrimerWrapper implements PrimerWrapperInterface {
     }
   ): Promise<PaymentMethodInterface> {
     let button: IHeadlessPaymentMethodButton;
-    this.ensurePrimerAvailable();
+    // Ensure Primer SDK is loaded
+    await this.ensurePrimerLoaded();
     if (!this.headless) {
       throw new PrimerError('Headless checkout not found');
     }

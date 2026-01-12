@@ -49,10 +49,8 @@
     "javascript",
     "funnelfox"
   ],
-  "peerDependencies": {
-    "@primer-io/checkout-web": "^2.x"
-  },
   "devDependencies": {
+    "@primer-io/checkout-web": "^2.57.3",
     "@babel/core": "^7.23.0",
     "@babel/preset-env": "^7.23.0",
     "@eslint/js": "^9.39.1",
