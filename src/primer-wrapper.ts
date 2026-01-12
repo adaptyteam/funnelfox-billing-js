@@ -37,7 +37,7 @@ declare global {
 class PrimerWrapper implements PrimerWrapperInterface {
   isInitialized: boolean = false;
   private destroyCallbacks: (() => void)[] = [];
-  private headless: PrimerHeadlessCheckout | null = null;
+  private static headless: Promise<PrimerHeadlessCheckout> | null = null;
   private availableMethods: PaymentMethod[] = [];
   private paymentMethodsInterfaces?: PaymentMethodInterface[] = [];
 
@@ -80,8 +80,8 @@ class PrimerWrapper implements PrimerWrapperInterface {
       onResumeSuccess: OnResumeSuccess;
     }
   ) {
-    if (this.headless) {
-      return this.headless;
+    if (PrimerWrapper.headless) {
+      return PrimerWrapper.headless;
     }
 
     // Load Primer SDK if not already available
@@ -94,12 +94,15 @@ class PrimerWrapper implements PrimerWrapperInterface {
       options
     );
     try {
-      const headless = await window.Primer.createHeadless(
+      PrimerWrapper.headless = window.Primer.createHeadless(
         clientToken,
         primerOptions
-      );
-      await headless.start();
-      this.headless = headless;
+      ).then(async headlessPromise => {
+        const headless = await headlessPromise;
+        await headless.start();
+        return headless;
+      });
+      return await PrimerWrapper.headless;
     } catch (error: unknown) {
       throw new PrimerError('Failed to create Primer headless checkout', error);
     }
@@ -110,41 +113,6 @@ class PrimerWrapper implements PrimerWrapperInterface {
     for (const paymentMethodInterface of this.paymentMethodsInterfaces) {
       paymentMethodInterface.setDisabled(disabled);
     }
-  }
-  private waitForPayPalReady() {
-    return new Promise<void>((resolve, reject) => {
-      let counter = 0;
-      const checkPayPalEnabler = async () => {
-        /**
-         * Wait 1000 seconds for PayPal SDK to initialize
-         */
-        await new Promise<void>(resolve => {
-          setTimeout(() => {
-            resolve();
-          }, 1000);
-        });
-
-        /**
-         * @link https://github.com/krakenjs/zoid/issues/334
-         */
-        // @ts-expect-error paymentMethod is private property
-        const isPayPalReady = !!window?.paypalPrimer?.Buttons?.instances?.[0];
-
-        if (++counter < 20 && !isPayPalReady) {
-          setTimeout(checkPayPalEnabler, 0);
-        } else if (!isPayPalReady) {
-          reject(
-            new PrimerError(
-              'PayPal paypal_js_sdk_v5_unhandled_exception was detected',
-              PaymentMethod.PAYPAL
-            )
-          );
-        } else {
-          resolve();
-        }
-      };
-      checkPayPalEnabler();
-    });
   }
 
   async renderButton(
@@ -165,20 +133,18 @@ class PrimerWrapper implements PrimerWrapperInterface {
     let button: IHeadlessPaymentMethodButton;
     // Ensure Primer SDK is loaded
     await this.ensurePrimerLoaded();
-    if (!this.headless) {
+    if (!PrimerWrapper.headless) {
       throw new PrimerError('Headless checkout not found');
     }
     try {
+      const headless = await PrimerWrapper.headless;
       const pmManager =
-        await this.headless.createPaymentMethodManager(allowedPaymentMethod);
+        await headless.createPaymentMethodManager(allowedPaymentMethod);
       if (!pmManager) {
         throw new Error('Payment method manager is not available');
       }
       button = pmManager.createButton();
       await button.render(htmlNode, {});
-      if (allowedPaymentMethod === PaymentMethod.PAYPAL) {
-        await this.waitForPayPalReady();
-      }
       this.destroyCallbacks.push(() => button.clean());
       onMethodRender(allowedPaymentMethod);
       return {
@@ -198,30 +164,30 @@ class PrimerWrapper implements PrimerWrapperInterface {
     htmlNode: HTMLElement,
     options: CheckoutRenderOptions
   ): Promise<PaymentMethodInterface> {
-    if (method === PaymentMethod.PAYMENT_CARD) {
-      if (
-        !options.cardElements ||
-        !options.onSubmit ||
-        !options.onInputChange
-      ) {
-        throw new PrimerError(
-          'Card elements, onSubmit, and onInputChange are required for PAYMENT_CARD method'
-        );
-      }
-
-      const cardInterface = await this.renderCardCheckoutWithElements(
-        options.cardElements as CardInputElementsWithButton,
-        {
-          onSubmit: options.onSubmit,
-          onInputChange: options.onInputChange,
-          onMethodRenderError: options.onMethodRenderError,
-          onMethodRender: options.onMethodRender,
+    try {
+      if (method === PaymentMethod.PAYMENT_CARD) {
+        if (
+          !options.cardElements ||
+          !options.onSubmit ||
+          !options.onInputChange
+        ) {
+          throw new PrimerError(
+            'Card elements, onSubmit, and onInputChange are required for PAYMENT_CARD method'
+          );
         }
-      );
-      this.paymentMethodsInterfaces.push(cardInterface);
-      return cardInterface;
-    } else {
-      try {
+
+        const cardInterface = await this.renderCardCheckoutWithElements(
+          options.cardElements as CardInputElementsWithButton,
+          {
+            onSubmit: options.onSubmit,
+            onInputChange: options.onInputChange,
+            onMethodRenderError: options.onMethodRenderError,
+            onMethodRender: options.onMethodRender,
+          }
+        );
+        this.paymentMethodsInterfaces.push(cardInterface);
+        return cardInterface;
+      } else {
         const buttonInterface = await this.renderButton(method, {
           htmlNode,
           onMethodRenderError: options.onMethodRenderError,
@@ -229,9 +195,9 @@ class PrimerWrapper implements PrimerWrapperInterface {
         });
         this.paymentMethodsInterfaces.push(buttonInterface);
         return buttonInterface;
-      } catch (error: unknown) {
-        throw new PrimerError('Failed to initialize Primer checkout', error);
       }
+    } catch (error: unknown) {
+      throw new PrimerError('Failed to initialize Primer checkout', error);
     }
   }
 
@@ -246,8 +212,9 @@ class PrimerWrapper implements PrimerWrapperInterface {
     }: CheckoutRenderOptions
   ): Promise<PaymentMethodInterface> {
     try {
+      const headless = await PrimerWrapper.headless;
       const pmManager =
-        await this.headless.createPaymentMethodManager('PAYMENT_CARD');
+        await headless.createPaymentMethodManager('PAYMENT_CARD');
       if (!pmManager) {
         throw new Error('Payment method manager is not available');
       }
