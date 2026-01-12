@@ -114,3 +114,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - remove card elements on Payment Success
 - fix cache clientSession for `initMethod`
 - disable card fields & payment buttons on payment process
+
+## [0.5.0] - 2025-01-12
+
+- hide loader on default skin when methods available
+- automatic dynamically loading Primer via script/CSS injection
