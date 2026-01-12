@@ -8,6 +8,7 @@ import { CheckoutConfig, PaymentResult } from '../src/types';
 jest.mock('../src/primer-wrapper', () => {
   return jest.fn().mockImplementation(() => ({
     ensurePrimerAvailable: jest.fn(),
+    ensurePrimerLoaded: jest.fn().mockResolvedValue(undefined),
     renderCheckout: jest.fn().mockResolvedValue(undefined),
     destroy: jest.fn().mockResolvedValue(undefined),
     disableButtons: jest.fn(),
@@ -18,12 +19,12 @@ jest.mock('../src/primer-wrapper', () => {
 jest.mock('../src/skins/default', () => ({
   __esModule: true,
   default: jest.fn(async (checkoutConfig: CheckoutConfig) => {
-      const container = document.querySelector(checkoutConfig.container);
-      if (!container) {
-        throw new Error(`Container not found: ${checkoutConfig.container}`);
-      }
+    const container = document.querySelector(checkoutConfig.container);
+    if (!container) {
+      throw new Error(`Container not found: ${checkoutConfig.container}`);
+    }
 
-      container.innerHTML = `
+    container.innerHTML = `
       <div class="ff-payment-container">
         <div id="success-screen"></div>
         <div class="loader-container"></div>
@@ -54,87 +55,86 @@ jest.mock('../src/skins/default', () => ({
       </div>
     `;
 
-      const cardNumber = container.querySelector(
-        '#cardNumberInput'
-      ) as HTMLElement;
-      const expiryDate = container.querySelector('#expiryInput') as HTMLElement;
-      const cvv = container.querySelector('#cvvInput') as HTMLElement;
-      const cardholderName = container.querySelector(
-        '#cardHolderInput'
-      ) as HTMLElement;
-      const button = container.querySelector(
-        '#submitButton'
-      ) as HTMLButtonElement;
+    const cardNumber = container.querySelector(
+      '#cardNumberInput'
+    ) as HTMLElement;
+    const expiryDate = container.querySelector('#expiryInput') as HTMLElement;
+    const cvv = container.querySelector('#cvvInput') as HTMLElement;
+    const cardholderName = container.querySelector(
+      '#cardHolderInput'
+    ) as HTMLElement;
+    const button = container.querySelector(
+      '#submitButton'
+    ) as HTMLButtonElement;
 
-      const paypalButton = container.querySelector(
-        '#paypalButton'
-      ) as HTMLElement;
-      const googlePayButton = container.querySelector(
-        '#googlePayButton'
-      ) as HTMLElement;
-      const applePayButton = container.querySelector(
-        '#applePayButton'
-      ) as HTMLElement;
+    const paypalButton = container.querySelector(
+      '#paypalButton'
+    ) as HTMLElement;
+    const googlePayButton = container.querySelector(
+      '#googlePayButton'
+    ) as HTMLElement;
+    const applePayButton = container.querySelector(
+      '#applePayButton'
+    ) as HTMLElement;
 
-      const skin = {
-        init: jest.fn().mockResolvedValue(undefined),
-        renderCardForm: jest.fn(),
-        getCardInputElements: jest.fn().mockReturnValue({
+    const skin = {
+      init: jest.fn().mockResolvedValue(undefined),
+      renderCardForm: jest.fn(),
+      getCardInputElements: jest.fn().mockReturnValue({
+        cardNumber,
+        expiryDate,
+        cvv,
+        cardholderName,
+      }),
+      onLoaderChange: jest.fn(),
+      onError: jest.fn(),
+      onStatusChange: jest.fn(),
+      onSuccess: jest.fn(),
+      onDestroy: jest.fn(),
+      onInputError: jest.fn(),
+      onMethodRender: jest.fn(),
+      onStartPurchase: jest.fn(),
+      onPurchaseFailure: jest.fn(),
+      onPurchaseCompleted: jest.fn(),
+      onMethodsAvailable: jest.fn(),
+      getCheckoutOptions: jest.fn().mockReturnValue({
+        cardElements: {
           cardNumber,
           expiryDate,
           cvv,
           cardholderName,
-        }),
-        onLoaderChange: jest.fn(),
-        onError: jest.fn(),
-        onStatusChange: jest.fn(),
-        onSuccess: jest.fn(),
-        onDestroy: jest.fn(),
-        onInputError: jest.fn(),
-        onMethodRender: jest.fn(),
-        onStartPurchase: jest.fn(),
-        onPurchaseFailure: jest.fn(),
-        onPurchaseCompleted: jest.fn(),
-        onMethodsAvailable: jest.fn(),
-        getCheckoutOptions: jest.fn().mockReturnValue({
-          cardElements: {
-            cardNumber,
-            expiryDate,
-            cvv,
-            cardholderName,
-            button,
+          button,
+        },
+        paymentButtonElements: {
+          paypal: paypalButton,
+          googlePay: googlePayButton,
+          applePay: applePayButton,
+        },
+        card: {
+          cardholderName: {
+            required: false,
           },
-          paymentButtonElements: {
-            paypal: paypalButton,
-            googlePay: googlePayButton,
-            applePay: applePayButton,
-          },
-          card: {
-            cardholderName: {
-              required: false,
-            },
-          },
-          applePay: {
-            buttonStyle: 'black',
-          },
-          paypal: {
-            buttonColor: 'gold',
-            buttonShape: 'pill',
-            buttonLabel: 'pay',
-            buttonSize: 'large',
-            buttonHeight: 54,
-          },
-          googlePay: {
-            buttonColor: 'black',
-            buttonSizeMode: 'fill',
-            buttonType: 'pay',
-          },
-        }),
-      };
+        },
+        applePay: {
+          buttonStyle: 'black',
+        },
+        paypal: {
+          buttonColor: 'gold',
+          buttonShape: 'pill',
+          buttonLabel: 'pay',
+          buttonSize: 'large',
+          buttonHeight: 54,
+        },
+        googlePay: {
+          buttonColor: 'black',
+          buttonSizeMode: 'fill',
+          buttonType: 'pay',
+        },
+      }),
+    };
 
-      return Promise.resolve(skin);
-    }
-  ),
+    return Promise.resolve(skin);
+  }),
 }));
 
 describe('Callback Pattern Tests', () => {
