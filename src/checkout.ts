@@ -575,12 +575,12 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.on(EVENTS.ERROR, (error: Error) => skin.onError(error));
     this.on(EVENTS.LOADER_CHANGE, skin.onLoaderChange);
     this.on(EVENTS.DESTROY, skin.onDestroy);
-    this.on(EVENTS.METHOD_RENDER, skin.onMethodRender);
     this.on(EVENTS.SUCCESS, skin.onSuccess);
     this.on(EVENTS.START_PURCHASE, skin.onStartPurchase);
     this.on(EVENTS.PURCHASE_FAILURE, skin.onPurchaseFailure);
     this.on(EVENTS.PURCHASE_COMPLETED, skin.onPurchaseCompleted);
     this.on(EVENTS.METHODS_AVAILABLE, skin.onMethodsAvailable);
+    this.on(EVENTS.METHODS_AVAILABLE, this.hideInitializingLoader);
     return skin.getCheckoutOptions();
   }
   private async getCardDefaultSkinCheckoutOptions(node: HTMLElement) {

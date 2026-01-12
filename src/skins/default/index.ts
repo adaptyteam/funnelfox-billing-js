@@ -249,6 +249,7 @@ class DefaultSkin implements Skin {
   onMethodsAvailable = (methods: PaymentMethod[]) => {
     this.availableMethods = methods;
     this.initAccordion();
+    methods.forEach(this.onMethodRender);
   };
   onStartPurchase = (paymentMethod: PaymentMethod) => {
     this.currentPurchaseMethod = paymentMethod;
