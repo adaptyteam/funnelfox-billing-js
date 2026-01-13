@@ -449,6 +449,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
   }
 
   async destroy() {
+    PrimerWrapper.headless = null;
     if (this.destroyCallbacks) {
       try {
         Promise.all(this.destroyCallbacks.map(destroy => destroy()));
