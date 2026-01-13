@@ -128,3 +128,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - fix destroying issues
 - add option onPaymentStarted to initMethod
+
+## [0.5.3] - 2025-01-13
+
+- default skin clear own container

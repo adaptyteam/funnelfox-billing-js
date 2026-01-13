@@ -229,7 +229,9 @@ class DefaultSkin implements Skin {
     this.onLoaderChange(false);
   };
   onDestroy = () => {
-    this.containerEl.remove();
+    if (this.containerEl.innerHTML) {
+      this.containerEl.innerHTML = '';
+    }
   };
   onInputError = (event: { name: keyof CardInputSelectors; error: string }) => {
     this.cardInstance.onInputError(event);

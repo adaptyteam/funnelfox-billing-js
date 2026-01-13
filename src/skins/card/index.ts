@@ -119,7 +119,9 @@ class CardSkin implements Skin {
     this.containerEl.style.display = 'block';
   };
   onDestroy = () => {
-    this.containerEl.remove();
+    if (this.containerEl.innerHTML) {
+      this.containerEl.innerHTML = '';
+    }
   };
 }
 
