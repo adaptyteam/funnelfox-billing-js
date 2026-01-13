@@ -519,6 +519,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   async destroy() {
     if (this.isDestroyed) return;
     try {
+      CheckoutInstance.sessionCache.clear();
       await this.primerWrapper.destroy();
       this._setState('destroyed');
       this.orderId = null;

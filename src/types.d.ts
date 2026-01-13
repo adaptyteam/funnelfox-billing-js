@@ -271,7 +271,8 @@ export interface InitMethodOptions extends Partial<
   onPaymentCancel: () => void;
 
   onErrorMessageChange: (msg: string) => void;
-  onLoaderChange: (state: boolean) => void; // optional for now, but likely needed later
+  onLoaderChange: (state: boolean) => void;
+  onPaymentStarted: (method: PaymentMethod) => void;
 }
 
 export declare function initMethod(

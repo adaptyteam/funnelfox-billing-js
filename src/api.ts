@@ -165,6 +165,7 @@ export async function initMethod(
   checkoutInstance.on(EVENTS.PURCHASE_FAILURE, options.onPaymentFail);
   checkoutInstance.on(EVENTS.PURCHASE_CANCELLED, options.onPaymentCancel);
   checkoutInstance.on(EVENTS.ERROR, options.onErrorMessageChange);
+  checkoutInstance.on(EVENTS.START_PURCHASE, options.onPaymentStarted);
   if (method === PaymentMethod.PAYMENT_CARD) {
     const cardDefaultOptions =
       await checkoutInstance['getCardDefaultSkinCheckoutOptions'](element);
