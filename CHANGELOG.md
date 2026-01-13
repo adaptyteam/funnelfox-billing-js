@@ -123,3 +123,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.1] - 2025-01-12
 
 - fix paypal error by caching primer headless
+
+## [0.5.2] - 2025-01-13
+
+- fix destroying issues
+- add option onPaymentStarted to initMethod
