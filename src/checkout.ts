@@ -29,7 +29,7 @@ import type {
 import { PaymentMethod } from './enums';
 import type { Skin, SkinFactory } from './skins/types';
 import { renderLoader, hideLoader } from './assets/loader/loader';
-import type { CreateClientSessionResponse } from './types';
+import type { CreateClientSessionResponse, InitMethodCallbacks } from './types';
 
 interface CheckoutEventMap {
   [EVENTS.SUCCESS]: PaymentResult;
@@ -603,6 +603,54 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   }
   hideInitializingLoader() {
     hideLoader();
+  }
+
+  async initMethod(
+    method: PaymentMethod,
+    element: HTMLElement,
+    callbacks: InitMethodCallbacks
+  ) {
+    this._ensureNotDestroyed();
+    if (!this.isReady()) {
+      await this.createSession();
+    }
+
+    this.on(EVENTS.METHOD_RENDER, callbacks.onRenderSuccess);
+    this.on(EVENTS.METHOD_RENDER_ERROR, callbacks.onRenderError);
+    this.on(EVENTS.LOADER_CHANGE, callbacks.onLoaderChange);
+    this.on(EVENTS.SUCCESS, callbacks.onPaymentSuccess);
+    this.on(EVENTS.PURCHASE_FAILURE, callbacks.onPaymentFail);
+    this.on(EVENTS.PURCHASE_CANCELLED, callbacks.onPaymentCancel);
+    this.on(EVENTS.ERROR, callbacks.onErrorMessageChange);
+    this.on(EVENTS.START_PURCHASE, callbacks.onPaymentStarted);
+
+    if (method === PaymentMethod.PAYMENT_CARD) {
+      const cardDefaultOptions =
+        await this.getCardDefaultSkinCheckoutOptions(element);
+      const checkoutOptions = this.getCheckoutOptions({
+        ...cardDefaultOptions,
+      });
+      await this.primerWrapper.initializeHeadlessCheckout(
+        this.clientToken as string,
+        checkoutOptions
+      );
+      return this.primerWrapper.initMethod(method, element, {
+        cardElements: cardDefaultOptions.cardElements,
+        onSubmit: this.handleSubmit,
+        onInputChange: this.handleInputChange,
+        onMethodRender: this.handleMethodRender,
+        onMethodRenderError: this.handleMethodRenderError,
+      });
+    }
+
+    await this.primerWrapper.initializeHeadlessCheckout(
+      this.clientToken as string,
+      this.getCheckoutOptions({})
+    );
+    return this.primerWrapper.initMethod(method, element, {
+      onMethodRender: this.handleMethodRender,
+      onMethodRenderError: this.handleMethodRenderError,
+    });
   }
 }
 
