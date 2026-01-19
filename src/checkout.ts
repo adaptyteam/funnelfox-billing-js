@@ -621,15 +621,33 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       await this.createSession();
     }
 
-    this.on(EVENTS.METHOD_RENDER, callbacks.onRenderSuccess);
-    this.on(EVENTS.METHOD_RENDER_ERROR, callbacks.onRenderError);
-    this.on(EVENTS.LOADER_CHANGE, callbacks.onLoaderChange);
-    this.on(EVENTS.SUCCESS, callbacks.onPaymentSuccess);
-    this.on(EVENTS.PURCHASE_FAILURE, callbacks.onPaymentFail);
-    this.on(EVENTS.PURCHASE_CANCELLED, callbacks.onPaymentCancel);
-    this.on(EVENTS.ERROR, callbacks.onErrorMessageChange);
-    this.on(EVENTS.START_PURCHASE, callbacks.onPaymentStarted);
-    this.on(EVENTS.METHODS_AVAILABLE, callbacks.onMethodsAvailable);
+    if (callbacks.onRenderSuccess) {
+      this.on(EVENTS.METHOD_RENDER, callbacks.onRenderSuccess);
+    }
+    if (callbacks.onRenderError) {
+      this.on(EVENTS.METHOD_RENDER_ERROR, callbacks.onRenderError);
+    }
+    if (callbacks.onLoaderChange) {
+      this.on(EVENTS.LOADER_CHANGE, callbacks.onLoaderChange);
+    }
+    if (callbacks.onPaymentSuccess) {
+      this.on(EVENTS.SUCCESS, callbacks.onPaymentSuccess);
+    }
+    if (callbacks.onPaymentFail) {
+      this.on(EVENTS.PURCHASE_FAILURE, callbacks.onPaymentFail);
+    }
+    if (callbacks.onPaymentCancel) {
+      this.on(EVENTS.PURCHASE_CANCELLED, callbacks.onPaymentCancel);
+    }
+    if (callbacks.onErrorMessageChange) {
+      this.on(EVENTS.ERROR, callbacks.onErrorMessageChange);
+    }
+    if (callbacks.onPaymentStarted) {
+      this.on(EVENTS.START_PURCHASE, callbacks.onPaymentStarted);
+    }
+    if (callbacks.onMethodsAvailable) {
+      this.on(EVENTS.METHODS_AVAILABLE, callbacks.onMethodsAvailable);
+    }
     let checkoutOptions: CheckoutOptions = this.getCheckoutOptions({});
     let methodOptions: CheckoutRenderOptions = {
       onMethodRender: this.handleMethodRender,

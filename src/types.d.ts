@@ -268,15 +268,15 @@ export interface InitMethodOptions
 }
 
 export interface InitMethodCallbacks {
-  onRenderSuccess: () => void;
-  onRenderError: (err: PaymentMethod) => void;
-  onPaymentSuccess: () => void;
-  onPaymentFail: (err: Error) => void;
-  onPaymentCancel: () => void;
-  onErrorMessageChange: (msg: string) => void;
-  onLoaderChange: (state: boolean) => void;
-  onPaymentStarted: (method: PaymentMethod) => void;
-  onMethodsAvailable: (methods: PaymentMethod[]) => void;
+  onRenderSuccess?: () => void;
+  onRenderError?: (err: PaymentMethod) => void;
+  onPaymentSuccess?: () => void;
+  onPaymentFail?: (err: Error) => void;
+  onPaymentCancel?: () => void;
+  onErrorMessageChange?: (msg: string) => void;
+  onLoaderChange?: (state: boolean) => void;
+  onPaymentStarted?: (method: PaymentMethod) => void;
+  onMethodsAvailable?: (methods: PaymentMethod[]) => void;
 }
 
 export declare function initMethod(
