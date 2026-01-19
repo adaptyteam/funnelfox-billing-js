@@ -173,7 +173,7 @@ class CheckoutPage {
         container: '#checkout-container',
         card: {
           cardholderName: {
-            required: true,
+            required: false,
           },
         },
         apiConfig: {
@@ -489,7 +489,7 @@ class InitMethodPage {
       await Promise.all([
         Billing.initMethod(PaymentMethod.PAYMENT_CARD, cardContainer, {
           ...options,
-          card: { cardholderName: { required: true } },
+          card: { cardholderName: { required: false } },
         }).catch(err => {
           this.logger.log(
             'warn',

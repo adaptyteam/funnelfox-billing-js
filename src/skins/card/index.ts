@@ -30,7 +30,8 @@ class CardSkin implements Skin {
     const expiryDate =
       this.containerEl.querySelector<HTMLElement>('#expiryInput');
     const cvv = this.containerEl.querySelector<HTMLElement>('#cvvInput');
-    const hasCardholderInput = !!this.checkoutConfig?.card?.cardholderName;
+    const hasCardholderInput =
+      !!this.checkoutConfig?.card?.cardholderName?.required;
     let cardholderName: HTMLInputElement | undefined = undefined;
     if (hasCardholderInput) {
       cardholderName =
@@ -69,16 +70,6 @@ class CardSkin implements Skin {
     // Card form is part of the base template; no-op for default skin.
   }
 
-  getCardInputSelectors(): CardInputSelectors {
-    return {
-      cardNumber: '#cardNumberInput',
-      expiryDate: '#expiryInput',
-      cvv: '#cvvInput',
-      cardholderName: '#cardHolderInput',
-      button: '#submitButton',
-    };
-  }
-
   getCardInputElements(): CardInputElements {
     return this.cardInputElements;
   }
@@ -88,7 +79,7 @@ class CardSkin implements Skin {
       cardElements: this.getCardInputElements(),
       card: {
         cardholderName: {
-          required: !!this.checkoutConfig?.card?.cardholderName,
+          required: !!this.checkoutConfig?.card?.cardholderName?.required,
         },
       },
     };

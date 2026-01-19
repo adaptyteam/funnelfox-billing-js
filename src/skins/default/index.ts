@@ -133,13 +133,6 @@ class DefaultSkin implements Skin {
     // Card form is part of the base template; no-op for default skin.
   }
 
-  getCardInputSelectors(): CardInputSelectors {
-    return {
-      ...this.cardInstance.getCardInputSelectors(),
-      button: '#submitButton',
-    };
-  }
-
   getCardInputElements(): CardInputElementsWithButton {
     return {
       ...this.cardInstance.getCardInputElements(),
