@@ -294,6 +294,12 @@ class InitMethodPage {
           `[${priceId}] Loader ${state ? 'shown' : 'hidden'}`
         );
       },
+      onMethodsAvailable: (methods: PaymentMethod[]) => {
+        this.logger.log(
+          'info',
+          `[${priceId}] Methods available: ${methods.join(', ')}`
+        );
+      },
     };
   }
 

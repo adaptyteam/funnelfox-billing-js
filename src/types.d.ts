@@ -276,6 +276,7 @@ export interface InitMethodCallbacks {
   onErrorMessageChange: (msg: string) => void;
   onLoaderChange: (state: boolean) => void;
   onPaymentStarted: (method: PaymentMethod) => void;
+  onMethodsAvailable: (methods: PaymentMethod[]) => void;
 }
 
 export declare function initMethod(

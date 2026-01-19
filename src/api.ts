@@ -159,5 +159,6 @@ export async function initMethod(
     onPaymentCancel: options.onPaymentCancel,
     onErrorMessageChange: options.onErrorMessageChange,
     onPaymentStarted: options.onPaymentStarted,
+    onMethodsAvailable: options.onMethodsAvailable,
   });
 }

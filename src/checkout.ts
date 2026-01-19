@@ -629,6 +629,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.on(EVENTS.PURCHASE_CANCELLED, callbacks.onPaymentCancel);
     this.on(EVENTS.ERROR, callbacks.onErrorMessageChange);
     this.on(EVENTS.START_PURCHASE, callbacks.onPaymentStarted);
+    this.on(EVENTS.METHODS_AVAILABLE, callbacks.onMethodsAvailable);
     let checkoutOptions: CheckoutOptions = this.getCheckoutOptions({});
     let methodOptions: CheckoutRenderOptions = {
       onMethodRender: this.handleMethodRender,
