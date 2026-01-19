@@ -139,3 +139,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - clientSession cache fix
 - improve examples
 - add option onAvaialbleMethods to initMethod
+
+## [0.5.5] - 2025-01-19
+
+- fix cardholder name input
+- make initMethod callbacks optional
