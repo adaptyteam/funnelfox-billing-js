@@ -16,8 +16,8 @@ import type {
   InputMetadata,
 } from '@primer-io/checkout-web';
 import { PrimerError } from './errors';
-import { merge } from './utils/helpers';
 import { loadPrimerSDK } from './utils/primer-loader';
+import { HeadlessManager } from './utils/headless-manager';
 import { ALLOWED_PAYMENT_METHODS, inputStyle } from './constants';
 import {
   CardInputSelectors,
@@ -37,9 +37,10 @@ declare global {
 class PrimerWrapper implements PrimerWrapperInterface {
   isInitialized: boolean = false;
   private destroyCallbacks: (() => void)[] = [];
-  private static headless: Promise<PrimerHeadlessCheckout> | null = null;
+  private currentHeadless: Promise<PrimerHeadlessCheckout> | null = null;
   private availableMethods: PaymentMethod[] = [];
   private paymentMethodsInterfaces?: PaymentMethodInterface[] = [];
+  private static readonly headlessManager = new HeadlessManager();
 
   isPrimerAvailable(): boolean {
     return (
@@ -80,32 +81,13 @@ class PrimerWrapper implements PrimerWrapperInterface {
       onResumeSuccess: OnResumeSuccess;
     }
   ) {
-    if (PrimerWrapper.headless) {
-      return PrimerWrapper.headless;
-    }
-
-    // Load Primer SDK if not already available
     await this.ensurePrimerLoaded();
-    const primerOptions = merge<HeadlessUniversalCheckoutOptions>(
-      {
-        paymentHandling: 'MANUAL',
-        apiVersion: '2.4',
-      },
+    this.currentHeadless = PrimerWrapper.headlessManager.getOrCreate(
+      clientToken,
       options
     );
-    try {
-      PrimerWrapper.headless = window.Primer.createHeadless(
-        clientToken,
-        primerOptions
-      ).then(async headlessPromise => {
-        const headless = await headlessPromise;
-        await headless.start();
-        return headless;
-      });
-      return await PrimerWrapper.headless;
-    } catch (error: unknown) {
-      throw new PrimerError('Failed to create Primer headless checkout', error);
-    }
+
+    return this.currentHeadless;
   }
 
   disableButtons(disabled: boolean) {
@@ -133,11 +115,11 @@ class PrimerWrapper implements PrimerWrapperInterface {
     let button: IHeadlessPaymentMethodButton;
     // Ensure Primer SDK is loaded
     await this.ensurePrimerLoaded();
-    if (!PrimerWrapper.headless) {
+    if (!this.currentHeadless) {
       throw new PrimerError('Headless checkout not found');
     }
     try {
-      const headless = await PrimerWrapper.headless;
+      const headless = await this.currentHeadless;
       const pmManager =
         await headless.createPaymentMethodManager(allowedPaymentMethod);
       if (!pmManager) {
@@ -212,7 +194,10 @@ class PrimerWrapper implements PrimerWrapperInterface {
     }: CheckoutRenderOptions
   ): Promise<PaymentMethodInterface> {
     try {
-      const headless = await PrimerWrapper.headless;
+      if (!this.currentHeadless) {
+        throw new PrimerError('Headless checkout not found');
+      }
+      const headless = await this.currentHeadless;
       const pmManager =
         await headless.createPaymentMethodManager('PAYMENT_CARD');
       if (!pmManager) {
@@ -449,7 +434,10 @@ class PrimerWrapper implements PrimerWrapperInterface {
   }
 
   async destroy() {
-    PrimerWrapper.headless = null;
+    if (this.currentHeadless) {
+      PrimerWrapper.headlessManager.remove(this.currentHeadless);
+      this.currentHeadless = null;
+    }
     if (this.destroyCallbacks) {
       try {
         Promise.all(this.destroyCallbacks.map(destroy => destroy()));

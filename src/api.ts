@@ -5,7 +5,7 @@
 import CheckoutInstance from './checkout';
 import APIClient from './api-client';
 import PrimerWrapper from './primer-wrapper';
-import { DEFAULTS, EVENTS } from './constants';
+import { DEFAULTS } from './constants';
 import type {
   SDKConfig,
   CreateCheckoutOptions,
@@ -131,10 +131,6 @@ export async function initMethod(
   element: HTMLElement,
   options: InitMethodOptions
 ) {
-  // Ensure Primer SDK is loaded before initializing payment method
-  const primerWrapper = new PrimerWrapper();
-  await primerWrapper.ensurePrimerLoaded();
-
   const checkoutInstance = new CheckoutInstance({
     orgId: options.orgId,
     baseUrl: options.baseUrl,
@@ -153,43 +149,16 @@ export async function initMethod(
       googlePay: options.googlePay,
     },
   });
-  checkoutInstance._ensureNotDestroyed();
-  if (!checkoutInstance.isReady()) {
-    await checkoutInstance['createSession']();
-  }
 
-  checkoutInstance.on(EVENTS.METHOD_RENDER, options.onRenderSuccess);
-  checkoutInstance.on(EVENTS.METHOD_RENDER_ERROR, options.onRenderError);
-  checkoutInstance.on(EVENTS.LOADER_CHANGE, options.onLoaderChange);
-  checkoutInstance.on(EVENTS.SUCCESS, options.onPaymentSuccess);
-  checkoutInstance.on(EVENTS.PURCHASE_FAILURE, options.onPaymentFail);
-  checkoutInstance.on(EVENTS.PURCHASE_CANCELLED, options.onPaymentCancel);
-  checkoutInstance.on(EVENTS.ERROR, options.onErrorMessageChange);
-  checkoutInstance.on(EVENTS.START_PURCHASE, options.onPaymentStarted);
-  if (method === PaymentMethod.PAYMENT_CARD) {
-    const cardDefaultOptions =
-      await checkoutInstance['getCardDefaultSkinCheckoutOptions'](element);
-    const checkoutOptions = checkoutInstance['getCheckoutOptions']({
-      ...cardDefaultOptions,
-    });
-    await checkoutInstance.primerWrapper.initializeHeadlessCheckout(
-      checkoutInstance.clientToken as string,
-      checkoutOptions
-    );
-    return checkoutInstance.primerWrapper.initMethod(method, element, {
-      cardElements: cardDefaultOptions.cardElements,
-      onSubmit: checkoutInstance['handleSubmit'],
-      onInputChange: checkoutInstance['handleInputChange'],
-      onMethodRender: checkoutInstance['handleMethodRender'],
-      onMethodRenderError: checkoutInstance['handleMethodRenderError'],
-    });
-  }
-  await checkoutInstance.primerWrapper.initializeHeadlessCheckout(
-    checkoutInstance.clientToken as string,
-    checkoutInstance['getCheckoutOptions']({})
-  );
-  return checkoutInstance.primerWrapper.initMethod(method, element, {
-    onMethodRender: checkoutInstance['handleMethodRender'],
-    onMethodRenderError: checkoutInstance['handleMethodRenderError'],
+  return checkoutInstance.initMethod(method, element, {
+    onRenderSuccess: options.onRenderSuccess,
+    onRenderError: options.onRenderError,
+    onLoaderChange: options.onLoaderChange,
+    onPaymentSuccess: options.onPaymentSuccess,
+    onPaymentFail: options.onPaymentFail,
+    onPaymentCancel: options.onPaymentCancel,
+    onErrorMessageChange: options.onErrorMessageChange,
+    onPaymentStarted: options.onPaymentStarted,
+    onMethodsAvailable: options.onMethodsAvailable,
   });
 }

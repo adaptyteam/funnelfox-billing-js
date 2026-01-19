@@ -250,29 +250,33 @@ export declare function createClientSession(
   params: CreateClientSessionOptions
 ): Promise<ClientSessionData>;
 
-export interface InitMethodOptions extends Partial<
-  Pick<
-    HeadlessUniversalCheckoutOptions,
-    'style' | 'card' | 'applePay' | 'paypal' | 'googlePay'
-  >
-> {
+export interface InitMethodOptions
+  extends
+    Partial<
+      Pick<
+        HeadlessUniversalCheckoutOptions,
+        'style' | 'card' | 'applePay' | 'paypal' | 'googlePay'
+      >
+    >,
+    InitMethodCallbacks {
   orgId: string;
   baseUrl?: string;
   priceId: string;
   externalId: string;
   email: string;
   meta?: MetadataType;
-  onRenderSuccess: () => void;
-  onRenderError: (err: PaymentMethod) => void;
+}
 
-  onPaymentSuccess: () => void;
-  onPaymentFail: (err: Error) => void;
-  // Triggered when the customer manually cancels the payment — we need to know about it.
-  onPaymentCancel: () => void;
-
-  onErrorMessageChange: (msg: string) => void;
-  onLoaderChange: (state: boolean) => void;
-  onPaymentStarted: (method: PaymentMethod) => void;
+export interface InitMethodCallbacks {
+  onRenderSuccess?: () => void;
+  onRenderError?: (err: PaymentMethod) => void;
+  onPaymentSuccess?: () => void;
+  onPaymentFail?: (err: Error) => void;
+  onPaymentCancel?: () => void;
+  onErrorMessageChange?: (msg: string) => void;
+  onLoaderChange?: (state: boolean) => void;
+  onPaymentStarted?: (method: PaymentMethod) => void;
+  onMethodsAvailable?: (methods: PaymentMethod[]) => void;
 }
 
 export declare function initMethod(

@@ -3,46 +3,161 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Funnelfox Billing - Basic Example</title>
+    <title>Funnelfox Billing - Examples</title>
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="https://billing-dev.funnelfox.dev/favicon.ico"
+    />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
   </head>
 
   <body>
-    <div class="container">
-      <h1>Headless Checkout Funnelfox skin</h1>
-      <div class="input-container">
-        <label class="label" for="orgId"> orgId </label>
-        <input
-          class="input"
-          type="text"
-          id="orgId"
-          value="sndbx_697e4e7150b8e5"
-        />
-      </div>
-      <div class="input-container">
-        <label class="label" for="priceId"> priceId </label>
-        <input
-          class="input"
-          type="text"
-          id="priceId"
-          value="price_01JZACPA4QAVM2X52A9W8MHJFT"
-        />
-      </div>
-      <button class="button" id="create-checkout">Create</button>
-      <div id="checkout-container"></div>
-    </div>
-    <div class="container">
-      <h1>Headless Checkout Funnelfox integration</h1>
-      <button class="button" id="create-ff-integration">Create</button>
-      <div id="ff-integration-container">
-        <div class="ff-integration-card-wrappers">
-          <div id="ff-integration-card-container"></div>
-          <button class="button" id="ff-integration-card-submit">Submit</button>
+    <div class="app">
+      <!-- Navigation -->
+      <nav class="nav">
+        <div class="nav-brand">
+          <img
+            src="https://static.funnelfox.io/logo/logo-square-light.png"
+            alt="Funnelfox"
+            class="brand-logo"
+          />
+          <span class="brand-text">Billing SDK</span>
         </div>
-        <div id="ff-integration-applepay"></div>
-        <div id="ff-integration-googlepay"></div>
-        <div id="ff-integration-paypal"></div>
-      </div>
+        <div class="nav-links">
+          <a href="#/checkout" class="nav-link" data-page="checkout">
+            createCheckout
+          </a>
+          <a href="#/init-method" class="nav-link" data-page="init-method">
+            initMethod
+          </a>
+        </div>
+      </nav>
+
+      <!-- Main Content -->
+      <main class="main">
+        <!-- Checkout Page -->
+        <div id="page-checkout" class="page">
+          <div class="page-header">
+            <span class="page-tag">Method</span>
+            <h1 class="page-title">createCheckout()</h1>
+            <p class="page-description">
+              Create a complete checkout experience with the default skin.
+            </p>
+          </div>
+
+          <div class="config-section">
+            <h2 class="section-title">Configuration</h2>
+            <div class="input-grid">
+              <div class="input-group">
+                <label class="input-label" for="checkout-orgId"
+                  >Organization ID</label
+                >
+                <input
+                  class="input"
+                  type="text"
+                  id="checkout-orgId"
+                  value="ffsandbox"
+                  placeholder="Enter org ID"
+                />
+              </div>
+              <div class="input-group">
+                <label class="input-label" for="checkout-priceId"
+                  >Price ID</label
+                >
+                <input
+                  class="input"
+                  type="text"
+                  id="checkout-priceId"
+                  value="another_premium_lifetime_99_99"
+                  placeholder="Enter price ID"
+                />
+              </div>
+            </div>
+            <button class="btn btn-primary" id="create-checkout">
+              Create Checkout
+            </button>
+          </div>
+
+          <div class="result-section">
+            <h2 class="section-title">Preview</h2>
+            <div id="checkout-container" class="checkout-container"></div>
+          </div>
+
+          <div class="logs-section">
+            <h2 class="section-title">Events</h2>
+            <div id="checkout-logs" class="logs-container">
+              <div class="log-placeholder">Events will appear here...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Init Method Page -->
+        <div id="page-init-method" class="page hidden">
+          <div class="page-header">
+            <span class="page-tag">Method</span>
+            <h1 class="page-title">initMethod()</h1>
+            <p class="page-description">
+              Create multiple payment sets with different priceIds. Each set has
+              card + payment buttons.
+            </p>
+          </div>
+
+          <div class="config-section">
+            <div class="section-header">
+              <h2 class="section-title">Add Payment Set</h2>
+            </div>
+            <div class="add-set-form">
+              <div class="input-group">
+                <label class="input-label" for="init-orgId"
+                  >Organization ID</label
+                >
+                <input
+                  class="input"
+                  type="text"
+                  id="init-orgId"
+                  value="ffsandbox"
+                  placeholder="Enter org ID"
+                />
+              </div>
+              <div class="input-group">
+                <label class="input-label" for="init-priceId">Price ID</label>
+                <input
+                  class="input"
+                  type="text"
+                  id="init-priceId"
+                  value="example_paid_intro_eur"
+                  placeholder="Enter price ID"
+                />
+              </div>
+              <button class="btn btn-primary" id="add-payment-set">
+                Add Set
+              </button>
+            </div>
+          </div>
+
+          <!-- Payment Sets Container -->
+          <div id="payment-sets-container"></div>
+
+          <!-- Empty State -->
+          <div class="empty-state" id="empty-state">
+            <p>No payment sets yet. Add one above.</p>
+          </div>
+
+          <div class="logs-section">
+            <h2 class="section-title">Events</h2>
+            <div id="init-logs" class="logs-container">
+              <div class="log-placeholder">Events will appear here...</div>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
 
     <link
