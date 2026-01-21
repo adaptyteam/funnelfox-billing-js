@@ -144,3 +144,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - fix cardholder name input
 - make initMethod callbacks optional
+
+## [0.5.6] - 2025-01-21
+
+- fix default skin apple pay and google pay labels color
+- add X-SDK-Version header to requests

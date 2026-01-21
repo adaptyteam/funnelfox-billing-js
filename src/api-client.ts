@@ -2,7 +2,7 @@
  * @fileoverview API client for Funnefox backend integration
  */
 
-import { API_ENDPOINTS } from './constants';
+import { API_ENDPOINTS, SDK_VERSION } from './constants';
 import { APIError, NetworkError } from './errors';
 import {
   CreateClientSessionOptions,
@@ -41,6 +41,7 @@ class APIClient {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        'X-SDK-Version': SDK_VERSION,
         ...(options.headers || {}),
       },
       ...options,
