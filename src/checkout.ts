@@ -33,6 +33,7 @@ import type {
   CheckoutRenderOptions,
   CreateClientSessionResponse,
   InitMethodCallbacks,
+  MetadataType,
 } from './types';
 import { loadStripe } from '@stripe/stripe-js';
 
@@ -494,7 +495,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     };
   }
 
-  async updatePrice(newPriceId: string) {
+  async updatePrice(newPriceId: string, clientMetadata?: MetadataType) {
     this._ensureNotDestroyed();
     requireString(newPriceId, 'priceId');
     if (this.state === 'processing') {
@@ -511,6 +512,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         orderId: this.orderId,
         clientToken: this.clientToken,
         priceId: newPriceId,
+        clientMetadata,
       });
       this.checkoutConfig.priceId = newPriceId;
       this._setState('ready');

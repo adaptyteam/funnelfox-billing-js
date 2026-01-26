@@ -10,6 +10,7 @@ import {
   CreateClientSessionResponse,
   CreatePaymentRequest,
   CreatePaymentResponse,
+  MetadataType,
   OneClickRequest,
   PaymentProcessResult,
 } from './types';
@@ -117,11 +118,13 @@ class APIClient {
     orderId: string;
     clientToken: string;
     priceId: string;
+    clientMetadata?: MetadataType;
   }) {
     const payload = {
       order_id: params.orderId,
       client_token: params.clientToken,
       pp_ident: params.priceId,
+      client_metadata: params.clientMetadata || {},
     };
     return await this.request(API_ENDPOINTS.UPDATE_CLIENT_SESSION, {
       method: 'POST',
