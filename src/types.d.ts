@@ -347,6 +347,7 @@ export interface CreateClientSessionResponse {
   data: {
     client_token: string;
     order_id: string;
+    stripe_public_key?: string;
   };
   error?: {
     code: string;

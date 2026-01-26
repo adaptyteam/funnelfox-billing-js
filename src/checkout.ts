@@ -34,6 +34,7 @@ import type {
   CreateClientSessionResponse,
   InitMethodCallbacks,
 } from './types';
+import { loadStripe } from '@stripe/stripe-js';
 
 interface CheckoutEventMap {
   [EVENTS.SUCCESS]: PaymentResult;
@@ -188,7 +189,16 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     if (cachedResponse) {
       sessionResponse = await cachedResponse;
     } else {
-      const sessionRequest = this.apiClient.createClientSession(sessionParams);
+      const sessionRequest = this.apiClient
+        .createClientSession(sessionParams)
+        .then(response => {
+          if (response.data?.stripe_public_key) {
+            loadStripe(response.data?.stripe_public_key).then(stripe => {
+              stripe.createRadarSession();
+            });
+          }
+          return response;
+        });
       // Cache the successful response
       CheckoutInstance.sessionCache.set(cacheKey, sessionRequest);
       sessionResponse = await sessionRequest;
