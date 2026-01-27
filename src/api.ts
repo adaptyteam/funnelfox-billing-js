@@ -15,6 +15,7 @@ import type {
 } from './types';
 import { APIError } from './errors';
 import { PaymentMethod } from './enums';
+import { getErrorImage } from './utils/error-image';
 
 let defaultConfig: SDKConfig | null = null;
 
@@ -50,22 +51,31 @@ function resolveConfig(
 export async function createCheckout(
   options: CreateCheckoutOptions
 ): Promise<CheckoutInstance> {
-  const { ...checkoutConfig } = options;
+  try {
+    const { ...checkoutConfig } = options;
 
-  // Ensure Primer SDK is loaded before creating checkout
-  const primerWrapper = new PrimerWrapper();
-  await primerWrapper.ensurePrimerLoaded();
+    // Ensure Primer SDK is loaded before creating checkout
+    const primerWrapper = new PrimerWrapper();
+    await primerWrapper.ensurePrimerLoaded();
 
-  const config = resolveConfig(options, 'createCheckout');
+    const config = resolveConfig(options, 'createCheckout');
 
-  const checkout = new CheckoutInstance({
-    ...config,
-    checkoutConfig: {
-      ...checkoutConfig,
-    },
-  });
-  await checkout.initialize();
-  return checkout;
+    const checkout = new CheckoutInstance({
+      ...config,
+      checkoutConfig: {
+        ...checkoutConfig,
+      },
+    });
+    await checkout.initialize();
+    return checkout;
+  } catch (error) {
+    getErrorImage(options.orgId, {
+      message: error.message,
+      code: error.code,
+      req_id: error?.response?.req_id,
+    });
+    throw error;
+  }
 }
 
 export async function createClientSession(
@@ -109,21 +119,30 @@ export async function silentPurchase(options: {
     retryAttempts: DEFAULTS.RETRY_ATTEMPTS,
   });
 
-  const response = await apiClient.oneClick({
-    pp_ident: priceId,
-    external_id: externalId,
-    client_metadata: clientMetadata,
-  });
-  if (
-    response.status !== 'success' &&
-    response.error.some(({ code }) => code === 'double_purchase')
-  ) {
-    throw new APIError('This product was already purchased');
-  } else if (response.status !== 'success') {
-    return false;
-  }
+  try {
+    const response = await apiClient.oneClick({
+      pp_ident: priceId,
+      external_id: externalId,
+      client_metadata: clientMetadata,
+    });
+    if (
+      response.status !== 'success' &&
+      response.error.some(({ code }) => code === 'double_purchase')
+    ) {
+      throw new APIError('This product was already purchased');
+    } else if (response.status !== 'success') {
+      return false;
+    }
 
-  return true;
+    return true;
+  } catch (error) {
+    getErrorImage(orgId, {
+      message: error.message,
+      code: error.code,
+      req_id: error?.response?.req_id,
+    });
+    throw error;
+  }
 }
 
 export async function initMethod(
@@ -131,34 +150,43 @@ export async function initMethod(
   element: HTMLElement,
   options: InitMethodOptions
 ) {
-  const checkoutInstance = new CheckoutInstance({
-    orgId: options.orgId,
-    baseUrl: options.baseUrl,
-    checkoutConfig: {
-      priceId: options.priceId,
-      customer: {
-        externalId: options.externalId,
-        email: options.email,
+  try {
+    const checkoutInstance = new CheckoutInstance({
+      orgId: options.orgId,
+      baseUrl: options.baseUrl,
+      checkoutConfig: {
+        priceId: options.priceId,
+        customer: {
+          externalId: options.externalId,
+          email: options.email,
+        },
+        container: '',
+        clientMetadata: options.meta,
+        card: options.card,
+        style: options.style,
+        applePay: options.applePay,
+        paypal: options.paypal,
+        googlePay: options.googlePay,
       },
-      container: '',
-      clientMetadata: options.meta,
-      card: options.card,
-      style: options.style,
-      applePay: options.applePay,
-      paypal: options.paypal,
-      googlePay: options.googlePay,
-    },
-  });
+    });
 
-  return checkoutInstance.initMethod(method, element, {
-    onRenderSuccess: options.onRenderSuccess,
-    onRenderError: options.onRenderError,
-    onLoaderChange: options.onLoaderChange,
-    onPaymentSuccess: options.onPaymentSuccess,
-    onPaymentFail: options.onPaymentFail,
-    onPaymentCancel: options.onPaymentCancel,
-    onErrorMessageChange: options.onErrorMessageChange,
-    onPaymentStarted: options.onPaymentStarted,
-    onMethodsAvailable: options.onMethodsAvailable,
-  });
+    return checkoutInstance.initMethod(method, element, {
+      onRenderSuccess: options.onRenderSuccess,
+      onRenderError: options.onRenderError,
+      onLoaderChange: options.onLoaderChange,
+      onPaymentSuccess: options.onPaymentSuccess,
+      onPaymentFail: options.onPaymentFail,
+      onPaymentCancel: options.onPaymentCancel,
+      onErrorMessageChange: options.onErrorMessageChange,
+      onPaymentStarted: options.onPaymentStarted,
+      onMethodsAvailable: options.onMethodsAvailable,
+    });
+  } catch (error) {
+    getErrorImage(options.orgId, {
+      message: error.message,
+      code: error.code,
+      req_id: error?.response?.req_id,
+    });
+    throw error;
+  }
 }

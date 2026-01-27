@@ -133,6 +133,23 @@ const checkout = await createCheckout({
   - `customer.email` (string, required) - Customer email
   - `customer.countryCode` (string, optional) - ISO country code
 - `options.container` (string, required) - CSS selector for checkout container
+
+**Container Styling Requirements (Default Skin):**
+
+When using the default skin, the container element must have the following CSS properties for proper display of the loading indicator:
+
+```css
+#checkout-container {
+  position: relative;
+  min-height: 200px; /* Adjust based on your layout */
+}
+```
+
+- `position: relative` - Required because the loading overlay uses `position: absolute` to cover the container
+- `min-height` - Required to ensure the loader is visible during initialization. Recommended minimum is `200px`
+
+**Additional Parameters:**
+
 - `options.orgId` (string, optional) - Org ID (if not configured globally)
 - `options.clientMetadata` (object, optional) - Custom metadata
 - `options.cardSelectors` (object, optional) - Custom card input selectors (defaults to auto-generated)
@@ -547,6 +564,112 @@ const checkout = await createCheckout({
 - `'APPLE_PAY'` - Apple Pay payment
 
 By default, payment methods are shown in the order: Card, PayPal, Google Pay, Apple Pay. You can reorder them to match your business priorities or regional preferences.
+
+### Using `initMethod` for Single Payment Methods
+
+For scenarios where you want to render a single payment method with full control over placement and callbacks:
+
+```javascript
+import { Billing, PaymentMethod } from '@funnelfox/billing';
+
+const container = document.getElementById('payment-container');
+
+const paymentMethod = await Billing.initMethod(
+  PaymentMethod.PAYMENT_CARD, // or PAYPAL, GOOGLE_PAY, APPLE_PAY
+  container,
+  {
+    // Required
+    orgId: 'your-org-id',
+    priceId: 'price_123',
+    externalId: 'user_456',
+    email: 'user@example.com',
+
+    // Optional - API configuration
+    baseUrl: 'https://custom.api', // Optional, defaults to https://billing.funnelfox.com
+    meta: { source: 'web' }, // Optional metadata
+
+    // Optional - Primer configuration (for customizing payment method behavior)
+    style: {
+      /* Primer style options */
+    },
+    card: {
+      /* Primer card options */
+    },
+    applePay: {
+      /* Primer Apple Pay options */
+    },
+    paypal: {
+      /* Primer PayPal options */
+    },
+    googlePay: {
+      /* Primer Google Pay options */
+    },
+
+    // Callbacks
+    onRenderSuccess: () => {
+      console.log('Payment method rendered successfully');
+    },
+    onRenderError: method => {
+      console.error('Failed to render:', method);
+    },
+    onLoaderChange: isLoading => {
+      console.log('Loading state:', isLoading);
+    },
+    onPaymentStarted: method => {
+      console.log('Payment started with:', method);
+    },
+    onPaymentSuccess: () => {
+      console.log('Payment completed successfully!');
+    },
+    onPaymentFail: error => {
+      console.error('Payment failed:', error.message);
+    },
+    onPaymentCancel: () => {
+      console.log('Payment was cancelled');
+    },
+    onErrorMessageChange: message => {
+      console.log('Error message:', message);
+    },
+    onMethodsAvailable: methods => {
+      console.log('Available methods:', methods);
+    },
+  }
+);
+
+// Control the payment method
+paymentMethod.setDisabled(true); // Disable the payment method
+paymentMethod.setDisabled(false); // Enable it
+
+// For card payments, you can trigger submit programmatically
+if (paymentMethod.submit) {
+  await paymentMethod.submit();
+}
+
+// Clean up when done
+await paymentMethod.destroy();
+```
+
+**Parameters:**
+
+- `method` (PaymentMethod, required) - Payment method to initialize: `PAYMENT_CARD`, `PAYPAL`, `GOOGLE_PAY`, or `APPLE_PAY`
+- `element` (HTMLElement, required) - DOM element where the payment method will be rendered
+- `options` (InitMethodOptions, required):
+  - `orgId` (string, required) - Your organization identifier
+  - `priceId` (string, required) - Price identifier
+  - `externalId` (string, required) - Your user identifier
+  - `email` (string, required) - Customer email
+  - `baseUrl` (string, optional) - Custom API URL
+  - `meta` (object, optional) - Custom metadata
+  - `style`, `card`, `applePay`, `paypal`, `googlePay` (optional) - Primer SDK configuration options
+  - Callbacks (all optional): `onRenderSuccess`, `onRenderError`, `onLoaderChange`, `onPaymentStarted`, `onPaymentSuccess`, `onPaymentFail`, `onPaymentCancel`, `onErrorMessageChange`, `onMethodsAvailable`
+
+**Returns:** `Promise<PaymentMethodInterface>` with methods:
+
+- `setDisabled(disabled: boolean)` - Enable/disable the payment method
+- `submit()` - Trigger form submission (available for card payments)
+- `destroy()` - Clean up and remove the payment method
+
+---
 
 ### Manual Session Creation
 

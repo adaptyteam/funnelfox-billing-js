@@ -33,7 +33,10 @@ import type {
   CheckoutRenderOptions,
   CreateClientSessionResponse,
   InitMethodCallbacks,
+  MetadataType,
 } from './types';
+import { loadStripe } from '@stripe/stripe-js';
+import { renderError } from './assets/error/error';
 
 interface CheckoutEventMap {
   [EVENTS.SUCCESS]: PaymentResult;
@@ -78,6 +81,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     string,
     Promise<CreateClientSessionResponse>
   >();
+  private radarSessionId: Promise<string> | null = null;
 
   constructor(config: {
     orgId: string;
@@ -144,6 +148,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       return this;
     } catch (error) {
       this._setState('error');
+      renderError(this.checkoutConfig.container, error?.response?.req_id);
       this.emit(EVENTS.ERROR, error as Error);
       throw error;
     } finally {
@@ -188,7 +193,19 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     if (cachedResponse) {
       sessionResponse = await cachedResponse;
     } else {
-      const sessionRequest = this.apiClient.createClientSession(sessionParams);
+      const sessionRequest = this.apiClient
+        .createClientSession(sessionParams)
+        .then(response => {
+          if (response.data?.stripe_public_key) {
+            loadStripe(response.data?.stripe_public_key).then(stripe => {
+              this.radarSessionId = stripe
+                .createRadarSession()
+                .then(session => session?.radarSession?.id)
+                .catch(() => '');
+            });
+          }
+          return response;
+        });
       // Cache the successful response
       CheckoutInstance.sessionCache.set(cacheKey, sessionRequest);
       sessionResponse = await sessionRequest;
@@ -340,9 +357,13 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     try {
       this.onLoaderChangeWithRace(true);
       this._setState('processing');
+      const radarSessionId = await this.radarSessionId;
       const paymentResponse = await this.apiClient.createPayment({
         orderId: this.orderId as string,
         paymentMethodToken: paymentMethodTokenData.token,
+        clientMetadata: {
+          radarSessionId,
+        },
       });
       const result = this.apiClient.processPaymentResponse(paymentResponse);
       await this._processPaymentResult(result, primerHandler);
@@ -484,7 +505,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     };
   }
 
-  async updatePrice(newPriceId: string) {
+  async updatePrice(newPriceId: string, clientMetadata?: MetadataType) {
     this._ensureNotDestroyed();
     requireString(newPriceId, 'priceId');
     if (this.state === 'processing') {
@@ -501,6 +522,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         orderId: this.orderId,
         clientToken: this.clientToken,
         priceId: newPriceId,
+        clientMetadata,
       });
       this.checkoutConfig.priceId = newPriceId;
       this._setState('ready');

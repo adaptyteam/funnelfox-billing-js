@@ -347,6 +347,7 @@ export interface CreateClientSessionResponse {
   data: {
     client_token: string;
     order_id: string;
+    stripe_public_key?: string;
   };
   error?: {
     code: string;
@@ -359,6 +360,7 @@ export interface CreateClientSessionResponse {
 export interface CreatePaymentRequest {
   order_id: string;
   payment_method_token: string;
+  client_metadata?: MetadataType;
 }
 
 export interface PaymentResponseData {
