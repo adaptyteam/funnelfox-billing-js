@@ -81,6 +81,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     string,
     Promise<CreateClientSessionResponse>
   >();
+  private radarSessionId: Promise<string> | null = null;
 
   constructor(config: {
     orgId: string;
@@ -197,7 +198,10 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         .then(response => {
           if (response.data?.stripe_public_key) {
             loadStripe(response.data?.stripe_public_key).then(stripe => {
-              stripe.createRadarSession();
+              this.radarSessionId = stripe
+                .createRadarSession()
+                .then(session => session?.radarSession?.id)
+                .catch(() => '');
             });
           }
           return response;
@@ -353,9 +357,13 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     try {
       this.onLoaderChangeWithRace(true);
       this._setState('processing');
+      const radarSessionId = await this.radarSessionId;
       const paymentResponse = await this.apiClient.createPayment({
         orderId: this.orderId as string,
         paymentMethodToken: paymentMethodTokenData.token,
+        clientMetadata: {
+          radarSessionId,
+        },
       });
       const result = this.apiClient.processPaymentResponse(paymentResponse);
       await this._processPaymentResult(result, primerHandler);

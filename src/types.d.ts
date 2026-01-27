@@ -360,6 +360,7 @@ export interface CreateClientSessionResponse {
 export interface CreatePaymentRequest {
   order_id: string;
   payment_method_token: string;
+  client_metadata?: MetadataType;
 }
 
 export interface PaymentResponseData {

@@ -135,10 +135,12 @@ class APIClient {
   async createPayment(params: {
     orderId: string;
     paymentMethodToken: string;
+    clientMetadata?: MetadataType;
   }): Promise<CreatePaymentResponse> {
     const payload: CreatePaymentRequest = {
       order_id: params.orderId,
       payment_method_token: params.paymentMethodToken,
+      client_metadata: params.clientMetadata || {},
     };
     return (await this.request(API_ENDPOINTS.CREATE_PAYMENT, {
       method: 'POST',
