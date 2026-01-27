@@ -36,6 +36,7 @@ import type {
   MetadataType,
 } from './types';
 import { loadStripe } from '@stripe/stripe-js';
+import { renderError } from './assets/error/error';
 
 interface CheckoutEventMap {
   [EVENTS.SUCCESS]: PaymentResult;
@@ -146,6 +147,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       return this;
     } catch (error) {
       this._setState('error');
+      renderError(this.checkoutConfig.container, error?.response?.req_id);
       this.emit(EVENTS.ERROR, error as Error);
       throw error;
     } finally {
