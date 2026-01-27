@@ -149,3 +149,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - fix default skin apple pay and google pay labels color
 - add X-SDK-Version header to requests
+
+## [0.5.7] - 2025-01-27
+
+- add stripe radar session
+- render image on error for analytics
+- add ability to pass metadata on updateClientSession
+- display error badge if createCheckout fails
