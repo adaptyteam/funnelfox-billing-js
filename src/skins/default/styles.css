@@ -174,12 +174,6 @@
   justify-content: center;
 }
 
-/* hack for FFB-169 */
-.ff-google-pay-button-container button, .ff-apple-pay-button-container button {
-  height: 54px !important;
-  border-radius: 28px !important;
-}
-
 /* Security message */
 .ff-security-message {
   text-align: center;

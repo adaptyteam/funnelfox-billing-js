@@ -14,6 +14,7 @@ import {
   PaymentButtonElements,
 } from '../../types';
 import CardSkin from '../card';
+import { DEFAULT_BUTTONS_STYLES } from '../../constants';
 
 const paymentMethodTemplates: Record<PaymentMethod, string> = {
   [PaymentMethod.PAYMENT_CARD]: cardTemplate,
@@ -153,21 +154,9 @@ class DefaultSkin implements Skin {
       ...this.cardInstance.getCheckoutOptions(),
       cardElements: this.getCardInputElements(),
       paymentButtonElements: this.getPaymentButtonElements(),
-      applePay: {
-        buttonStyle: 'black',
-      },
-      paypal: {
-        buttonColor: 'gold',
-        buttonShape: 'pill',
-        buttonLabel: 'pay',
-        buttonSize: 'large',
-        buttonHeight: 54,
-      },
-      googlePay: {
-        buttonColor: 'black',
-        buttonSizeMode: 'fill',
-        buttonType: 'pay',
-      },
+      applePay: DEFAULT_BUTTONS_STYLES[PaymentMethod.APPLE_PAY],
+      paypal: DEFAULT_BUTTONS_STYLES[PaymentMethod.PAYPAL],
+      googlePay: DEFAULT_BUTTONS_STYLES[PaymentMethod.GOOGLE_PAY],
     };
   }
 
