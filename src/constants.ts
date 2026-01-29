@@ -8,7 +8,7 @@ import type {
 } from '@primer-io/checkout-web';
 import { PaymentMethod } from './enums';
 
-export const SDK_VERSION = '0.5.7';
+export const SDK_VERSION = '0.5.8';
 
 export const DEFAULTS = {
   BASE_URL: 'https://billing.funnelfox.com',
