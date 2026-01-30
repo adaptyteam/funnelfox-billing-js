@@ -500,7 +500,6 @@ class InitMethodPage {
 
         Billing.initMethod(PaymentMethod.APPLE_PAY, appleContainer, {
           ...options,
-          applePay: { buttonStyle: 'black', buttonType: 'plain' },
         }).catch(err => {
           this.logger.log('warn', `[${set.priceId}] Apple Pay not available`);
           return null;
@@ -508,7 +507,6 @@ class InitMethodPage {
 
         Billing.initMethod(PaymentMethod.GOOGLE_PAY, googleContainer, {
           ...options,
-          googlePay: { buttonType: 'order' },
         }).catch(err => {
           this.logger.log('warn', `[${set.priceId}] Google Pay not available`);
           return null;
@@ -516,12 +514,6 @@ class InitMethodPage {
 
         Billing.initMethod(PaymentMethod.PAYPAL, paypalContainer, {
           ...options,
-          paypal: {
-            buttonColor: 'gold',
-            buttonShape: 'pill',
-            buttonLabel: 'pay',
-            buttonHeight: 44,
-          },
         }).catch(err => {
           this.logger.log(
             'warn',

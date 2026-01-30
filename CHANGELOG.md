@@ -156,3 +156,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - render image on error for analytics
 - add ability to pass metadata on updateClientSession
 - display error badge if createCheckout fails
+
+## [0.5.8] - 2025-01-29
+
+- default styles for wallet buttons created with initMethod

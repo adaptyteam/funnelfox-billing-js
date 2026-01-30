@@ -28,6 +28,7 @@ import {
   CardInputElementsWithButton,
 } from './types';
 import { PaymentMethod } from './enums';
+import { generateId } from './utils/helpers';
 
 declare global {
   interface Window {
@@ -125,15 +126,41 @@ class PrimerWrapper implements PrimerWrapperInterface {
       if (!pmManager) {
         throw new Error('Payment method manager is not available');
       }
+      /* hack for FFB-169 & FFB-242
+       * Primer SDK does not allow to set the height of the googlepay and applepay buttons, so we need to use a hack to set the height of the button.
+       */
+      const wrapper = document.createElement('div');
+      wrapper.className = generateId('funnefox-primer-button-wrapper');
+      const styleEl = document.createElement('style');
+      document.head.appendChild(styleEl);
+      const sheet = styleEl.sheet;
+      if (sheet) {
+        sheet.insertRule(`
+          .${wrapper.className} {
+            width: 100% !important;
+          }
+        `);
+        sheet.insertRule(`
+          .${wrapper.className} button {
+            height: 54px !important;
+            border-radius: 28px !important;
+          }
+        `);
+      }
+      htmlNode.appendChild(wrapper);
+      /* end hack */
       button = pmManager.createButton();
-      await button.render(htmlNode, {});
+      await button.render(wrapper, {});
       this.destroyCallbacks.push(() => button.clean());
       onMethodRender(allowedPaymentMethod);
       return {
         setDisabled: (disabled: boolean) => {
           button.setDisabled(disabled);
         },
-        destroy: () => button.clean(),
+        destroy: () => {
+          styleEl.remove();
+          button.clean();
+        },
       };
     } catch (error: unknown) {
       onMethodRenderError(allowedPaymentMethod);
