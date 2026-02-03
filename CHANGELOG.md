@@ -160,3 +160,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.8] - 2025-01-29
 
 - default styles for wallet buttons created with initMethod
+
+## [0.5.9] - 2025-02-03
+
+- add paymentFlow default option for paypal

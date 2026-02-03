@@ -5,7 +5,7 @@
 import CheckoutInstance from './checkout';
 import APIClient from './api-client';
 import PrimerWrapper from './primer-wrapper';
-import { DEFAULT_BUTTONS_STYLES, DEFAULTS } from './constants';
+import { DEFAULT_BUTTONS_OPTIONS, DEFAULTS } from './constants';
 import type {
   SDKConfig,
   CreateCheckoutOptions,
@@ -165,15 +165,15 @@ export async function initMethod(
         card: options.card,
         style: options.style,
         applePay: {
-          ...DEFAULT_BUTTONS_STYLES[PaymentMethod.APPLE_PAY],
+          ...DEFAULT_BUTTONS_OPTIONS[PaymentMethod.APPLE_PAY],
           ...(options.applePay || {}),
         },
         paypal: {
-          ...DEFAULT_BUTTONS_STYLES[PaymentMethod.PAYPAL],
+          ...DEFAULT_BUTTONS_OPTIONS[PaymentMethod.PAYPAL],
           ...(options.paypal || {}),
         },
         googlePay: {
-          ...DEFAULT_BUTTONS_STYLES[PaymentMethod.GOOGLE_PAY],
+          ...DEFAULT_BUTTONS_OPTIONS[PaymentMethod.GOOGLE_PAY],
           ...(options.googlePay || {}),
         },
       },

@@ -2,13 +2,14 @@
  * @fileoverview Constants for Funnefox SDK
  */
 
-import type {
-  CheckoutStyle,
-  HeadlessUniversalCheckoutOptions,
+import {
+  type PaymentFlow,
+  type CheckoutStyle,
+  type HeadlessUniversalCheckoutOptions,
 } from '@primer-io/checkout-web';
 import { PaymentMethod } from './enums';
 
-export const SDK_VERSION = '0.5.8';
+export const SDK_VERSION = '0.5.9';
 
 export const DEFAULTS = {
   BASE_URL: 'https://billing.funnelfox.com',
@@ -156,7 +157,7 @@ export const DEFAULT_PAYMENT_METHOD_ORDER = [
   PaymentMethod.PAYMENT_CARD,
 ];
 
-export const DEFAULT_BUTTONS_STYLES: {
+export const DEFAULT_BUTTONS_OPTIONS: {
   [PaymentMethod.APPLE_PAY]: HeadlessUniversalCheckoutOptions['applePay'];
   [PaymentMethod.PAYPAL]: HeadlessUniversalCheckoutOptions['paypal'];
   [PaymentMethod.GOOGLE_PAY]: HeadlessUniversalCheckoutOptions['googlePay'];
@@ -170,6 +171,7 @@ export const DEFAULT_BUTTONS_STYLES: {
     buttonLabel: 'pay',
     buttonSize: 'large',
     buttonHeight: 54,
+    paymentFlow: 'PREFER_VAULT' as PaymentFlow,
   },
   [PaymentMethod.GOOGLE_PAY]: {
     buttonColor: 'black',
