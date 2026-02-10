@@ -21,7 +21,12 @@ export {
   ERROR_CODES,
 } from './constants';
 
-export { configure, createCheckout, createClientSession } from './api';
+export {
+  configure,
+  createCheckout,
+  createClientSession,
+  getAvailablePaymentMethods,
+} from './api';
 
 export const Billing = {
   configure: api.configure,
@@ -29,6 +34,7 @@ export const Billing = {
   createClientSession: api.createClientSession,
   initMethod: api.initMethod,
   silentPurchase: api.silentPurchase,
+  getAvailablePaymentMethods: api.getAvailablePaymentMethods,
 };
 
 export default Billing;

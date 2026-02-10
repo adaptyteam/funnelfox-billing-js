@@ -164,3 +164,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.9] - 2025-02-03
 
 - add paymentFlow default option for paypal
+
+## [0.6.0] - 2025-02-10
+
+- add getAvailablePaymentMethods
+- fix render image on error for initMethod

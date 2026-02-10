@@ -179,7 +179,7 @@ export async function initMethod(
       },
     });
 
-    return checkoutInstance.initMethod(method, element, {
+    return await checkoutInstance.initMethod(method, element, {
       onRenderSuccess: options.onRenderSuccess,
       onRenderError: options.onRenderError,
       onLoaderChange: options.onLoaderChange,
@@ -192,6 +192,47 @@ export async function initMethod(
     });
   } catch (error) {
     getErrorImage(options.orgId, {
+      message: error.message,
+      code: error.code,
+      req_id: error?.response?.req_id,
+    });
+    throw error;
+  }
+}
+
+export async function getAvailablePaymentMethods(params: {
+  countryCode?: string;
+  orgId: string;
+  baseUrl: string;
+}) {
+  try {
+    const apiClient = new APIClient({
+      baseUrl: params.baseUrl,
+      orgId: params.orgId,
+    });
+    const response = await apiClient.createSimpleClientSession({
+      countryCode: params.countryCode,
+    });
+    const clientToken = response?.data?.client_token;
+    if (!clientToken) {
+      throw new Error('Error creating simple client session');
+    }
+
+    return await new Promise<PaymentMethod[]>((resolve, reject) => {
+      const primerWrapper = new PrimerWrapper();
+      primerWrapper
+        .initializeHeadlessCheckout(clientToken, {
+          onTokenizeSuccess: () => {},
+          onResumeSuccess: () => {},
+          onAvailablePaymentMethodsLoad: methods => {
+            resolve(methods);
+            primerWrapper.destroy();
+          },
+        })
+        .catch(reject);
+    });
+  } catch (error) {
+    getErrorImage(params.orgId, {
       message: error.message,
       code: error.code,
       req_id: error?.response?.req_id,

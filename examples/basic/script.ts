@@ -5,6 +5,7 @@ import {
   InitMethodOptions,
   PaymentMethod,
   PaymentMethodInterface,
+  getAvailablePaymentMethods,
 } from '@funnelfox/billing';
 
 // ========================================
@@ -179,6 +180,10 @@ class CheckoutPage {
         apiConfig: {
           baseUrl: 'https://billing-dev.funnelfox.dev',
         },
+        clientMetadata: {
+          fieldA: 'valueA',
+          fieldB: 'valueB',
+        },
       });
 
       this.logger.log('success', 'Checkout created successfully!');
@@ -238,6 +243,7 @@ class InitMethodPage {
   private externalId = 'user_' + Math.random().toString(36).substring(7, 10);
   private paymentSets: Map<string, PaymentSet> = new Map();
   private setCounter = 0;
+  private hasLoadedAvailableMethods = false;
 
   constructor() {
     this.setupEventListeners();
@@ -247,6 +253,34 @@ class InitMethodPage {
     document
       .getElementById('add-payment-set')
       ?.addEventListener('click', () => this.addPaymentSet());
+  }
+
+  async onPageOpen() {
+    // Only fetch available methods once per session
+    if (this.hasLoadedAvailableMethods) return;
+
+    const orgIdInput = document.getElementById(
+      'init-orgId'
+    ) as HTMLInputElement;
+    const orgId = orgIdInput?.value || 'ffsandbox';
+
+    this.logger.log('info', 'Fetching available payment methods...');
+
+    try {
+      const availableMethods = await getAvailablePaymentMethods({
+        orgId,
+        baseUrl: 'https://billing-dev.funnelfox.dev',
+        countryCode: 'US',
+      });
+      this.hasLoadedAvailableMethods = true;
+      this.logger.log(
+        'success',
+        `Available payment methods: ${JSON.stringify(availableMethods)}`
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      this.logger.log('error', `Failed to fetch available methods: ${message}`);
+    }
   }
 
   private updateEmptyState() {
@@ -489,7 +523,7 @@ class InitMethodPage {
       await Promise.all([
         Billing.initMethod(PaymentMethod.PAYMENT_CARD, cardContainer, {
           ...options,
-          card: { cardholderName: { required: false } },
+          card: { cardholderName: { required: true } },
         }).catch(err => {
           this.logger.log(
             'warn',
@@ -673,8 +707,8 @@ class InitMethodPage {
 
 (function main() {
   // Initialize pages
-  new CheckoutPage();
-  new InitMethodPage();
+  const checkoutPage = new CheckoutPage();
+  const initMethodPage = new InitMethodPage();
 
   // Setup router
   const router = new Router();
@@ -683,7 +717,8 @@ class InitMethodPage {
       // Checkout page activated
     })
     .addRoute('/init-method', () => {
-      // Init method page activated
+      // Init method page activated - fetch available payment methods
+      initMethodPage.onPageOpen();
     });
 
   // Log initialization

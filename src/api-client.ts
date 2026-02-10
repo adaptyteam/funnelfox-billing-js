@@ -240,10 +240,21 @@ class APIClient {
   }
 
   async oneClick(payload?: OneClickRequest) {
-    return (await this.request(`/billing/${this.orgId}/v1/checkout/one_click`, {
+    return (await this.request(API_ENDPOINTS.ONE_CLICK, {
       method: 'POST',
       body: JSON.stringify(payload),
     })) as CreatePaymentResponse;
+  }
+
+  async createSimpleClientSession(payload: { countryCode?: string }) {
+    return (await this.request(API_ENDPOINTS.CREATE_SIMPLE_CLIENT_SESSION, {
+      method: 'POST',
+      body: JSON.stringify({
+        region: 'default',
+        integration_type: 'primer',
+        ...payload,
+      }),
+    })) as CreateClientSessionResponse;
   }
 }
 

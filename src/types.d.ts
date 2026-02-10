@@ -60,6 +60,7 @@ export interface PaymentButtonSelectors {
 export interface CheckoutOptions extends Partial<HeadlessUniversalCheckoutOptions> {
   onTokenizeSuccess: OnTokenizeSuccess;
   onResumeSuccess: OnResumeSuccess;
+  onAvailablePaymentMethodsLoad?: (items: PaymentMethod[]) => void;
 }
 
 export interface CheckoutRenderOptions {
@@ -293,6 +294,11 @@ export declare function silentPurchase(options: {
   baseUrl: string;
 }): Promise<boolean>;
 
+export declare function getAvailablePaymentMethods(params: {
+  countryCode?: string;
+  orgId: string;
+  baseUrl: string;
+}): Promise<PaymentMethod[]>;
 // Billing namespace
 export declare const Billing: {
   configure: typeof configure;
@@ -300,6 +306,7 @@ export declare const Billing: {
   createClientSession: typeof createClientSession;
   initMethod: typeof initMethod;
   silentPurchase: typeof silentPurchase;
+  getAvailablePaymentMethods: typeof getAvailablePaymentMethods;
 };
 
 // Constants
