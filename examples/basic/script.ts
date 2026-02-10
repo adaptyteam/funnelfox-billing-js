@@ -180,6 +180,10 @@ class CheckoutPage {
         apiConfig: {
           baseUrl: 'https://billing-dev.funnelfox.dev',
         },
+        clientMetadata: {
+          fieldA: 'valueA',
+          fieldB: 'valueB',
+        },
       });
 
       this.logger.log('success', 'Checkout created successfully!');
