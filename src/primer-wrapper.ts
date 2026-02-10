@@ -361,25 +361,10 @@ class PrimerWrapper implements PrimerWrapperInterface {
         primerOptions.onTokenizeSuccess
       ),
       onResumeSuccess: this.wrapResumeHandler(primerOptions.onResumeSuccess),
-      onAvailablePaymentMethodsLoad: (items: PaymentMethodInfo[]) => {
-        let isApplePayAvailable = false;
-        this.availableMethods = ALLOWED_PAYMENT_METHODS.filter(method => {
-          return items.some((item: PaymentMethodInfo) => {
-            if (item.type === PaymentMethod.APPLE_PAY) {
-              isApplePayAvailable = true;
-            }
-            return item.type === method;
-          });
-        });
-        if (isApplePayAvailable) {
-          this.availableMethods = this.availableMethods.filter(
-            method => method !== PaymentMethod.GOOGLE_PAY
-          );
-        }
-        if (this.availableMethods.length === 0) {
-          throw new PrimerError('No allowed payment methods found');
-        }
-      },
+      onAvailablePaymentMethodsLoad:
+        this.wrapAvailablePaymentMethodsLoadHandler(
+          primerOptions.onAvailablePaymentMethodsLoad
+        ),
     });
   }
 
@@ -457,6 +442,31 @@ class PrimerWrapper implements PrimerWrapperInterface {
           'Payment processing failed. Please try again.'
         );
       }
+    };
+  }
+
+  private wrapAvailablePaymentMethodsLoadHandler(
+    onAvailablePaymentMethodsLoad?: (items: PaymentMethod[]) => void
+  ) {
+    return (items: PaymentMethodInfo[]) => {
+      let isApplePayAvailable = false;
+      this.availableMethods = ALLOWED_PAYMENT_METHODS.filter(method => {
+        return items.some((item: PaymentMethodInfo) => {
+          if (item.type === PaymentMethod.APPLE_PAY) {
+            isApplePayAvailable = true;
+          }
+          return item.type === method;
+        });
+      });
+      if (isApplePayAvailable) {
+        this.availableMethods = this.availableMethods.filter(
+          method => method !== PaymentMethod.GOOGLE_PAY
+        );
+      }
+      if (this.availableMethods.length === 0) {
+        throw new PrimerError('No allowed payment methods found');
+      }
+      onAvailablePaymentMethodsLoad?.(this.availableMethods);
     };
   }
 
