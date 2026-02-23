@@ -228,6 +228,8 @@ export async function getAvailablePaymentMethods(params: {
             resolve(methods);
             primerWrapper.destroy();
           },
+          //fix of lose prefer_vault option
+          paypal: DEFAULT_BUTTONS_OPTIONS[PaymentMethod.PAYPAL],
         })
         .catch(reject);
     });
