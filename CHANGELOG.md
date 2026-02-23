@@ -169,3 +169,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - add getAvailablePaymentMethods
 - fix render image on error for initMethod
+
+## [0.6.1] - 2025-02-23
+
+- fix of lose of prefer vault option after getAvailableMethods
