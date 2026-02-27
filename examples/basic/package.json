@@ -9,6 +9,6 @@
     "dev": "npm run build && npm run serve"
   },
   "dependencies": {
-    "@funnelfox/billing": "file:../../funnelfox-billing-0.6.1.tgz"
+    "@funnelfox/billing": "file:../../funnelfox-billing-0.6.2.tgz"
   }
 }

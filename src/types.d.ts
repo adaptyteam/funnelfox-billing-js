@@ -6,8 +6,28 @@
 import type {
   HeadlessUniversalCheckoutOptions,
   OnResumeSuccess,
+  OnResumeSuccessHandler,
   OnTokenizeSuccess,
+  OnTokenizeSuccessHandler,
+  CheckoutStyle,
+  CheckoutCardOptions,
+  PayPalOptions,
+  GooglePayOptions,
+  ApplePayOptions,
 } from '@primer-io/checkout-web';
+
+export type {
+  HeadlessUniversalCheckoutOptions,
+  OnResumeSuccess,
+  OnResumeSuccessHandler,
+  OnTokenizeSuccess,
+  OnTokenizeSuccessHandler,
+  CheckoutStyle,
+  CheckoutCardOptions,
+  PayPalOptions,
+  GooglePayOptions,
+  ApplePayOptions,
+};
 
 export enum PaymentMethod {
   GOOGLE_PAY = 'GOOGLE_PAY',
@@ -17,7 +37,7 @@ export enum PaymentMethod {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type MetadataType = Record<string, any>;
+export type MetadataType = Record<string, any>;
 export interface SDKConfig {
   orgId: string;
   baseUrl?: string;

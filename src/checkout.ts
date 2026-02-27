@@ -354,6 +354,12 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     paymentMethodTokenData,
     primerHandler
   ) => {
+    if (!this.orderId) {
+      primerHandler.handleFailure(
+        'Order ID not found or checkout has been destroyed'
+      );
+      return;
+    }
     try {
       this.onLoaderChangeWithRace(true);
       this._setState('processing');
@@ -386,6 +392,12 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     resumeTokenData,
     primerHandler
   ) => {
+    if (!this.orderId) {
+      primerHandler.handleFailure(
+        'Order ID not found or checkout has been destroyed'
+      );
+      return;
+    }
     try {
       this.onLoaderChangeWithRace(true);
       this._setState('processing');

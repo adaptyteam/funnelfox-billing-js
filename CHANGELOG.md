@@ -173,3 +173,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.1] - 2025-02-23
 
 - fix of lose of prefer vault option after getAvailableMethods
+
+## [0.6.2] - 2025-02-23
+
+- prevent primer payment request after checkout destroy
+- change google pay icon in default skin
+- add Primer types

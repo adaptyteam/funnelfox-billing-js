@@ -46,6 +46,10 @@
   width: 100%;
 }
 
+.ff-google-pay-header {
+  align-items: center;
+}
+
 /* Custom radio button styling */
 .ff-payment-method-radio {
   appearance: none;
@@ -134,6 +138,9 @@
   gap: 4px;
   font-weight: 500;
   font-size: 18px;
+}
+.ff-google-pay-logo img {
+  height: 38px;
 }
 
 /* Payment features list */
