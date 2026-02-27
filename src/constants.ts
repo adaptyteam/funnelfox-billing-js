@@ -9,7 +9,7 @@ import {
 } from '@primer-io/checkout-web';
 import { PaymentMethod } from './enums';
 
-export const SDK_VERSION = '0.6.2';
+export const SDK_VERSION = '0.6.3-beta.0';
 
 export const DEFAULTS = {
   BASE_URL: 'https://billing.funnelfox.com',
@@ -166,6 +166,12 @@ export const DEFAULT_BUTTONS_OPTIONS: {
 } = {
   [PaymentMethod.APPLE_PAY]: {
     buttonStyle: 'black',
+    billingOptions: {
+      requiredBillingContactFields: ['emailAddress'],
+    },
+    shippingOptions: {
+      requiredShippingContactFields: ['emailAddress'],
+    },
   },
   [PaymentMethod.PAYPAL]: {
     buttonColor: 'gold',
