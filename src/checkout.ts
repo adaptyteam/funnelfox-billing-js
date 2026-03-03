@@ -492,8 +492,10 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       onTokenizeError: error => {
         this.emit(EVENTS.PURCHASE_FAILURE, error);
       },
-      onTokenizeShouldStart: data => {
+      onTokenizeStart: () => {
         wasPaymentProcessedStarted = true;
+      },
+      onTokenizeShouldStart: data => {
         this.emit(EVENTS.ERROR, undefined);
         this.emit(
           EVENTS.START_PURCHASE,
