@@ -167,12 +167,6 @@ export const DEFAULT_BUTTONS_OPTIONS: {
 } = {
   [PaymentMethod.APPLE_PAY]: {
     buttonStyle: 'black',
-    billingOptions: {
-      requiredBillingContactFields: ['emailAddress'],
-    },
-    shippingOptions: {
-      requiredShippingContactFields: ['emailAddress'],
-    },
   },
   [PaymentMethod.PAYPAL]: {
     buttonColor: 'gold',
