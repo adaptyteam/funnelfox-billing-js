@@ -375,6 +375,7 @@ export interface CreateClientSessionResponse {
     client_token: string;
     order_id: string;
     stripe_public_key?: string;
+    collect_apple_pay_email?: boolean;
   };
   error?: {
     code: string;

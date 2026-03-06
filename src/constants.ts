@@ -6,6 +6,7 @@ import {
   type PaymentFlow,
   type CheckoutStyle,
   type HeadlessUniversalCheckoutOptions,
+  type ApplePayOptions,
 } from '@primer-io/checkout-web';
 import { PaymentMethod } from './enums';
 
@@ -166,12 +167,6 @@ export const DEFAULT_BUTTONS_OPTIONS: {
 } = {
   [PaymentMethod.APPLE_PAY]: {
     buttonStyle: 'black',
-    billingOptions: {
-      requiredBillingContactFields: ['emailAddress'],
-    },
-    shippingOptions: {
-      requiredShippingContactFields: ['emailAddress'],
-    },
   },
   [PaymentMethod.PAYPAL]: {
     buttonColor: 'gold',
@@ -185,5 +180,17 @@ export const DEFAULT_BUTTONS_OPTIONS: {
     buttonColor: 'black',
     buttonSizeMode: 'fill',
     buttonType: 'pay',
+  },
+};
+
+export const APPLE_PAY_COLLECTING_EMAIL_OPTIONS: Pick<
+  ApplePayOptions,
+  'billingOptions' | 'shippingOptions'
+> = {
+  billingOptions: {
+    requiredBillingContactFields: ['emailAddress'],
+  },
+  shippingOptions: {
+    requiredShippingContactFields: ['emailAddress'],
   },
 };
