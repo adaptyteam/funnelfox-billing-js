@@ -6,9 +6,14 @@ import EventEmitter from './utils/event-emitter';
 import PrimerWrapper from './primer-wrapper';
 import { CheckoutError } from './errors';
 import { requireString } from './utils/validation';
-import { generateId } from './utils/helpers';
+import { generateId, merge } from './utils/helpers';
 import APIClient from './api-client';
-import { DEFAULT_PAYMENT_METHOD_ORDER, DEFAULTS, EVENTS } from './constants';
+import {
+  APPLE_PAY_COLLECTING_EMAIL_OPTIONS,
+  DEFAULT_PAYMENT_METHOD_ORDER,
+  DEFAULTS,
+  EVENTS,
+} from './constants';
 import {
   type CheckoutConfigWithCallbacks,
   type PaymentResult,
@@ -82,6 +87,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     Promise<CreateClientSessionResponse>
   >();
   private radarSessionId: Promise<string> | null = null;
+  isCollectingApplePayEmail: boolean;
 
   constructor(config: {
     orgId: string;
@@ -204,6 +210,8 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
                 .catch(() => '');
             });
           }
+          this.isCollectingApplePayEmail =
+            !!response.data?.collect_apple_pay_email;
           return response;
         });
       // Cache the successful response
@@ -321,6 +329,12 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       );
       checkoutOptions = this.getCheckoutOptions({});
     }
+    checkoutOptions = merge(
+      checkoutOptions,
+      this.isCollectingApplePayEmail
+        ? { applePay: APPLE_PAY_COLLECTING_EMAIL_OPTIONS }
+        : {}
+    ) as CheckoutOptions;
     await this.primerWrapper.renderCheckout(
       this.clientToken as string,
       checkoutOptions,
@@ -492,8 +506,10 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       onTokenizeError: error => {
         this.emit(EVENTS.PURCHASE_FAILURE, error);
       },
-      onTokenizeShouldStart: data => {
+      onTokenizeStart: () => {
         wasPaymentProcessedStarted = true;
+      },
+      onTokenizeShouldStart: data => {
         this.emit(EVENTS.ERROR, undefined);
         this.emit(
           EVENTS.START_PURCHASE,
@@ -682,7 +698,11 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     if (callbacks.onMethodsAvailable) {
       this.on(EVENTS.METHODS_AVAILABLE, callbacks.onMethodsAvailable);
     }
-    let checkoutOptions: CheckoutOptions = this.getCheckoutOptions({});
+    let checkoutOptions: CheckoutOptions = this.getCheckoutOptions(
+      this.isCollectingApplePayEmail
+        ? { applePay: APPLE_PAY_COLLECTING_EMAIL_OPTIONS }
+        : {}
+    );
     let methodOptions: CheckoutRenderOptions = {
       onMethodRender: this.handleMethodRender,
       onMethodRenderError: this.handleMethodRenderError,
