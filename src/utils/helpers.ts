@@ -62,6 +62,30 @@ export function generateId(prefix: string = ''): string {
   return `${prefix}${timestamp}_${random}`;
 }
 
+/**
+ * Generates a UUID v4 compliant string (RFC 4122).
+ * Meets Airwallex requirements:
+ * - Maximum 128 characters (UUID is 36 chars)
+ * - Only contains: a-z, A-Z, 0-9, underscore, hyphen
+ * - No prefix + timestamp pattern
+ * - Not a short series of numbers
+ *
+ * @returns UUID v4 string (e.g., "a3bb189e-8bf9-3888-9912-ace4e6543002")
+ */
+export function generateUUID(): string {
+  // Use crypto.randomUUID if available (modern browsers)
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+
+  // Fallback: manual UUID v4 generation
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export function safeJsonParse<T = any>(
   jsonString: string,
   defaultValue: T | null = null

@@ -6,7 +6,7 @@ import EventEmitter from './utils/event-emitter';
 import PrimerWrapper from './primer-wrapper';
 import { CheckoutError } from './errors';
 import { isValidEmail, requireString } from './utils/validation';
-import { generateId, merge } from './utils/helpers';
+import { generateId, generateUUID, merge } from './utils/helpers';
 import APIClient from './api-client';
 import {
   APPLE_PAY_COLLECTING_EMAIL_OPTIONS,
@@ -43,6 +43,7 @@ import type {
 } from './types';
 import { loadStripe } from '@stripe/stripe-js';
 import { renderError } from './assets/error/error';
+import { loadAirwallexDeviceFingerprint } from './utils/airwallex-loader';
 
 interface CheckoutEventMap {
   [EVENTS.SUCCESS]: PaymentResult;
@@ -89,6 +90,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     Promise<CreateClientSessionResponse>
   >();
   private radarSessionId: Promise<string> | null = null;
+  private airwallexDeviceId: Promise<string> | null = null;
   isCollectingApplePayEmail: boolean;
   cardEmailAddress?: string;
   cardCountryCode?: string;
@@ -218,6 +220,20 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
                 .then(session => session?.radarSession?.id)
                 .catch(() => '');
             });
+          }
+          // Initialize Airwallex device fingerprinting if enabled by backend
+          if (response.data?.airwallex_risk_enabled) {
+            const isLivemode = response.data?.is_livemode;
+            const deviceId = generateUUID();
+            this.airwallexDeviceId = loadAirwallexDeviceFingerprint(
+              deviceId,
+              isLivemode
+            )
+              .then(() => deviceId)
+              .catch(() => {
+                // Silently fail - return deviceId anyway
+                return deviceId;
+              });
           }
           this.isCollectingApplePayEmail =
             !!response.data?.collect_apple_pay_email;
@@ -534,7 +550,10 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     try {
       this.onLoaderChangeWithRace(true);
       this._setState('processing');
-      const radarSessionId = await this.radarSessionId;
+      const [radarSessionId, airwallexDeviceId] = await Promise.all([
+        this.radarSessionId,
+        this.airwallexDeviceId,
+      ]);
       const paymentResponse = await this.apiClient.createPayment({
         orderId: this.orderId as string,
         paymentMethodToken: paymentMethodTokenData.token,
@@ -543,6 +562,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         postalCode: this.getPaymentPostalCode(),
         clientMetadata: {
           radarSessionId,
+          airwallexDeviceId,
         },
       });
       const result = this.apiClient.processPaymentResponse(paymentResponse);
