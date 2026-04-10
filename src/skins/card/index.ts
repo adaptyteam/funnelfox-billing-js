@@ -44,9 +44,8 @@ class CardSkin implements Skin {
     const hasEmailInput = !!this.checkoutConfig?.card?.emailAddress?.visible;
     let emailAddress: HTMLInputElement | undefined = undefined;
     if (hasEmailInput) {
-      emailAddress = this.containerEl.querySelector<HTMLInputElement>(
-        '#emailAddressInput'
-      );
+      emailAddress =
+        this.containerEl.querySelector<HTMLInputElement>('#emailAddressInput');
       if (emailAddress) {
         emailAddress.value = this.checkoutConfig.customer.email || '';
       }

@@ -238,7 +238,8 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   }
 
   private getPaymentEmailAddress() {
-    const email = this.cardEmailAddress?.trim() || this.checkoutConfig.customer.email;
+    const email =
+      this.cardEmailAddress?.trim() || this.checkoutConfig.customer.email;
     if (!email || !isValidEmail(email)) {
       return undefined;
     }
@@ -776,9 +777,8 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     if (callbacks.onMethodsAvailable) {
       this.on(EVENTS.METHODS_AVAILABLE, callbacks.onMethodsAvailable);
     }
-    let checkoutOptions: CheckoutOptions = this.mergeApplePayCollectingEmailOptions(
-      this.getCheckoutOptions({})
-    );
+    let checkoutOptions: CheckoutOptions =
+      this.mergeApplePayCollectingEmailOptions(this.getCheckoutOptions({}));
     let methodOptions: CheckoutRenderOptions = {
       onMethodRender: this.handleMethodRender,
       onMethodRenderError: this.handleMethodRenderError,

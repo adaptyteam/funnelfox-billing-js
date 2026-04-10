@@ -38,7 +38,11 @@ export function validateCheckoutConfig(config: unknown) {
   if (!('externalId' in config) || typeof config.externalId !== 'string') {
     throw new ValidationError('externalId', 'must be a non-empty string');
   }
-  if ('email' in config && config.email !== undefined && typeof config.email !== 'string') {
+  if (
+    'email' in config &&
+    config.email !== undefined &&
+    typeof config.email !== 'string'
+  ) {
     throw new ValidationError('email', 'must be a string if provided');
   }
   if (
