@@ -176,6 +176,10 @@ class CheckoutPage {
           cardholderName: {
             required: false,
           },
+          emailAddress: {
+            visible: true,
+            template: '{{email}}',
+          },
         },
         apiConfig: {
           baseUrl: 'https://billing-dev.funnelfox.dev',
@@ -523,7 +527,10 @@ class InitMethodPage {
       await Promise.all([
         Billing.initMethod(PaymentMethod.PAYMENT_CARD, cardContainer, {
           ...options,
-          card: { cardholderName: { required: true } },
+          card: {
+            cardholderName: { required: true },
+            emailAddress: { visible: true, template: '{{email}}' },
+          },
         }).catch(err => {
           this.logger.log(
             'warn',

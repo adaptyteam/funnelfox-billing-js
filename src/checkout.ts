@@ -5,7 +5,7 @@
 import EventEmitter from './utils/event-emitter';
 import PrimerWrapper from './primer-wrapper';
 import { CheckoutError } from './errors';
-import { requireString } from './utils/validation';
+import { isValidEmail, requireString } from './utils/validation';
 import { generateId, merge } from './utils/helpers';
 import APIClient from './api-client';
 import {
@@ -88,6 +88,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   >();
   private radarSessionId: Promise<string> | null = null;
   isCollectingApplePayEmail: boolean;
+  cardEmailAddress?: string;
 
   constructor(config: {
     orgId: string;
@@ -119,6 +120,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.clientToken = null;
     this.primerWrapper = new PrimerWrapper();
     this.isDestroyed = false;
+    this.cardEmailAddress = this.checkoutConfig.customer.email;
 
     this._setupCallbackBridges();
   }
@@ -224,6 +226,38 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.clientToken = sessionData.clientToken;
   }
 
+  private getPrimerCardConfig() {
+    const cardConfig = { ...(this.checkoutConfig.card || {}) } as {
+      emailAddress?: unknown;
+      [key: string]: unknown;
+    };
+    delete cardConfig.emailAddress;
+    return Object.keys(cardConfig).length
+      ? (cardConfig as CheckoutOptions['card'])
+      : undefined;
+  }
+
+  private getPaymentEmailAddress() {
+    const email = this.cardEmailAddress?.trim() || this.checkoutConfig.customer.email;
+    if (!email || !isValidEmail(email)) {
+      return undefined;
+    }
+    const template = this.checkoutConfig.card?.emailAddress?.template;
+    if (template?.includes('{{email}}')) {
+      return template.replace(/\{\{email\}\}/g, email);
+    }
+    return email;
+  }
+
+  private handleCardInputValueChange = (
+    inputName: 'emailAddress',
+    value: string
+  ) => {
+    if (inputName === 'emailAddress') {
+      this.cardEmailAddress = value?.trim() || undefined;
+    }
+  };
+
   private convertCardSelectorsToElements(
     selectors: CardInputSelectors,
     container: HTMLElement
@@ -235,9 +269,12 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       selectors.expiryDate
     ) as HTMLElement;
     const cvv = container.querySelector(selectors.cvv) as HTMLElement;
-    const cardholderName = container.querySelector(
-      selectors.cardholderName
-    ) as HTMLInputElement;
+    const cardholderName = selectors.cardholderName
+      ? (container.querySelector(selectors.cardholderName) as HTMLInputElement)
+      : undefined;
+    const emailAddress = selectors.emailAddress
+      ? (container.querySelector(selectors.emailAddress) as HTMLInputElement)
+      : undefined;
     const button = container.querySelector(
       selectors.button
     ) as HTMLButtonElement;
@@ -253,6 +290,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       expiryDate,
       cvv,
       cardholderName,
+      emailAddress,
       button,
     };
   }
@@ -344,6 +382,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         paymentButtonElements,
         onSubmit: this.handleSubmit,
         onInputChange: this.handleInputChange,
+        onCardInputValueChange: this.handleCardInputValueChange,
         onMethodRender: this.handleMethodRender,
         onMethodsAvailable: this.handleMethodsAvailable,
         onMethodRenderError: this.handleMethodRenderError,
@@ -381,6 +420,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       const paymentResponse = await this.apiClient.createPayment({
         orderId: this.orderId as string,
         paymentMethodToken: paymentMethodTokenData.token,
+        email: this.getPaymentEmailAddress(),
         clientMetadata: {
           radarSessionId,
         },
@@ -484,9 +524,12 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     options: Partial<CheckoutOptions>
   ): CheckoutOptions {
     let wasPaymentProcessedStarted = false;
+    const checkoutConfig = { ...this.checkoutConfig };
+    delete checkoutConfig.card;
     return {
-      ...this.checkoutConfig,
+      ...checkoutConfig,
       ...options,
+      card: merge(this.getPrimerCardConfig() || {}, options.card || {}),
       onTokenizeSuccess: this.handleTokenizeSuccess,
       onResumeSuccess: this.handleResumeSuccess,
       onResumeError: error => {
@@ -718,6 +761,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         cardElements: cardDefaultOptions.cardElements,
         onSubmit: this.handleSubmit,
         onInputChange: this.handleInputChange,
+        onCardInputValueChange: this.handleCardInputValueChange,
         onMethodRender: this.handleMethodRender,
         onMethodRenderError: this.handleMethodRenderError,
       };

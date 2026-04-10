@@ -19,6 +19,7 @@ import { PrimerError } from './errors';
 import { loadPrimerSDK } from './utils/primer-loader';
 import { HeadlessManager } from './utils/headless-manager';
 import { ALLOWED_PAYMENT_METHODS, inputStyle } from './constants';
+import { isValidEmail } from './utils/validation';
 import {
   CardInputSelectors,
   CheckoutOptions,
@@ -192,6 +193,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
             onInputChange: options.onInputChange,
             onMethodRenderError: options.onMethodRenderError,
             onMethodRender: options.onMethodRender,
+            onCardInputValueChange: options.onCardInputValueChange,
           }
         );
         this.paymentMethodsInterfaces.push(cardInterface);
@@ -215,6 +217,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
     {
       onSubmit,
       onInputChange,
+      onCardInputValueChange,
 
       onMethodRenderError,
       onMethodRender,
@@ -242,7 +245,13 @@ class PrimerWrapper implements PrimerWrapperInterface {
           v => v.name === 'cardholderName'
         );
         dispatchError('cardholderName', cardHolderError?.message || null);
-        return valid;
+        const emailAddress = elements.emailAddress?.value?.trim();
+        const emailError =
+          emailAddress && !isValidEmail(emailAddress)
+            ? 'Please enter a valid email address'
+            : null;
+        dispatchError('emailAddress', emailError);
+        return valid && !emailError;
       };
       const dispatchError = (
         inputName: keyof CardInputSelectors,
@@ -263,8 +272,20 @@ class PrimerWrapper implements PrimerWrapperInterface {
         pmManager.setCardholderName((e.target as HTMLInputElement).value);
         dispatchError('cardholderName', null);
       };
+      const emailAddressOnChange = (e: Event) => {
+        const value = (e.target as HTMLInputElement).value;
+        const email = value.trim();
+        onCardInputValueChange?.('emailAddress', email);
+        dispatchError(
+          'emailAddress',
+          email && !isValidEmail(email)
+            ? 'Please enter a valid email address'
+            : null
+        );
+      };
 
       elements.cardholderName?.addEventListener('input', cardHolderOnChange);
+      elements.emailAddress?.addEventListener('input', emailAddressOnChange);
       cardNumberInput.addEventListener(
         'change' as EventTypes,
         onHostedInputChange('cardNumber')
@@ -318,8 +339,12 @@ class PrimerWrapper implements PrimerWrapperInterface {
       const onDestroy = () => {
         pmManager.removeHostedInputs();
         elements.cardholderName?.removeEventListener(
-          'change',
+          'input',
           cardHolderOnChange
+        );
+        elements.emailAddress?.removeEventListener(
+          'input',
+          emailAddressOnChange
         );
         elements.button?.removeEventListener('click', onSubmitHandler);
       };
@@ -335,6 +360,9 @@ class PrimerWrapper implements PrimerWrapperInterface {
           }
           if (elements.cardholderName) {
             elements.cardholderName.disabled = disabled;
+          }
+          if (elements.emailAddress) {
+            elements.emailAddress.disabled = disabled;
           }
         },
         submit: () => onSubmitHandler(),
@@ -382,6 +410,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
       onMethodRender,
       onMethodRenderError,
       onMethodsAvailable,
+      onCardInputValueChange,
     } = checkoutRenderOptions;
     await this.initializeHeadlessCheckout(clientToken, checkoutOptions);
     onMethodsAvailable?.(this.availableMethods);
@@ -395,6 +424,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
             onInputChange,
             onMethodRender,
             onMethodRenderError,
+            onCardInputValueChange,
           });
         } else {
           const buttonElementsMap = {

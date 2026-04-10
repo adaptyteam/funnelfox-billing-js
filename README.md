@@ -94,17 +94,24 @@ const checkout = await createCheckout({
   priceId: 'price_123',
   customer: {
     externalId: 'user_456',
-    email: 'user@example.com',
+    email: 'user@example.com', // Optional if you collect it in the card form
     countryCode: 'US', // Optional
   },
   container: '#checkout-container',
   clientMetadata: { source: 'web' },
+  card: {
+    emailAddress: {
+      visible: true,
+      template: '{{email}}',
+    },
+  },
   cardSelectors: {
     // Custom card input selectors (optional, defaults to auto-generated)
     cardNumber: '#cardNumberInput',
     expiryDate: '#expiryInput',
     cvv: '#cvvInput',
     cardholderName: '#cardHolderInput',
+    emailAddress: '#emailAddressInput',
     button: '#submitButton',
   },
   paypalButtonContainer: '#paypalButton', // Optional
@@ -130,9 +137,11 @@ const checkout = await createCheckout({
 - `options.priceId` (string, required) - Price identifier
 - `options.customer` (object, required)
   - `customer.externalId` (string, required) - Your user identifier
-  - `customer.email` (string, required) - Customer email
+  - `customer.email` (string, optional) - Customer email
   - `customer.countryCode` (string, optional) - ISO country code
 - `options.container` (string, required) - CSS selector for checkout container
+- `options.card.emailAddress.visible` (boolean, optional) - Shows an email field in the card form. Disabled by default.
+- `options.card.emailAddress.template` (string, optional) - Wraps the entered email before it is sent with payment, for example `{{email}}`.
 
 **Container Styling Requirements (Default Skin):**
 
@@ -176,7 +185,7 @@ import { createClientSession } from '@funnelfox/billing';
 const session = await createClientSession({
   priceId: 'price_123',
   externalId: 'user_456',
-  email: 'user@example.com',
+  email: 'user@example.com', // Optional
   orgId: 'your-org-id', // Optional if configured
 });
 
@@ -528,6 +537,7 @@ const checkout = await createCheckout({
     expiryDate: '#my-expiry',
     cvv: '#my-cvv',
     cardholderName: '#my-cardholder',
+    emailAddress: '#my-email',
     button: '#my-submit-button',
   },
 
@@ -657,7 +667,7 @@ await paymentMethod.destroy();
   - `orgId` (string, required) - Your organization identifier
   - `priceId` (string, required) - Price identifier
   - `externalId` (string, required) - Your user identifier
-  - `email` (string, required) - Customer email
+  - `email` (string, optional) - Customer email
   - `baseUrl` (string, optional) - Custom API URL
   - `meta` (object, optional) - Custom metadata
   - `style`, `card`, `applePay`, `paypal`, `googlePay` (optional) - Primer SDK configuration options
