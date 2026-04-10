@@ -249,6 +249,42 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     return email;
   }
 
+  private mergeApplePayCollectingEmailOptions(
+    checkoutOptions: CheckoutOptions
+  ): CheckoutOptions {
+    if (!this.isCollectingApplePayEmail) {
+      return checkoutOptions;
+    }
+
+    const billingFields = Array.from(
+      new Set([
+        ...(checkoutOptions.applePay?.billingOptions
+          ?.requiredBillingContactFields || []),
+        ...(APPLE_PAY_COLLECTING_EMAIL_OPTIONS.billingOptions
+          ?.requiredBillingContactFields || []),
+      ])
+    );
+    const shippingFields = Array.from(
+      new Set([
+        ...(checkoutOptions.applePay?.shippingOptions
+          ?.requiredShippingContactFields || []),
+        ...(APPLE_PAY_COLLECTING_EMAIL_OPTIONS.shippingOptions
+          ?.requiredShippingContactFields || []),
+      ])
+    );
+
+    return merge(checkoutOptions, {
+      applePay: {
+        billingOptions: {
+          requiredBillingContactFields: billingFields,
+        },
+        shippingOptions: {
+          requiredShippingContactFields: shippingFields,
+        },
+      },
+    }) as CheckoutOptions;
+  }
+
   private handleCardInputValueChange = (
     inputName: 'emailAddress',
     value: string
@@ -367,12 +403,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       );
       checkoutOptions = this.getCheckoutOptions({});
     }
-    checkoutOptions = merge(
-      checkoutOptions,
-      this.isCollectingApplePayEmail
-        ? { applePay: APPLE_PAY_COLLECTING_EMAIL_OPTIONS }
-        : {}
-    ) as CheckoutOptions;
+    checkoutOptions = this.mergeApplePayCollectingEmailOptions(checkoutOptions);
     await this.primerWrapper.renderCheckout(
       this.clientToken as string,
       checkoutOptions,
@@ -530,6 +561,10 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       ...checkoutConfig,
       ...options,
       card: merge(this.getPrimerCardConfig() || {}, options.card || {}),
+      applePay: merge(
+        this.checkoutConfig.applePay || {},
+        options.applePay || {}
+      ),
       onTokenizeSuccess: this.handleTokenizeSuccess,
       onResumeSuccess: this.handleResumeSuccess,
       onResumeError: error => {
@@ -741,10 +776,8 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     if (callbacks.onMethodsAvailable) {
       this.on(EVENTS.METHODS_AVAILABLE, callbacks.onMethodsAvailable);
     }
-    let checkoutOptions: CheckoutOptions = this.getCheckoutOptions(
-      this.isCollectingApplePayEmail
-        ? { applePay: APPLE_PAY_COLLECTING_EMAIL_OPTIONS }
-        : {}
+    let checkoutOptions: CheckoutOptions = this.mergeApplePayCollectingEmailOptions(
+      this.getCheckoutOptions({})
     );
     let methodOptions: CheckoutRenderOptions = {
       onMethodRender: this.handleMethodRender,
