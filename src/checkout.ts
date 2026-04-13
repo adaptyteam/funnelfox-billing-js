@@ -214,6 +214,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
           }
           this.isCollectingApplePayEmail =
             !!response.data?.collect_apple_pay_email;
+          this.applySessionCardFieldConfig(response);
           return response;
         });
       // Cache the successful response
@@ -224,6 +225,36 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     const sessionData = this.apiClient.processSessionResponse(sessionResponse);
     this.orderId = sessionData.orderId;
     this.clientToken = sessionData.clientToken;
+  }
+
+  private applySessionCardFieldConfig(
+    response: CreateClientSessionResponse
+  ): void {
+    const cardConfig = this.checkoutConfig.card || {};
+
+    if (
+      cardConfig.emailAddress?.visible === undefined &&
+      response.data?.show_email_field !== undefined
+    ) {
+      cardConfig.emailAddress = {
+        ...cardConfig.emailAddress,
+        visible: response.data.show_email_field,
+      };
+    }
+
+    if (
+      cardConfig.cardholderName?.required === undefined &&
+      response.data?.show_cardholder_name_field !== undefined
+    ) {
+      cardConfig.cardholderName = {
+        ...cardConfig.cardholderName,
+        required: response.data.show_cardholder_name_field,
+      };
+    }
+
+    if (Object.keys(cardConfig).length > 0) {
+      this.checkoutConfig.card = cardConfig;
+    }
   }
 
   private getPrimerCardConfig() {

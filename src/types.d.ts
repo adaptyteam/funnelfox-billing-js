@@ -393,6 +393,8 @@ export interface CreateClientSessionResponse {
     order_id: string;
     stripe_public_key?: string;
     collect_apple_pay_email?: boolean;
+    show_email_field?: boolean;
+    show_cardholder_name_field?: boolean;
   };
   error?: {
     code: string;
