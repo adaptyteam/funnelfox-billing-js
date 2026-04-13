@@ -184,3 +184,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - add apple pay email props by deature flag
 - fix PURCHASE_CANCELLED event
+
+## [0.6.4] - 2025-04-10
+
+- add email option to card checkout
+- add card fields visibility config from createSession
+- fix Apple Pay billing settings merging

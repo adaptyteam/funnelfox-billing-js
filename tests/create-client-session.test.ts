@@ -43,6 +43,46 @@ describe('createClientSession', () => {
       clientToken: 'client-token',
       orderId: 'order-abc',
     });
+
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(requestBody).toMatchObject({
+      region: 'default',
+      integration_type: 'primer',
+      pp_ident: 'price_123',
+      external_id: 'user_456',
+      email_address: 'user@test.com',
+      client_metadata: { source: 'jest' },
+    });
+  });
+
+  test('omits email_address when email is not provided', async () => {
+    const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          status: 'success',
+          data: {
+            client_token: 'client-token',
+            order_id: 'order-abc',
+          },
+        }),
+    } as Response);
+
+    await createClientSession({
+      priceId: 'price_123',
+      externalId: 'user_456',
+    });
+
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(requestBody).toMatchObject({
+      region: 'default',
+      integration_type: 'primer',
+      pp_ident: 'price_123',
+      external_id: 'user_456',
+      client_metadata: {},
+    });
+    expect(requestBody).not.toHaveProperty('email_address');
   });
 
   test('throws APIError when backend returns error payload', async () => {

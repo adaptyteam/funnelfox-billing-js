@@ -3,7 +3,9 @@
  */
 
 import { configure, createCheckout, Billing } from '../src';
+import createDefaultSkin from '../src/skins/default';
 import { CheckoutConfig, PaymentResult } from '../src/types';
+import PrimerWrapper from '../src/primer-wrapper';
 
 jest.mock('../src/primer-wrapper', () => {
   return jest.fn().mockImplementation(() => ({
@@ -139,6 +141,8 @@ jest.mock('../src/skins/default', () => ({
 
 describe('Callback Pattern Tests', () => {
   beforeEach(() => {
+    (PrimerWrapper as unknown as jest.Mock).mockClear();
+    (createDefaultSkin as unknown as jest.Mock).mockClear();
     const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
     fetchMock.mockResolvedValue({
       ok: true,
@@ -154,6 +158,136 @@ describe('Callback Pattern Tests', () => {
   });
 
   describe('Individual Functions with Callbacks', () => {
+    test('createCheckout applies session card field flags when user config is absent', async () => {
+      configure({
+        baseUrl: 'https://api.example.com',
+        orgId: 'test-org',
+      });
+      const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            status: 'success',
+            data: {
+              client_token: 'test-token',
+              order_id: 'order-123',
+              show_email_field: true,
+              show_cardholder_name_field: true,
+            },
+          }),
+      } as Response);
+
+      await createCheckout({
+        priceId: 'price-123',
+        customer: {
+          externalId: 'user-apple-pay-contact-fields',
+          email: 'test@example.com',
+        },
+        container: '#test-container',
+      });
+
+      const checkoutConfig = (createDefaultSkin as unknown as jest.Mock).mock
+        .calls[0][0];
+      expect(checkoutConfig.card.emailAddress.visible).toBe(true);
+      expect(checkoutConfig.card.cardholderName.required).toBe(true);
+    });
+
+    test('createCheckout keeps user card field config over session flags', async () => {
+      configure({
+        baseUrl: 'https://api.example.com',
+        orgId: 'test-org',
+      });
+      const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            status: 'success',
+            data: {
+              client_token: 'test-token',
+              order_id: 'order-123',
+              show_email_field: true,
+              show_cardholder_name_field: true,
+            },
+          }),
+      } as Response);
+
+      await createCheckout({
+        priceId: 'price-123',
+        customer: {
+          externalId: 'user-apple-pay',
+          email: 'test@example.com',
+        },
+        container: '#test-container',
+        card: {
+          emailAddress: {
+            visible: false,
+          },
+          cardholderName: {
+            required: false,
+          },
+        },
+      });
+
+      const checkoutConfig = (createDefaultSkin as unknown as jest.Mock).mock
+        .calls[0][0];
+      expect(checkoutConfig.card.emailAddress.visible).toBe(false);
+      expect(checkoutConfig.card.cardholderName.required).toBe(false);
+    });
+
+    test('createCheckout preserves Apple Pay contact fields when email collection is enabled', async () => {
+      configure({
+        baseUrl: 'https://api.example.com',
+        orgId: 'test-org',
+      });
+      const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            status: 'success',
+            data: {
+              client_token: 'test-token',
+              order_id: 'order-123',
+              collect_apple_pay_email: true,
+            },
+          }),
+      } as Response);
+
+      await createCheckout({
+        priceId: 'price-123',
+        customer: {
+          externalId: 'user-456',
+          email: 'test@example.com',
+        },
+        container: '#test-container',
+        applePay: {
+          billingOptions: {
+            requiredBillingContactFields: ['name', 'postalAddress'],
+          },
+          shippingOptions: {
+            requiredShippingContactFields: ['name'],
+          },
+        },
+      });
+
+      const primerWrapperInstances = (PrimerWrapper as unknown as jest.Mock).mock
+        .results.map(result => result.value)
+        .filter(instance => instance?.renderCheckout);
+      const renderCheckout = primerWrapperInstances.find(
+        instance => (instance.renderCheckout as jest.Mock).mock.calls.length > 0
+      )?.renderCheckout as jest.Mock;
+      const checkoutOptions = renderCheckout.mock.calls[0][1];
+
+      expect(
+        checkoutOptions.applePay.billingOptions.requiredBillingContactFields
+      ).toEqual(['name', 'postalAddress', 'emailAddress']);
+      expect(
+        checkoutOptions.applePay.shippingOptions.requiredShippingContactFields
+      ).toEqual(['name', 'emailAddress']);
+    });
+
     test('createCheckout should call onSuccess callback', async () => {
       configure({
         baseUrl: 'https://api.example.com',

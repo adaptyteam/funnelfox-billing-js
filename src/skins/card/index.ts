@@ -41,12 +41,26 @@ class CardSkin implements Skin {
         '#cardHolderInput'
       ).parentElement.style.display = 'none';
     }
+    const hasEmailInput = !!this.checkoutConfig?.card?.emailAddress?.visible;
+    let emailAddress: HTMLInputElement | undefined = undefined;
+    if (hasEmailInput) {
+      emailAddress =
+        this.containerEl.querySelector<HTMLInputElement>('#emailAddressInput');
+      if (emailAddress) {
+        emailAddress.value = this.checkoutConfig.customer.email || '';
+      }
+    } else {
+      this.containerEl.querySelector<HTMLInputElement>(
+        '#emailAddressInput'
+      ).parentElement.style.display = 'none';
+    }
 
     if (
       !cardNumber ||
       !expiryDate ||
       !cvv ||
-      (hasCardholderInput && !cardholderName)
+      (hasCardholderInput && !cardholderName) ||
+      (hasEmailInput && !emailAddress)
     ) {
       throw new Error(
         'One or more card input elements are missing in the default skin'
@@ -58,6 +72,7 @@ class CardSkin implements Skin {
       expiryDate,
       cvv,
       cardholderName,
+      emailAddress,
     };
   }
 
@@ -93,16 +108,21 @@ class CardSkin implements Skin {
       expiryDate: cardInputElements.expiryDate.parentElement,
       cvv: cardInputElements.cvv.parentElement,
       cardholderName: cardInputElements.cardholderName?.parentElement,
+      emailAddress: cardInputElements.emailAddress?.parentElement,
     };
     const errorContainer = elementsMap[name]?.querySelector('.errorContainer');
     if (errorContainer) {
       errorContainer.textContent = error || '';
     }
-    if (name === 'cardholderName') {
+    if (name === 'cardholderName' || name === 'emailAddress') {
+      const field =
+        name === 'cardholderName'
+          ? cardInputElements.cardholderName
+          : cardInputElements.emailAddress;
       if (error) {
-        cardInputElements.cardholderName?.classList?.add('error');
+        field?.classList?.add('error');
       } else {
-        cardInputElements.cardholderName?.classList?.remove('error');
+        field?.classList?.remove('error');
       }
     }
   };

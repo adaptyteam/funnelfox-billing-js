@@ -12,7 +12,7 @@
     gap: 10px;
   }
   
-  .ff-card-form-cardholder-input {
+  .ff-card-form-text-input {
     margin: 0 0 3px;
     padding-left: 10px;
     padding-right: 10px;
@@ -27,7 +27,7 @@
     box-shadow: none;
     outline: none;
   }
-  .ff-card-form-cardholder-input.error {
+  .ff-card-form-text-input.error {
     border-color: #e32f41;
   }
   

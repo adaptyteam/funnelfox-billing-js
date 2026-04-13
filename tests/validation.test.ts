@@ -50,6 +50,12 @@ describe('Validation Utils', () => {
       expect(() => validateCheckoutConfig(validConfig)).not.toThrow();
     });
 
+    test('should allow missing email', () => {
+      const { email, ...config } = validConfig;
+
+      expect(() => validateCheckoutConfig(config)).not.toThrow();
+    });
+
     test('should throw ValidationError for invalid email', () => {
       const config = { ...validConfig, email: 'invalid-email' };
 

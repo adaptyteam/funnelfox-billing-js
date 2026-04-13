@@ -135,6 +135,7 @@ class APIClient {
   async createPayment(params: {
     orderId: string;
     paymentMethodToken: string;
+    email?: string;
     clientMetadata?: MetadataType;
   }): Promise<CreatePaymentResponse> {
     const payload: CreatePaymentRequest = {
@@ -142,6 +143,9 @@ class APIClient {
       payment_method_token: params.paymentMethodToken,
       client_metadata: params.clientMetadata || {},
     };
+    if (params.email !== undefined) {
+      payload.email_address = params.email;
+    }
     return (await this.request(API_ENDPOINTS.CREATE_PAYMENT, {
       method: 'POST',
       body: JSON.stringify(payload),

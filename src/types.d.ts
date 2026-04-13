@@ -56,10 +56,20 @@ export interface Customer {
   countryCode?: string;
 }
 
+export interface BillingCardEmailAddressOptions {
+  visible?: boolean;
+  template?: string;
+}
+
+export interface BillingCardOptions extends CheckoutCardOptions {
+  emailAddress?: BillingCardEmailAddressOptions;
+}
+
 export interface PrimerCheckoutConfig extends Pick<
   Partial<HeadlessUniversalCheckoutOptions>,
-  'paypal' | 'applePay' | 'googlePay' | 'style' | 'card'
+  'paypal' | 'applePay' | 'googlePay' | 'style'
 > {
+  card?: BillingCardOptions;
   cardSelectors?: CardInputSelectors;
   paymentButtonSelectors?: PaymentButtonSelectors;
 }
@@ -92,6 +102,7 @@ export interface CheckoutRenderOptions {
     inputName: keyof CardInputSelectors,
     error: string | null
   ) => void;
+  onCardInputValueChange?: (inputName: 'emailAddress', value: string) => void;
   onMethodRender?: (method: PaymentMethod) => void;
   onMethodRenderError?: (method: PaymentMethod) => void;
   onMethodsAvailable?: (methods: PaymentMethod[]) => void;
@@ -254,7 +265,7 @@ export interface CreateClientSessionOptions {
   region?: string;
   priceId: string;
   externalId: string;
-  email: string;
+  email?: string;
   orgId?: string;
   apiConfig?: APIConfig;
   clientMetadata?: MetadataType;
@@ -273,18 +284,22 @@ export declare function createClientSession(
 
 export interface InitMethodOptions
   extends
-    Partial<
-      Pick<
-        HeadlessUniversalCheckoutOptions,
-        'style' | 'card' | 'applePay' | 'paypal' | 'googlePay'
-      >
+    Omit<
+      Partial<
+        Pick<
+          HeadlessUniversalCheckoutOptions,
+          'style' | 'card' | 'applePay' | 'paypal' | 'googlePay'
+        >
+      >,
+      'card'
     >,
     InitMethodCallbacks {
+  card?: BillingCardOptions;
   orgId: string;
   baseUrl?: string;
   priceId: string;
   externalId: string;
-  email: string;
+  email?: string;
   meta?: MetadataType;
 }
 
@@ -339,7 +354,8 @@ export interface CardInputSelectors {
   cardNumber: string;
   expiryDate: string;
   cvv: string;
-  cardholderName: string;
+  cardholderName?: string;
+  emailAddress?: string;
   button: string;
 }
 
@@ -348,6 +364,7 @@ export interface CardInputElements {
   expiryDate: HTMLElement;
   cvv: HTMLElement;
   cardholderName?: HTMLInputElement;
+  emailAddress?: HTMLInputElement;
 }
 
 export interface CardInputElementsWithButton extends CardInputElements {
@@ -364,7 +381,7 @@ export interface CreateClientSessionRequest {
   integration_type: string;
   pp_ident: string;
   external_id: string;
-  email_address: string;
+  email_address?: string;
   country_code?: string;
   client_metadata?: MetadataType;
 }
@@ -376,6 +393,8 @@ export interface CreateClientSessionResponse {
     order_id: string;
     stripe_public_key?: string;
     collect_apple_pay_email?: boolean;
+    show_email_field?: boolean;
+    show_cardholder_name_field?: boolean;
   };
   error?: {
     code: string;
@@ -388,6 +407,7 @@ export interface CreateClientSessionResponse {
 export interface CreatePaymentRequest {
   order_id: string;
   payment_method_token: string;
+  email_address?: string;
   client_metadata?: MetadataType;
 }
 
