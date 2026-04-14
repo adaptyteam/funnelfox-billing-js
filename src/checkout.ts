@@ -508,6 +508,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         onInputChange: this.handleInputChange,
         onCardInputValueChange: this.handleCardInputValueChange,
         isCardholderNameRequired: () => this.isCardholderNameRequired(),
+        isPostalCodeRequired: () => this.isPostalCodeVisible(),
         onMethodRender: this.handleMethodRender,
         onMethodsAvailable: this.handleMethodsAvailable,
         onMethodRenderError: this.handleMethodRenderError,
@@ -985,6 +986,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         onInputChange: this.handleInputChange,
         onCardInputValueChange: this.handleCardInputValueChange,
         isCardholderNameRequired: () => this.isCardholderNameRequired(),
+        isPostalCodeRequired: () => this.isPostalCodeVisible(),
         onMethodRender: this.handleMethodRender,
         onMethodRenderError: this.handleMethodRenderError,
       };

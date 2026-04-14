@@ -248,16 +248,23 @@ class CardSkin implements Skin {
       cvv: cardInputElements.cvv.parentElement,
       cardholderName: cardInputElements.cardholderName?.parentElement,
       emailAddress: cardInputElements.emailAddress?.parentElement,
+      postalCode: cardInputElements.postalCode?.parentElement,
     };
     const errorContainer = elementsMap[name]?.querySelector('.errorContainer');
     if (errorContainer) {
       errorContainer.textContent = error || '';
     }
-    if (name === 'cardholderName' || name === 'emailAddress') {
+    if (
+      name === 'cardholderName' ||
+      name === 'emailAddress' ||
+      name === 'postalCode'
+    ) {
       const field =
         name === 'cardholderName'
           ? cardInputElements.cardholderName
-          : cardInputElements.emailAddress;
+          : name === 'emailAddress'
+            ? cardInputElements.emailAddress
+            : cardInputElements.postalCode;
       if (error) {
         field?.classList?.add('error');
       } else {

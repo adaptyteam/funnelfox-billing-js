@@ -117,6 +117,7 @@ export interface CheckoutRenderOptions {
     value: string
   ) => void;
   isCardholderNameRequired?: () => boolean;
+  isPostalCodeRequired?: () => boolean;
   onMethodRender?: (method: PaymentMethod) => void;
   onMethodRenderError?: (method: PaymentMethod) => void;
   onMethodsAvailable?: (methods: PaymentMethod[]) => void;
@@ -370,6 +371,7 @@ export interface CardInputSelectors {
   cvv: string;
   cardholderName?: string;
   emailAddress?: string;
+  postalCode?: string;
   button: string;
 }
 

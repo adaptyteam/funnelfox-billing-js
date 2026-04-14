@@ -221,6 +221,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
       onInputChange,
       onCardInputValueChange,
       isCardholderNameRequired,
+      isPostalCodeRequired,
       onMethodRenderError,
       onMethodRender,
     }: CheckoutRenderOptions
@@ -258,7 +259,13 @@ class PrimerWrapper implements PrimerWrapperInterface {
             : null;
           dispatchError('emailAddress', emailError);
         }
-        return valid && !emailError && !cardHolderError;
+        const postalCode = elements.postalCode?.value?.trim();
+        const postalCodeError =
+          isPostalCodeRequired?.() && !postalCode
+            ? 'Please enter a postal code'
+            : null;
+        dispatchError('postalCode', postalCodeError);
+        return valid && !emailError && !cardHolderError && !postalCodeError;
       };
       const dispatchError = (
         inputName: keyof CardInputSelectors,
@@ -301,6 +308,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
       const postalCodeOnChange = (e: Event) => {
         const postalCode = (e.target as HTMLInputElement).value.trim();
         onCardInputValueChange?.('postalCode', postalCode);
+        dispatchError('postalCode', null);
       };
 
       elements.cardholderName?.addEventListener('input', cardHolderOnChange);
@@ -453,6 +461,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
       onMethodsAvailable,
       onCardInputValueChange,
       isCardholderNameRequired,
+      isPostalCodeRequired,
     } = checkoutRenderOptions;
     await this.initializeHeadlessCheckout(clientToken, checkoutOptions);
     onMethodsAvailable?.(this.availableMethods);
@@ -468,6 +477,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
             onMethodRenderError,
             onCardInputValueChange,
             isCardholderNameRequired,
+            isPostalCodeRequired,
           });
         } else {
           const buttonElementsMap = {
