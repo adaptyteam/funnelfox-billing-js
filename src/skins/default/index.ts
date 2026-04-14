@@ -5,6 +5,7 @@ import googlePayTemplate from './google-pay.html';
 import applePayTemplate from './apple-pay.html';
 import './styles.css';
 import type { Skin, SkinFactory } from '../types';
+import type { CardSessionFieldConfig } from '../types';
 import { PaymentMethod } from '../../enums';
 import {
   CardInputElementsWithButton,
@@ -32,8 +33,12 @@ class DefaultSkin implements Skin {
   paymentMethodOrder: PaymentMethod[];
   availableMethods: PaymentMethod[];
   checkoutConfig: CheckoutConfig;
+  cardSessionFieldConfig?: CardSessionFieldConfig;
 
-  constructor(checkoutConfig: CheckoutConfig) {
+  constructor(
+    checkoutConfig: CheckoutConfig,
+    cardSessionFieldConfig?: CardSessionFieldConfig
+  ) {
     this.containerSelector = checkoutConfig.container;
     this.paymentMethodOrder = checkoutConfig.paymentMethodOrder;
     const containerEl = document.querySelector<HTMLElement>(
@@ -48,6 +53,7 @@ class DefaultSkin implements Skin {
 
     this.containerEl = containerEl;
     this.checkoutConfig = checkoutConfig;
+    this.cardSessionFieldConfig = cardSessionFieldConfig;
   }
 
   private initAccordion() {
@@ -124,7 +130,8 @@ class DefaultSkin implements Skin {
     });
     this.cardInstance = new CardSkin(
       document.querySelector('#cardForm'),
-      this.checkoutConfig
+      this.checkoutConfig,
+      this.cardSessionFieldConfig
     );
     this.cardInstance.init();
     this.wireCardInputs();
@@ -250,9 +257,10 @@ class DefaultSkin implements Skin {
 }
 
 const createDefaultSkin: SkinFactory = async (
-  checkoutConfig: CheckoutConfig
+  checkoutConfig: CheckoutConfig,
+  cardSessionFieldConfig?: CardSessionFieldConfig
 ): Promise<Skin> => {
-  const skin = new DefaultSkin(checkoutConfig);
+  const skin = new DefaultSkin(checkoutConfig, cardSessionFieldConfig);
   await skin['init']();
   return skin;
 };

@@ -7,7 +7,18 @@ import type {
   PaymentMethod,
   CardInputElements,
   CardInputElementsWithButton,
+  CountryFieldOverride,
+  CountryOption,
 } from '../types';
+
+export interface CardSessionFieldConfig {
+  showCountrySelector?: boolean;
+  showPostalCode?: boolean;
+  detectedCountryCode?: string;
+  validCountries?: CountryOption[];
+  countryFieldOverrides?: Record<string, CountryFieldOverride>;
+  applyCardholderNameOverrides?: boolean;
+}
 
 export interface Skin {
   init(): Promise<void>;
@@ -56,4 +67,7 @@ export interface Skin {
   onMethodsAvailable?(methods: PaymentMethod[]): void;
 }
 
-export type SkinFactory = (checkoutConfig: CheckoutConfig) => Promise<Skin>;
+export type SkinFactory = (
+  checkoutConfig: CheckoutConfig,
+  cardSessionFieldConfig?: CardSessionFieldConfig
+) => Promise<Skin>;

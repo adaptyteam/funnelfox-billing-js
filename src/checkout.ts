@@ -18,6 +18,7 @@ import {
   type CheckoutConfigWithCallbacks,
   type PaymentResult,
   type CheckoutState,
+  type BillingCardOptions,
   CardInputSelectors,
   CardInputElementsWithButton,
   PaymentButtonSelectors,
@@ -32,7 +33,7 @@ import type {
   OnTokenizeSuccessHandler,
 } from '@primer-io/checkout-web';
 import { PaymentMethod } from './enums';
-import type { Skin, SkinFactory } from './skins/types';
+import type { CardSessionFieldConfig, Skin, SkinFactory } from './skins/types';
 import { renderLoader, hideLoader } from './assets/loader/loader';
 import type {
   CheckoutRenderOptions,
@@ -60,6 +61,7 @@ interface CheckoutEventMap {
   [EVENTS.PURCHASE_CANCELLED]: void;
   [EVENTS.METHODS_AVAILABLE]: [PaymentMethod[]];
 }
+
 class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   id: string;
   orgId: string;
@@ -89,7 +91,10 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   private radarSessionId: Promise<string> | null = null;
   isCollectingApplePayEmail: boolean;
   cardEmailAddress?: string;
-  sessionMethod: PaymentMethod;
+  cardCountryCode?: string;
+  cardPostalCode?: string;
+  private shouldApplySessionCardholderNameConfig: boolean;
+  private cardSessionFieldConfig: CardSessionFieldConfig = {};
 
   constructor(config: {
     orgId: string;
@@ -122,6 +127,8 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.primerWrapper = new PrimerWrapper();
     this.isDestroyed = false;
     this.cardEmailAddress = this.checkoutConfig.customer.email;
+    this.shouldApplySessionCardholderNameConfig =
+      this.checkoutConfig.card?.cardholderName?.required === undefined;
 
     this._setupCallbackBridges();
   }
@@ -172,7 +179,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.emit(EVENTS.INPUT_ERROR, { name: inputName, error });
   };
 
-  private async createSession(method?: PaymentMethod) {
+  private async createSession() {
     this.apiClient = new APIClient({
       baseUrl: this.baseUrl || DEFAULTS.BASE_URL,
       orgId: this.orgId,
@@ -187,14 +194,11 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       clientMetadata: this.checkoutConfig.clientMetadata,
       countryCode: this.checkoutConfig.customer.countryCode,
     };
-    this.sessionMethod = method;
     const cacheKey = [
-      //this.id,
       this.orgId,
       this.checkoutConfig.priceId,
       this.checkoutConfig.customer.externalId,
       this.checkoutConfig.customer.email,
-      //method || 'default',
     ].join('-');
 
     let sessionResponse: CreateClientSessionResponse;
@@ -233,7 +237,9 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   private applySessionCardFieldConfig(
     response: CreateClientSessionResponse
   ): void {
-    const cardConfig = this.checkoutConfig.card || {};
+    const cardConfig = {
+      ...(this.checkoutConfig.card || {}),
+    } as BillingCardOptions;
 
     if (
       cardConfig.emailAddress?.visible === undefined &&
@@ -246,7 +252,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     }
 
     if (
-      cardConfig.cardholderName?.required === undefined &&
+      this.shouldApplySessionCardholderNameConfig &&
       response.data?.show_cardholder_name_field !== undefined
     ) {
       cardConfig.cardholderName = {
@@ -255,17 +261,58 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       };
     }
 
+    const countryFieldOverrides = this.normalizeCountryFieldOverrides(
+      response.data?.country_field_overrides
+    );
+    const detectedCountryCode =
+      this.normalizeCountryCode(response.data?.detected_country_code) ||
+      this.cardCountryCode;
+
+    this.cardSessionFieldConfig = {
+      ...this.cardSessionFieldConfig,
+      showCountrySelector:
+        response.data?.show_country_selector_field ??
+        this.cardSessionFieldConfig.showCountrySelector,
+      showPostalCode:
+        response.data?.show_postal_code_field ??
+        this.cardSessionFieldConfig.showPostalCode,
+      detectedCountryCode:
+        detectedCountryCode || this.cardSessionFieldConfig.detectedCountryCode,
+      validCountries:
+        response.data?.valid_countries ||
+        this.cardSessionFieldConfig.validCountries,
+      countryFieldOverrides:
+        countryFieldOverrides ||
+        this.cardSessionFieldConfig.countryFieldOverrides,
+      applyCardholderNameOverrides: this.shouldApplySessionCardholderNameConfig,
+    };
+
     if (Object.keys(cardConfig).length > 0) {
       this.checkoutConfig.card = cardConfig;
+    }
+
+    this.cardCountryCode =
+      this.cardSessionFieldConfig.detectedCountryCode || this.cardCountryCode;
+    if (!this.isPostalCodeVisible()) {
+      this.cardPostalCode = undefined;
     }
   }
 
   private getPrimerCardConfig() {
-    const cardConfig = { ...(this.checkoutConfig.card || {}) } as {
+    const cardConfig = {
+      ...(this.checkoutConfig.card || {}),
+    } as BillingCardOptions & {
       emailAddress?: unknown;
+      cardholderName?: { required?: boolean; [key: string]: unknown };
       [key: string]: unknown;
     };
     delete cardConfig.emailAddress;
+    if (cardConfig.cardholderName) {
+      cardConfig.cardholderName = {
+        ...cardConfig.cardholderName,
+        required: false,
+      };
+    }
     return Object.keys(cardConfig).length
       ? (cardConfig as CheckoutOptions['card'])
       : undefined;
@@ -321,11 +368,22 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   }
 
   private handleCardInputValueChange = (
-    inputName: 'emailAddress',
+    inputName: 'emailAddress' | 'countryCode' | 'postalCode',
     value: string
   ) => {
     if (inputName === 'emailAddress') {
       this.cardEmailAddress = value?.trim() || undefined;
+      return;
+    }
+    if (inputName === 'countryCode') {
+      this.cardCountryCode = this.normalizeCountryCode(value);
+      if (!this.isPostalCodeVisible()) {
+        this.cardPostalCode = undefined;
+      }
+      return;
+    }
+    if (inputName === 'postalCode') {
+      this.cardPostalCode = value?.trim() || undefined;
     }
   };
 
@@ -449,6 +507,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         onSubmit: this.handleSubmit,
         onInputChange: this.handleInputChange,
         onCardInputValueChange: this.handleCardInputValueChange,
+        isCardholderNameRequired: () => this.isCardholderNameRequired(),
         onMethodRender: this.handleMethodRender,
         onMethodsAvailable: this.handleMethodsAvailable,
         onMethodRenderError: this.handleMethodRenderError,
@@ -487,6 +546,8 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         orderId: this.orderId as string,
         paymentMethodToken: paymentMethodTokenData.token,
         email: this.getPaymentEmailAddress(),
+        countryCode: this.getPaymentCountryCode(),
+        postalCode: this.getPaymentPostalCode(),
         clientMetadata: {
           radarSessionId,
         },
@@ -731,12 +792,102 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     return ['processing', 'action_required'].includes(this.state as string);
   }
 
+  private normalizeCountryCode(
+    countryCode?: string | null
+  ): string | undefined {
+    const normalized = countryCode?.trim().toUpperCase();
+    return normalized || undefined;
+  }
+
+  private normalizeCountryFieldOverrides(
+    overrides?: CreateClientSessionResponse['data']['country_field_overrides']
+  ) {
+    if (!overrides) {
+      return undefined;
+    }
+
+    return Object.entries(overrides).reduce<
+      NonNullable<
+        CreateClientSessionResponse['data']['country_field_overrides']
+      >
+    >((result, [countryCode, override]) => {
+      const normalizedCountryCode = this.normalizeCountryCode(countryCode);
+      if (normalizedCountryCode && override) {
+        result[normalizedCountryCode] = override;
+      }
+      return result;
+    }, {});
+  }
+
+  private getSelectedCountryCode(): string | undefined {
+    return (
+      this.normalizeCountryCode(this.cardCountryCode) ||
+      this.normalizeCountryCode(this.cardSessionFieldConfig.detectedCountryCode)
+    );
+  }
+
+  private getCountryFieldOverride(countryCode = this.getSelectedCountryCode()) {
+    if (!countryCode) {
+      return undefined;
+    }
+
+    return this.cardSessionFieldConfig.countryFieldOverrides?.[countryCode];
+  }
+
+  private isCardholderNameRequired(
+    countryCode = this.getSelectedCountryCode()
+  ) {
+    const defaultValue = !!this.checkoutConfig.card?.cardholderName?.required;
+    const shouldApplyOverrides =
+      this.cardSessionFieldConfig.applyCardholderNameOverrides &&
+      this.shouldApplySessionCardholderNameConfig;
+
+    if (!shouldApplyOverrides) {
+      return defaultValue;
+    }
+
+    const overrideValue =
+      this.getCountryFieldOverride(countryCode)?.show_cardholder_name;
+    if (overrideValue === null || overrideValue === undefined) {
+      return defaultValue;
+    }
+
+    return overrideValue;
+  }
+
+  private isPostalCodeVisible(countryCode = this.getSelectedCountryCode()) {
+    const defaultValue = !!this.cardSessionFieldConfig.showPostalCode;
+    const overrideValue =
+      this.getCountryFieldOverride(countryCode)?.show_postal_code;
+
+    if (overrideValue === null || overrideValue === undefined) {
+      return defaultValue;
+    }
+
+    return overrideValue;
+  }
+
+  private getPaymentCountryCode(): string | undefined {
+    return this.getSelectedCountryCode();
+  }
+
+  private getPaymentPostalCode(): string | undefined {
+    if (!this.isPostalCodeVisible()) {
+      return undefined;
+    }
+
+    return this.cardPostalCode?.trim() || undefined;
+  }
+
   // Creates containers to render hosted inputs with labels and error messages,
   // a card holder input with label and error, and a submit button.
   private async getDefaultSkinCheckoutOptions() {
     const skinFactory = (await import('./skins/default'))
       .default as SkinFactory;
-    const skin: Skin = await skinFactory(this.checkoutConfig);
+    const skin: Skin = await skinFactory(
+      this.checkoutConfig,
+      this.cardSessionFieldConfig
+    );
 
     this.on(EVENTS.INPUT_ERROR, skin.onInputError);
     this.on(EVENTS.STATUS_CHANGE, skin.onStatusChange);
@@ -754,7 +905,11 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   }
   private async getCardDefaultSkinCheckoutOptions(node: HTMLElement) {
     const CardSkin = (await import('./skins/card')).default;
-    const skin: Skin = new CardSkin(node, this.checkoutConfig);
+    const skin: Skin = new CardSkin(
+      node,
+      this.checkoutConfig,
+      this.cardSessionFieldConfig
+    );
     skin.init();
     this.on(EVENTS.INPUT_ERROR, skin.onInputError);
     this.on(EVENTS.METHOD_RENDER, skin.onMethodRender);
@@ -781,7 +936,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   ) {
     this._ensureNotDestroyed();
     if (!this.isReady()) {
-      await this.createSession(method);
+      await this.createSession();
     }
 
     if (callbacks.onRenderSuccess) {
@@ -829,6 +984,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         onSubmit: this.handleSubmit,
         onInputChange: this.handleInputChange,
         onCardInputValueChange: this.handleCardInputValueChange,
+        isCardholderNameRequired: () => this.isCardholderNameRequired(),
         onMethodRender: this.handleMethodRender,
         onMethodRenderError: this.handleMethodRenderError,
       };

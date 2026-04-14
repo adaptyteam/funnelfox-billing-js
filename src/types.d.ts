@@ -61,6 +61,16 @@ export interface BillingCardEmailAddressOptions {
   template?: string;
 }
 
+export interface CountryOption {
+  code: string;
+  name: string;
+}
+
+export interface CountryFieldOverride {
+  show_cardholder_name?: boolean | null;
+  show_postal_code?: boolean | null;
+}
+
 export interface BillingCardOptions extends CheckoutCardOptions {
   emailAddress?: BillingCardEmailAddressOptions;
 }
@@ -102,7 +112,11 @@ export interface CheckoutRenderOptions {
     inputName: keyof CardInputSelectors,
     error: string | null
   ) => void;
-  onCardInputValueChange?: (inputName: 'emailAddress', value: string) => void;
+  onCardInputValueChange?: (
+    inputName: 'emailAddress' | 'countryCode' | 'postalCode',
+    value: string
+  ) => void;
+  isCardholderNameRequired?: () => boolean;
   onMethodRender?: (method: PaymentMethod) => void;
   onMethodRenderError?: (method: PaymentMethod) => void;
   onMethodsAvailable?: (methods: PaymentMethod[]) => void;
@@ -365,6 +379,8 @@ export interface CardInputElements {
   cvv: HTMLElement;
   cardholderName?: HTMLInputElement;
   emailAddress?: HTMLInputElement;
+  countrySelector?: HTMLSelectElement;
+  postalCode?: HTMLInputElement;
 }
 
 export interface CardInputElementsWithButton extends CardInputElements {
@@ -395,6 +411,11 @@ export interface CreateClientSessionResponse {
     collect_apple_pay_email?: boolean;
     show_email_field?: boolean;
     show_cardholder_name_field?: boolean;
+    show_country_selector_field?: boolean;
+    show_postal_code_field?: boolean;
+    detected_country_code?: string;
+    valid_countries?: CountryOption[];
+    country_field_overrides?: Record<string, CountryFieldOverride>;
   };
   error?: {
     code: string;
@@ -408,6 +429,8 @@ export interface CreatePaymentRequest {
   order_id: string;
   payment_method_token: string;
   email_address?: string;
+  country_code?: string;
+  postal_code?: string;
   client_metadata?: MetadataType;
 }
 

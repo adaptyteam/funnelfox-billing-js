@@ -220,7 +220,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
       onSubmit,
       onInputChange,
       onCardInputValueChange,
-
+      isCardholderNameRequired,
       onMethodRenderError,
       onMethodRender,
     }: CheckoutRenderOptions
@@ -243,11 +243,13 @@ class PrimerWrapper implements PrimerWrapperInterface {
       const validateForm = async () => {
         if (!pmManager) return false;
 
-        const { valid, validationErrors } = await pmManager.validate();
-        const cardHolderError = validationErrors.find(
-          v => v.name === 'cardholderName'
-        );
-        dispatchError('cardholderName', cardHolderError?.message || null);
+        const { valid } = await pmManager.validate();
+        const cardholderName = elements.cardholderName?.value?.trim();
+        const cardHolderError =
+          isCardholderNameRequired?.() && !cardholderName
+            ? 'Please enter the cardholder name'
+            : null;
+        dispatchError('cardholderName', cardHolderError);
         let emailError: string | null = null;
         if (hasEmail) {
           const emailAddress = elements.emailAddress?.value?.trim();
@@ -256,7 +258,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
             : null;
           dispatchError('emailAddress', emailError);
         }
-        return valid && !emailError;
+        return valid && !emailError && !cardHolderError;
       };
       const dispatchError = (
         inputName: keyof CardInputSelectors,
@@ -277,7 +279,6 @@ class PrimerWrapper implements PrimerWrapperInterface {
         pmManager.setCardholderName((e.target as HTMLInputElement).value);
         dispatchError('cardholderName', null);
       };
-
       let emailAddressOnChange: ((e: Event) => void) | undefined;
       if (hasEmail) {
         emailAddressOnChange = (e: Event) => {
@@ -293,8 +294,22 @@ class PrimerWrapper implements PrimerWrapperInterface {
         };
         elements.emailAddress.addEventListener('input', emailAddressOnChange);
       }
+      const countrySelectorOnChange = (e: Event) => {
+        const countryCode = (e.target as HTMLSelectElement).value.trim();
+        onCardInputValueChange?.('countryCode', countryCode);
+      };
+      const postalCodeOnChange = (e: Event) => {
+        const postalCode = (e.target as HTMLInputElement).value.trim();
+        onCardInputValueChange?.('postalCode', postalCode);
+      };
 
       elements.cardholderName?.addEventListener('input', cardHolderOnChange);
+      elements.emailAddress?.addEventListener('input', emailAddressOnChange);
+      elements.countrySelector?.addEventListener(
+        'change',
+        countrySelectorOnChange
+      );
+      elements.postalCode?.addEventListener('input', postalCodeOnChange);
       cardNumberInput.addEventListener(
         'change' as EventTypes,
         onHostedInputChange('cardNumber')
@@ -356,6 +371,11 @@ class PrimerWrapper implements PrimerWrapperInterface {
           'input',
           emailAddressOnChange
         );
+        elements.countrySelector?.removeEventListener(
+          'change',
+          countrySelectorOnChange
+        );
+        elements.postalCode?.removeEventListener('input', postalCodeOnChange);
         elements.button?.removeEventListener('click', onSubmitHandler);
       };
       this.destroyCallbacks.push(onDestroy);
@@ -373,6 +393,12 @@ class PrimerWrapper implements PrimerWrapperInterface {
           }
           if (elements.emailAddress) {
             elements.emailAddress.disabled = disabled;
+          }
+          if (elements.countrySelector) {
+            elements.countrySelector.disabled = disabled;
+          }
+          if (elements.postalCode) {
+            elements.postalCode.disabled = disabled;
           }
         },
         submit: () => onSubmitHandler(),
@@ -426,6 +452,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
       onMethodRenderError,
       onMethodsAvailable,
       onCardInputValueChange,
+      isCardholderNameRequired,
     } = checkoutRenderOptions;
     await this.initializeHeadlessCheckout(clientToken, checkoutOptions);
     onMethodsAvailable?.(this.availableMethods);
@@ -440,6 +467,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
             onMethodRender,
             onMethodRenderError,
             onCardInputValueChange,
+            isCardholderNameRequired,
           });
         } else {
           const buttonElementsMap = {

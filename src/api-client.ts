@@ -136,6 +136,8 @@ class APIClient {
     orderId: string;
     paymentMethodToken: string;
     email?: string;
+    countryCode?: string;
+    postalCode?: string;
     clientMetadata?: MetadataType;
   }): Promise<CreatePaymentResponse> {
     const payload: CreatePaymentRequest = {
@@ -145,6 +147,12 @@ class APIClient {
     };
     if (params.email !== undefined) {
       payload.email_address = params.email;
+    }
+    if (params.countryCode !== undefined) {
+      payload.country_code = params.countryCode;
+    }
+    if (params.postalCode !== undefined) {
+      payload.postal_code = params.postalCode;
     }
     return (await this.request(API_ENDPOINTS.CREATE_PAYMENT, {
       method: 'POST',
