@@ -31,7 +31,9 @@ class CardSkin implements Skin {
     this.containerEl.style.display = 'none';
   }
 
-  private normalizeCountryCode(countryCode?: string | null): string | undefined {
+  private normalizeCountryCode(
+    countryCode?: string | null
+  ): string | undefined {
     const normalized = countryCode?.trim().toUpperCase();
     return normalized || undefined;
   }
@@ -43,7 +45,9 @@ class CardSkin implements Skin {
 
     return (
       this.normalizeCountryCode(selector?.value) ||
-      this.normalizeCountryCode(this.cardSessionFieldConfig?.detectedCountryCode)
+      this.normalizeCountryCode(
+        this.cardSessionFieldConfig?.detectedCountryCode
+      )
     );
   }
 
@@ -82,9 +86,12 @@ class CardSkin implements Skin {
     return overrideValue;
   }
 
-  private isPostalCodeVisible(countryCode = this.getSelectedCountryCode()): boolean {
+  private isPostalCodeVisible(
+    countryCode = this.getSelectedCountryCode()
+  ): boolean {
     const defaultVisible = !!this.cardSessionFieldConfig?.showPostalCode;
-    const overrideValue = this.getCountryFieldOverride(countryCode)?.show_postal_code;
+    const overrideValue =
+      this.getCountryFieldOverride(countryCode)?.show_postal_code;
 
     if (overrideValue === null || overrideValue === undefined) {
       return defaultVisible;
@@ -122,12 +129,17 @@ class CardSkin implements Skin {
     }
   }
 
-  private updateDynamicFieldVisibility(countryCode = this.getSelectedCountryCode()) {
+  private updateDynamicFieldVisibility(
+    countryCode = this.getSelectedCountryCode()
+  ) {
     this.setFieldVisibility(
       'cardHolderInput',
       this.isCardholderNameVisible(countryCode)
     );
-    this.setFieldVisibility('postalCodeInput', this.isPostalCodeVisible(countryCode));
+    this.setFieldVisibility(
+      'postalCodeInput',
+      this.isPostalCodeVisible(countryCode)
+    );
 
     const postalCodeInput =
       this.containerEl.querySelector<HTMLInputElement>('#postalCodeInput');
