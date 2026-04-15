@@ -282,7 +282,8 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         response.data?.valid_countries ||
         this.cardSessionFieldConfig.validCountries,
       countryFieldOverrides:
-        countryFieldOverrides || this.cardSessionFieldConfig.countryFieldOverrides,
+        countryFieldOverrides ||
+        this.cardSessionFieldConfig.countryFieldOverrides,
     };
 
     if (Object.keys(cardConfig).length > 0) {
