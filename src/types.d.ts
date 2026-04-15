@@ -67,7 +67,6 @@ export interface CountryOption {
 }
 
 export interface CountryFieldOverride {
-  show_cardholder_name?: boolean | null;
   show_postal_code?: boolean | null;
 }
 
@@ -412,10 +411,10 @@ export interface CreateClientSessionResponse {
     stripe_public_key?: string;
     collect_apple_pay_email?: boolean;
     show_email_field?: boolean;
-    show_cardholder_name_field?: boolean;
+    show_cardholder_name_field?: boolean; //true
     show_country_selector_field?: boolean;
     show_postal_code_field?: boolean;
-    detected_country_code?: string;
+    detected_country_code?: string; //US
     valid_countries?: CountryOption[];
     country_field_overrides?: Record<string, CountryFieldOverride>;
   };

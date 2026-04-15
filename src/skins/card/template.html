@@ -67,6 +67,19 @@
   </div>
 </div>
 <div>
+  <label class="ff-card-form-label" for="cardHolderInput"
+    >Cardholder name</label
+  >
+  <input
+    class="ff-card-form-text-input"
+    id="cardHolderInput"
+    type="text"
+    pattern="[A-Za-z\s]+"
+    placeholder="Full name on card"
+  />
+  <div class="errorContainer"></div>
+</div>
+<div>
   <label class="ff-card-form-label" for="emailAddressInput">Email</label>
   <input
     class="ff-card-form-text-input"
@@ -76,27 +89,21 @@
   />
   <div class="errorContainer"></div>
 </div>
-<div>
-  <label class="ff-card-form-label" for="cardHolderInput">Card holder</label>
-  <input
-    class="ff-card-form-text-input"
-    id="cardHolderInput"
-    placeholder="Card holder"
-  />
-  <div class="errorContainer"></div>
-</div>
 <div id="countrySelectorField">
   <label class="ff-card-form-label" for="countrySelectorInput">Country</label>
   <div class="ff-select-wrap">
-    <select class="ff-card-form-text-input ff-card-form-select" id="countrySelectorInput"></select>
+    <select
+      class="ff-card-form-text-input ff-card-form-select"
+      id="countrySelectorInput"
+    ></select>
     <div class="ff-select-arrow" aria-hidden="true"></div>
   </div>
 </div>
 <div>
-  <label class="ff-card-form-label" for="postalCodeInput">Postal code</label>
+  <label class="ff-card-form-label" for="postalCodeInput">Zip code</label>
   <input
     class="ff-card-form-text-input"
     id="postalCodeInput"
-    placeholder="Postal code"
+    placeholder="12345"
   />
 </div>
