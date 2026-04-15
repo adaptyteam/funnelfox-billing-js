@@ -282,9 +282,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         response.data?.valid_countries ||
         this.cardSessionFieldConfig.validCountries,
       countryFieldOverrides:
-        countryFieldOverrides ||
-        this.cardSessionFieldConfig.countryFieldOverrides,
-      applyCardholderNameOverrides: this.shouldApplySessionCardholderNameConfig,
+        countryFieldOverrides || this.cardSessionFieldConfig.countryFieldOverrides,
     };
 
     if (Object.keys(cardConfig).length > 0) {
@@ -303,16 +301,9 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       ...(this.checkoutConfig.card || {}),
     } as BillingCardOptions & {
       emailAddress?: unknown;
-      cardholderName?: { required?: boolean; [key: string]: unknown };
       [key: string]: unknown;
     };
     delete cardConfig.emailAddress;
-    if (cardConfig.cardholderName) {
-      cardConfig.cardholderName = {
-        ...cardConfig.cardholderName,
-        required: false,
-      };
-    }
     return Object.keys(cardConfig).length
       ? (cardConfig as CheckoutOptions['card'])
       : undefined;
@@ -835,25 +826,8 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     return this.cardSessionFieldConfig.countryFieldOverrides?.[countryCode];
   }
 
-  private isCardholderNameRequired(
-    countryCode = this.getSelectedCountryCode()
-  ) {
-    const defaultValue = !!this.checkoutConfig.card?.cardholderName?.required;
-    const shouldApplyOverrides =
-      this.cardSessionFieldConfig.applyCardholderNameOverrides &&
-      this.shouldApplySessionCardholderNameConfig;
-
-    if (!shouldApplyOverrides) {
-      return defaultValue;
-    }
-
-    const overrideValue =
-      this.getCountryFieldOverride(countryCode)?.show_cardholder_name;
-    if (overrideValue === null || overrideValue === undefined) {
-      return defaultValue;
-    }
-
-    return overrideValue;
+  private isCardholderNameRequired() {
+    return !!this.checkoutConfig.card?.cardholderName?.required;
   }
 
   private isPostalCodeVisible(countryCode = this.getSelectedCountryCode()) {

@@ -17,7 +17,6 @@ export interface CardSessionFieldConfig {
   detectedCountryCode?: string;
   validCountries?: CountryOption[];
   countryFieldOverrides?: Record<string, CountryFieldOverride>;
-  applyCardholderNameOverrides?: boolean;
 }
 
 export interface Skin {

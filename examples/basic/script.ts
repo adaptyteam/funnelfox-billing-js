@@ -173,12 +173,17 @@ class CheckoutPage {
         },
         container: '#checkout-container',
         card: {
-          cardholderName: {
-            required: false,
-          },
           emailAddress: {
             visible: true,
             template: '{{email}}',
+          },
+        },
+        applePay: {
+          billingOptions: {
+            requiredBillingContactFields: ['name', 'postalAddress'],
+          },
+          shippingOptions: {
+            requiredShippingContactFields: ['name'],
           },
         },
         apiConfig: {

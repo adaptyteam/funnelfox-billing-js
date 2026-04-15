@@ -291,7 +291,6 @@ describe('Callback Pattern Tests', () => {
         countryFieldOverrides: {
           US: { show_cardholder_name: true, show_postal_code: true },
         },
-        applyCardholderNameOverrides: true,
       });
     });
 
@@ -372,7 +371,7 @@ describe('Callback Pattern Tests', () => {
         continueWithNewClientToken: jest.fn(),
       };
 
-      expect(renderOptions.isCardholderNameRequired()).toBe(true);
+      expect(renderOptions.isCardholderNameRequired()).toBe(false);
       renderOptions.onCardInputValueChange('postalCode', '10001');
       await checkoutOptions.onTokenizeSuccess({ token: 'pm-token-us' }, primerHandler);
 

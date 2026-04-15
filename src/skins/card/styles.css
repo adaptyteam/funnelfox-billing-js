@@ -47,6 +47,11 @@
   display: none;
 }
 
+.ff-card-form-select:disabled {
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
 .ff-select-arrow {
   position: absolute;
   top: 50%;

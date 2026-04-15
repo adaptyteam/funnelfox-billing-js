@@ -60,30 +60,11 @@ class CardSkin implements Skin {
   }
 
   private isCountrySelectorVisible(): boolean {
-    return !!(
-      this.cardSessionFieldConfig?.showCountrySelector &&
-      this.cardSessionFieldConfig?.validCountries?.length
-    );
+    return !!this.cardSessionFieldConfig?.showCountrySelector;
   }
 
-  private isCardholderNameVisible(
-    countryCode = this.getSelectedCountryCode()
-  ): boolean {
-    const defaultVisible = !!this.checkoutConfig.card?.cardholderName?.required;
-    const shouldApplyOverrides =
-      !!this.cardSessionFieldConfig?.applyCardholderNameOverrides;
-
-    if (!shouldApplyOverrides) {
-      return defaultVisible;
-    }
-
-    const overrideValue =
-      this.getCountryFieldOverride(countryCode)?.show_cardholder_name;
-    if (overrideValue === null || overrideValue === undefined) {
-      return defaultVisible;
-    }
-
-    return overrideValue;
+  private isCardholderNameVisible(): boolean {
+    return !!this.checkoutConfig.card?.cardholderName?.required;
   }
 
   private isPostalCodeVisible(
@@ -107,11 +88,33 @@ class CardSkin implements Skin {
     }
   }
 
+  private setContainerVisibility(containerId: string, isVisible: boolean) {
+    const container = this.containerEl.querySelector<HTMLElement>(
+      `#${containerId}`
+    );
+    if (container) {
+      container.style.display = isVisible ? '' : 'none';
+    }
+  }
+
   private populateCountrySelector(selectEl: HTMLSelectElement) {
     const validCountries = this.cardSessionFieldConfig?.validCountries || [];
     const selectedCountryCode = this.getSelectedCountryCode();
 
     selectEl.innerHTML = '';
+    selectEl.disabled = false;
+
+    if (!validCountries.length) {
+      const fallbackOption = document.createElement('option');
+      fallbackOption.value = selectedCountryCode || '';
+      fallbackOption.textContent = selectedCountryCode
+        ? `Detected country: ${selectedCountryCode}`
+        : 'Country unavailable';
+      selectEl.appendChild(fallbackOption);
+      selectEl.disabled = true;
+      return;
+    }
+
     const placeholderOption = document.createElement('option');
     placeholderOption.value = '';
     placeholderOption.textContent = 'Select country';
@@ -132,10 +135,7 @@ class CardSkin implements Skin {
   private updateDynamicFieldVisibility(
     countryCode = this.getSelectedCountryCode()
   ) {
-    this.setFieldVisibility(
-      'cardHolderInput',
-      this.isCardholderNameVisible(countryCode)
-    );
+    this.setFieldVisibility('cardHolderInput', this.isCardholderNameVisible());
     this.setFieldVisibility(
       'postalCodeInput',
       this.isPostalCodeVisible(countryCode)
@@ -184,8 +184,8 @@ class CardSkin implements Skin {
       });
     }
 
-    this.setFieldVisibility(
-      'countrySelectorInput',
+    this.setContainerVisibility(
+      'countrySelectorField',
       this.isCountrySelectorVisible()
     );
     this.updateDynamicFieldVisibility();
@@ -231,11 +231,6 @@ class CardSkin implements Skin {
   getCheckoutOptions(): ReturnType<Skin['getCheckoutOptions']> {
     return {
       cardElements: this.getCardInputElements(),
-      card: {
-        cardholderName: {
-          required: false,
-        },
-      },
     };
   }
 

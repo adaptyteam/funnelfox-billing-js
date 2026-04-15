@@ -196,6 +196,8 @@ class PrimerWrapper implements PrimerWrapperInterface {
             onMethodRenderError: options.onMethodRenderError,
             onMethodRender: options.onMethodRender,
             onCardInputValueChange: options.onCardInputValueChange,
+            isCardholderNameRequired: options.isCardholderNameRequired,
+            isPostalCodeRequired: options.isPostalCodeRequired,
           }
         );
         this.paymentMethodsInterfaces.push(cardInterface);
@@ -244,12 +246,10 @@ class PrimerWrapper implements PrimerWrapperInterface {
       const validateForm = async () => {
         if (!pmManager) return false;
 
-        const { valid } = await pmManager.validate();
-        const cardholderName = elements.cardholderName?.value?.trim();
-        const cardHolderError =
-          isCardholderNameRequired?.() && !cardholderName
-            ? 'Please enter the cardholder name'
-            : null;
+        const { valid, validationErrors } = await pmManager.validate();
+        const cardHolderError = isCardholderNameRequired?.()
+          ? validationErrors.find(v => v.name === 'cardholderName')?.message
+          : null;
         dispatchError('cardholderName', cardHolderError);
         let emailError: string | null = null;
         if (hasEmail) {
