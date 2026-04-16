@@ -259,11 +259,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
             : null;
           dispatchError('emailAddress', emailError);
         }
-        const postalCode = elements.postalCode?.value?.trim();
-        const postalCodeError =
-          isPostalCodeRequired?.() && !postalCode
-            ? 'Please enter a postal code'
-            : null;
+        const postalCodeError = getPostalCodeError();
         dispatchError('postalCode', postalCodeError);
         return valid && !emailError && !cardHolderError && !postalCodeError;
       };
@@ -272,6 +268,12 @@ class PrimerWrapper implements PrimerWrapperInterface {
         error: string | null
       ) => {
         onInputChange(inputName, error);
+      };
+      const getPostalCodeError = () => {
+        const postalCode = elements.postalCode?.value?.trim();
+        return isPostalCodeRequired?.() && !postalCode
+          ? 'Please enter a postal code'
+          : null;
       };
 
       const onHostedInputChange =
@@ -304,11 +306,14 @@ class PrimerWrapper implements PrimerWrapperInterface {
       const countrySelectorOnChange = (e: Event) => {
         const countryCode = (e.target as HTMLSelectElement).value.trim();
         onCardInputValueChange?.('countryCode', countryCode);
+        if (!isPostalCodeRequired?.()) {
+          dispatchError('postalCode', null);
+        }
       };
       const postalCodeOnChange = (e: Event) => {
         const postalCode = (e.target as HTMLInputElement).value.trim();
         onCardInputValueChange?.('postalCode', postalCode);
-        dispatchError('postalCode', null);
+        dispatchError('postalCode', getPostalCodeError());
       };
 
       elements.cardholderName?.addEventListener('input', cardHolderOnChange);
