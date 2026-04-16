@@ -527,6 +527,7 @@ class InitMethodPage {
       await Promise.all([
         Billing.initMethod(PaymentMethod.PAYMENT_CARD, cardContainer, {
           ...options,
+          email: undefined,
           card: {
             cardholderName: { required: true },
             emailAddress: { visible: true, template: '{{email}}' },

@@ -300,7 +300,14 @@ class PrimerWrapper implements PrimerWrapperInterface {
       );
 
       const onSubmitHandler = async () => {
-        if (!(await validateForm())) {
+        const isEmailValid = isValidEmail(
+          elements.emailAddress?.value?.trim() || ''
+        );
+        const isFormValid = await validateForm();
+        if (!isEmailValid) {
+          dispatchError('emailAddress', 'Please enter a valid email address');
+        }
+        if (!isFormValid || !isEmailValid) {
           return;
         }
         try {
