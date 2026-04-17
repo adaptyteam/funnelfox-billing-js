@@ -268,7 +268,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       : undefined;
   }
 
-  private getPaymentEmailAddress() {
+  private getPaymentEmailAddress = () => {
     const email =
       this.cardEmailAddress?.trim() || this.checkoutConfig.customer.email;
     if (!email || !isValidEmail(email)) {
@@ -279,7 +279,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       return template.replace(/\{\{email\}\}/g, email);
     }
     return email;
-  }
+  };
 
   private mergeApplePayCollectingEmailOptions(
     checkoutOptions: CheckoutOptions

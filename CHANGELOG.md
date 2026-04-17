@@ -194,3 +194,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.5] - 2025-04-16
 
 - fix submitting and validating email field
+
+## [0.6.6] - 2025-04-16
+
+- hot fix checkout email
