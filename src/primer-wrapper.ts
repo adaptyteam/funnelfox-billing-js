@@ -81,12 +81,14 @@ class PrimerWrapper implements PrimerWrapperInterface {
     options: Partial<HeadlessUniversalCheckoutOptions> & {
       onTokenizeSuccess: OnTokenizeSuccess;
       onResumeSuccess: OnResumeSuccess;
-    }
+    },
+    method?: PaymentMethod
   ) {
     await this.ensurePrimerLoaded();
     this.currentHeadless = PrimerWrapper.headlessManager.getOrCreate(
       clientToken,
-      options
+      options,
+      method
     );
 
     return this.currentHeadless;
@@ -233,6 +235,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
       if (!pmManager) {
         throw new Error('Payment method manager is not available');
       }
+      const hasEmail = !!elements.emailAddress;
 
       const { cardNumberInput, expiryInput, cvvInput } =
         pmManager.createHostedInputs();
@@ -245,12 +248,14 @@ class PrimerWrapper implements PrimerWrapperInterface {
           v => v.name === 'cardholderName'
         );
         dispatchError('cardholderName', cardHolderError?.message || null);
-        const emailAddress = elements.emailAddress?.value?.trim();
-        const emailError =
-          emailAddress && !isValidEmail(emailAddress)
+        let emailError: string | null = null;
+        if (hasEmail) {
+          const emailAddress = elements.emailAddress?.value?.trim();
+          emailError = !isValidEmail(emailAddress)
             ? 'Please enter a valid email address'
             : null;
-        dispatchError('emailAddress', emailError);
+          dispatchError('emailAddress', emailError);
+        }
         return valid && !emailError;
       };
       const dispatchError = (
@@ -272,20 +277,24 @@ class PrimerWrapper implements PrimerWrapperInterface {
         pmManager.setCardholderName((e.target as HTMLInputElement).value);
         dispatchError('cardholderName', null);
       };
-      const emailAddressOnChange = (e: Event) => {
-        const value = (e.target as HTMLInputElement).value;
-        const email = value.trim();
-        onCardInputValueChange?.('emailAddress', email);
-        dispatchError(
-          'emailAddress',
-          email && !isValidEmail(email)
-            ? 'Please enter a valid email address'
-            : null
-        );
-      };
+
+      let emailAddressOnChange: ((e: Event) => void) | undefined;
+      if (hasEmail) {
+        emailAddressOnChange = (e: Event) => {
+          const value = (e.target as HTMLInputElement).value;
+          const email = value.trim();
+          onCardInputValueChange?.('emailAddress', email);
+          dispatchError(
+            'emailAddress',
+            email && !isValidEmail(email)
+              ? 'Please enter a valid email address'
+              : null
+          );
+        };
+        elements.emailAddress.addEventListener('input', emailAddressOnChange);
+      }
 
       elements.cardholderName?.addEventListener('input', cardHolderOnChange);
-      elements.emailAddress?.addEventListener('input', emailAddressOnChange);
       cardNumberInput.addEventListener(
         'change' as EventTypes,
         onHostedInputChange('cardNumber')
@@ -300,14 +309,8 @@ class PrimerWrapper implements PrimerWrapperInterface {
       );
 
       const onSubmitHandler = async () => {
-        const isEmailValid = isValidEmail(
-          elements.emailAddress?.value?.trim() || ''
-        );
         const isFormValid = await validateForm();
-        if (!isEmailValid) {
-          dispatchError('emailAddress', 'Please enter a valid email address');
-        }
-        if (!isFormValid || !isEmailValid) {
+        if (!isFormValid) {
           return;
         }
         try {
@@ -388,19 +391,24 @@ class PrimerWrapper implements PrimerWrapperInterface {
 
   async initializeHeadlessCheckout(
     clientToken: string,
-    primerOptions: CheckoutOptions
+    primerOptions: CheckoutOptions,
+    method?: PaymentMethod
   ) {
-    await this.createHeadlessCheckout(clientToken, {
-      ...primerOptions,
-      onTokenizeSuccess: this.wrapTokenizeHandler(
-        primerOptions.onTokenizeSuccess
-      ),
-      onResumeSuccess: this.wrapResumeHandler(primerOptions.onResumeSuccess),
-      onAvailablePaymentMethodsLoad:
-        this.wrapAvailablePaymentMethodsLoadHandler(
-          primerOptions.onAvailablePaymentMethodsLoad
+    await this.createHeadlessCheckout(
+      clientToken,
+      {
+        ...primerOptions,
+        onTokenizeSuccess: this.wrapTokenizeHandler(
+          primerOptions.onTokenizeSuccess
         ),
-    });
+        onResumeSuccess: this.wrapResumeHandler(primerOptions.onResumeSuccess),
+        onAvailablePaymentMethodsLoad:
+          this.wrapAvailablePaymentMethodsLoadHandler(
+            primerOptions.onAvailablePaymentMethodsLoad
+          ),
+      },
+      method
+    );
   }
 
   async renderCheckout(

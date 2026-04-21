@@ -530,7 +530,7 @@ class InitMethodPage {
           email: undefined,
           card: {
             cardholderName: { required: true },
-            emailAddress: { visible: true, template: '{{email}}' },
+            emailAddress: { visible: false, template: '{{email}}' },
           },
         }).catch(err => {
           this.logger.log(

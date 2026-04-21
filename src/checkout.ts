@@ -89,6 +89,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   private radarSessionId: Promise<string> | null = null;
   isCollectingApplePayEmail: boolean;
   cardEmailAddress?: string;
+  sessionMethod: PaymentMethod;
 
   constructor(config: {
     orgId: string;
@@ -171,14 +172,13 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.emit(EVENTS.INPUT_ERROR, { name: inputName, error });
   };
 
-  private async createSession() {
+  private async createSession(method?: PaymentMethod) {
     this.apiClient = new APIClient({
       baseUrl: this.baseUrl || DEFAULTS.BASE_URL,
       orgId: this.orgId,
       timeout: DEFAULTS.REQUEST_TIMEOUT,
       retryAttempts: DEFAULTS.RETRY_ATTEMPTS,
     });
-
     const sessionParams = {
       priceId: this.checkoutConfig.priceId,
       externalId: this.checkoutConfig.customer.externalId,
@@ -187,11 +187,14 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       clientMetadata: this.checkoutConfig.clientMetadata,
       countryCode: this.checkoutConfig.customer.countryCode,
     };
+    this.sessionMethod = method;
     const cacheKey = [
+      //this.id,
       this.orgId,
       this.checkoutConfig.priceId,
       this.checkoutConfig.customer.externalId,
       this.checkoutConfig.customer.email,
+      //method || 'default',
     ].join('-');
 
     let sessionResponse: CreateClientSessionResponse;
@@ -778,7 +781,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   ) {
     this._ensureNotDestroyed();
     if (!this.isReady()) {
-      await this.createSession();
+      await this.createSession(method);
     }
 
     if (callbacks.onRenderSuccess) {
@@ -833,7 +836,8 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
 
     await this.primerWrapper.initializeHeadlessCheckout(
       this.clientToken as string,
-      checkoutOptions
+      checkoutOptions,
+      method
     );
     const methodInterface = await this.primerWrapper.initMethod(
       method,

@@ -191,10 +191,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add card fields visibility config from createSession
 - fix Apple Pay billing settings merging
 
-## [0.6.5] - 2025-04-16
+## [0.6.7] - 2025-04-20
 
 - fix submitting and validating email field
-
-## [0.6.6] - 2025-04-16
-
-- hot fix checkout email

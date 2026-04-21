@@ -8,6 +8,7 @@ import type {
 } from '@primer-io/checkout-web';
 import { merge } from './helpers';
 import { PrimerError } from '../errors';
+import { PaymentMethod } from '../enums';
 
 /**
  * Manages caching and sequential creation of Primer headless checkout instances.
@@ -23,7 +24,8 @@ export class HeadlessManager {
    */
   private generateKey(
     clientToken: string,
-    options: Partial<HeadlessUniversalCheckoutOptions>
+    options: Partial<HeadlessUniversalCheckoutOptions>,
+    method?: PaymentMethod
   ): string {
     const serializableOptions = {
       paymentHandling: options.paymentHandling,
@@ -34,7 +36,7 @@ export class HeadlessManager {
       paypal: options.paypal,
       googlePay: options.googlePay,
     };
-    return `${clientToken}:${JSON.stringify(serializableOptions)}`;
+    return `${clientToken}:${method || 'default'}:${JSON.stringify(serializableOptions)}`;
   }
 
   /**
@@ -43,9 +45,10 @@ export class HeadlessManager {
    */
   getOrCreate(
     clientToken: string,
-    options: Partial<HeadlessUniversalCheckoutOptions>
+    options: Partial<HeadlessUniversalCheckoutOptions>,
+    method?: PaymentMethod
   ): Promise<PrimerHeadlessCheckout> {
-    const key = this.generateKey(clientToken, options);
+    const key = this.generateKey(clientToken, options, method);
 
     // Return cached promise if exists
     const cached = this.cache.get(key);
