@@ -173,12 +173,17 @@ class CheckoutPage {
         },
         container: '#checkout-container',
         card: {
-          cardholderName: {
-            required: false,
-          },
           emailAddress: {
             visible: true,
             template: '{{email}}',
+          },
+        },
+        applePay: {
+          billingOptions: {
+            requiredBillingContactFields: ['name', 'postalAddress'],
+          },
+          shippingOptions: {
+            requiredShippingContactFields: ['name'],
           },
         },
         apiConfig: {
@@ -527,10 +532,9 @@ class InitMethodPage {
       await Promise.all([
         Billing.initMethod(PaymentMethod.PAYMENT_CARD, cardContainer, {
           ...options,
-          email: undefined,
           card: {
             cardholderName: { required: true },
-            emailAddress: { visible: false, template: '{{email}}' },
+            emailAddress: { visible: true, template: '{{email}}' },
           },
         }).catch(err => {
           this.logger.log(

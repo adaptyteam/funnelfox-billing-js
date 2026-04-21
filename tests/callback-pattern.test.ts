@@ -236,6 +236,168 @@ describe('Callback Pattern Tests', () => {
       expect(checkoutConfig.card.cardholderName.required).toBe(false);
     });
 
+    test('createCheckout stores detected country, defaults, and per-country overrides', async () => {
+      configure({
+        baseUrl: 'https://api.example.com',
+        orgId: 'test-org',
+      });
+      const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            status: 'success',
+            data: {
+              client_token: 'test-token',
+              order_id: 'order-123',
+              show_cardholder_name_field: false,
+              show_country_selector_field: true,
+              show_postal_code_field: false,
+              detected_country_code: 'us',
+              valid_countries: [
+                { code: 'DE', name: 'Germany' },
+                { code: 'US', name: 'United States of America' },
+              ],
+              country_field_overrides: {
+                US: { show_cardholder_name: true, show_postal_code: true },
+              },
+            },
+          }),
+      } as Response);
+
+      await createCheckout({
+        priceId: 'price-123',
+        customer: {
+          externalId: 'user-country-config',
+          email: 'test@example.com',
+        },
+        container: '#test-container',
+      });
+
+      const checkoutConfig = (createDefaultSkin as unknown as jest.Mock).mock
+        .calls[0][0];
+      const cardSessionFieldConfig = (createDefaultSkin as unknown as jest.Mock)
+        .mock.calls[0][1];
+
+      expect(checkoutConfig.card.cardholderName.required).toBe(false);
+      expect(cardSessionFieldConfig).toEqual({
+        showCountrySelector: true,
+        showPostalCode: false,
+        detectedCountryCode: 'US',
+        validCountries: [
+          { code: 'DE', name: 'Germany' },
+          { code: 'US', name: 'United States of America' },
+        ],
+        countryFieldOverrides: {
+          US: { show_cardholder_name: true, show_postal_code: true },
+        },
+      });
+    });
+
+    test('createCheckout forwards selected country and only sends postal code when visible', async () => {
+      configure({
+        baseUrl: 'https://api.example.com',
+        orgId: 'test-org',
+      });
+      const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+      fetchMock
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              status: 'success',
+              data: {
+                client_token: 'test-token',
+                order_id: 'order-123',
+                show_cardholder_name_field: false,
+                show_country_selector_field: true,
+                show_postal_code_field: false,
+                detected_country_code: 'US',
+                valid_countries: [
+                  { code: 'DE', name: 'Germany' },
+                  { code: 'US', name: 'United States of America' },
+                ],
+                country_field_overrides: {
+                  US: { show_cardholder_name: true, show_postal_code: true },
+                  DE: { show_cardholder_name: false, show_postal_code: false },
+                },
+              },
+            }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              status: 'success',
+              data: {
+                order_id: 'order-123',
+                checkout_status: 'succeeded',
+              },
+            }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              status: 'success',
+              data: {
+                order_id: 'order-123',
+                checkout_status: 'succeeded',
+              },
+            }),
+        } as Response);
+
+      await createCheckout({
+        priceId: 'price-123',
+        customer: {
+          externalId: 'user-country-payment',
+          email: 'test@example.com',
+        },
+        container: '#test-container',
+      });
+
+      const primerWrapperInstances = (PrimerWrapper as unknown as jest.Mock).mock
+        .results.map(result => result.value)
+        .filter(instance => instance?.renderCheckout);
+      const renderCheckout = primerWrapperInstances.find(
+        instance => (instance.renderCheckout as jest.Mock).mock.calls.length > 0
+      )?.renderCheckout as jest.Mock;
+
+      const checkoutOptions = renderCheckout.mock.calls[0][1];
+      const renderOptions = renderCheckout.mock.calls[0][2];
+      const primerHandler = {
+        handleSuccess: jest.fn(),
+        handleFailure: jest.fn(),
+        continueWithNewClientToken: jest.fn(),
+      };
+
+      expect(renderOptions.isCardholderNameRequired()).toBe(false);
+      renderOptions.onCardInputValueChange('postalCode', '10001');
+      await checkoutOptions.onTokenizeSuccess({ token: 'pm-token-us' }, primerHandler);
+
+      let requestBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
+      expect(requestBody).toMatchObject({
+        order_id: 'order-123',
+        payment_method_token: 'pm-token-us',
+        email_address: 'test@example.com',
+        country_code: 'US',
+        postal_code: '10001',
+      });
+
+      renderOptions.onCardInputValueChange('countryCode', 'DE');
+      expect(renderOptions.isCardholderNameRequired()).toBe(false);
+      await checkoutOptions.onTokenizeSuccess({ token: 'pm-token-de' }, primerHandler);
+
+      requestBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
+      expect(requestBody).toMatchObject({
+        order_id: 'order-123',
+        payment_method_token: 'pm-token-de',
+        email_address: 'test@example.com',
+        country_code: 'DE',
+      });
+      expect(requestBody).not.toHaveProperty('postal_code');
+    });
+
     test('createCheckout preserves Apple Pay contact fields when email collection is enabled', async () => {
       configure({
         baseUrl: 'https://api.example.com',

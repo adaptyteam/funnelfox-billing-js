@@ -30,6 +30,44 @@
   .ff-card-form-text-input.error {
     border-color: #e32f41;
   }
+
+.ff-select-wrap {
+  position: relative;
+}
+
+.ff-card-form-select {
+  padding-right: 34px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: none;
+}
+
+.ff-card-form-select::-ms-expand {
+  display: none;
+}
+
+.ff-card-form-select:disabled {
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.ff-select-arrow {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid #6b7280;
+  border-bottom: 1.5px solid #6b7280;
+  transform: translateY(-65%) rotate(45deg);
+  pointer-events: none;
+}
+
+.ff-select-wrap:focus-within .ff-select-arrow {
+  border-right-color: #111827;
+  border-bottom-color: #111827;
+}
   
   .errorContainer:not(:empty) {
     color: #d10000;

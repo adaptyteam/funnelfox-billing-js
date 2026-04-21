@@ -196,6 +196,8 @@ class PrimerWrapper implements PrimerWrapperInterface {
             onMethodRenderError: options.onMethodRenderError,
             onMethodRender: options.onMethodRender,
             onCardInputValueChange: options.onCardInputValueChange,
+            isCardholderNameRequired: options.isCardholderNameRequired,
+            isPostalCodeRequired: options.isPostalCodeRequired,
           }
         );
         this.paymentMethodsInterfaces.push(cardInterface);
@@ -220,7 +222,8 @@ class PrimerWrapper implements PrimerWrapperInterface {
       onSubmit,
       onInputChange,
       onCardInputValueChange,
-
+      isCardholderNameRequired,
+      isPostalCodeRequired,
       onMethodRenderError,
       onMethodRender,
     }: CheckoutRenderOptions
@@ -244,10 +247,10 @@ class PrimerWrapper implements PrimerWrapperInterface {
         if (!pmManager) return false;
 
         const { valid, validationErrors } = await pmManager.validate();
-        const cardHolderError = validationErrors.find(
-          v => v.name === 'cardholderName'
-        );
-        dispatchError('cardholderName', cardHolderError?.message || null);
+        const cardHolderError = isCardholderNameRequired?.()
+          ? validationErrors.find(v => v.name === 'cardholderName')?.message
+          : null;
+        dispatchError('cardholderName', cardHolderError);
         let emailError: string | null = null;
         if (hasEmail) {
           const emailAddress = elements.emailAddress?.value?.trim();
@@ -256,13 +259,21 @@ class PrimerWrapper implements PrimerWrapperInterface {
             : null;
           dispatchError('emailAddress', emailError);
         }
-        return valid && !emailError;
+        const postalCodeError = getPostalCodeError();
+        dispatchError('postalCode', postalCodeError);
+        return valid && !emailError && !cardHolderError && !postalCodeError;
       };
       const dispatchError = (
         inputName: keyof CardInputSelectors,
         error: string | null
       ) => {
         onInputChange(inputName, error);
+      };
+      const getPostalCodeError = () => {
+        const postalCode = elements.postalCode?.value?.trim();
+        return isPostalCodeRequired?.() && !postalCode
+          ? 'Please enter a postal code'
+          : null;
       };
 
       const onHostedInputChange =
@@ -277,7 +288,6 @@ class PrimerWrapper implements PrimerWrapperInterface {
         pmManager.setCardholderName((e.target as HTMLInputElement).value);
         dispatchError('cardholderName', null);
       };
-
       let emailAddressOnChange: ((e: Event) => void) | undefined;
       if (hasEmail) {
         emailAddressOnChange = (e: Event) => {
@@ -293,8 +303,26 @@ class PrimerWrapper implements PrimerWrapperInterface {
         };
         elements.emailAddress.addEventListener('input', emailAddressOnChange);
       }
+      const countrySelectorOnChange = (e: Event) => {
+        const countryCode = (e.target as HTMLSelectElement).value.trim();
+        onCardInputValueChange?.('countryCode', countryCode);
+        if (!isPostalCodeRequired?.()) {
+          dispatchError('postalCode', null);
+        }
+      };
+      const postalCodeOnChange = (e: Event) => {
+        const postalCode = (e.target as HTMLInputElement).value.trim();
+        onCardInputValueChange?.('postalCode', postalCode);
+        dispatchError('postalCode', getPostalCodeError());
+      };
 
       elements.cardholderName?.addEventListener('input', cardHolderOnChange);
+      elements.emailAddress?.addEventListener('input', emailAddressOnChange);
+      elements.countrySelector?.addEventListener(
+        'change',
+        countrySelectorOnChange
+      );
+      elements.postalCode?.addEventListener('input', postalCodeOnChange);
       cardNumberInput.addEventListener(
         'change' as EventTypes,
         onHostedInputChange('cardNumber')
@@ -356,6 +384,11 @@ class PrimerWrapper implements PrimerWrapperInterface {
           'input',
           emailAddressOnChange
         );
+        elements.countrySelector?.removeEventListener(
+          'change',
+          countrySelectorOnChange
+        );
+        elements.postalCode?.removeEventListener('input', postalCodeOnChange);
         elements.button?.removeEventListener('click', onSubmitHandler);
       };
       this.destroyCallbacks.push(onDestroy);
@@ -373,6 +406,12 @@ class PrimerWrapper implements PrimerWrapperInterface {
           }
           if (elements.emailAddress) {
             elements.emailAddress.disabled = disabled;
+          }
+          if (elements.countrySelector) {
+            elements.countrySelector.disabled = disabled;
+          }
+          if (elements.postalCode) {
+            elements.postalCode.disabled = disabled;
           }
         },
         submit: () => onSubmitHandler(),
@@ -426,6 +465,8 @@ class PrimerWrapper implements PrimerWrapperInterface {
       onMethodRenderError,
       onMethodsAvailable,
       onCardInputValueChange,
+      isCardholderNameRequired,
+      isPostalCodeRequired,
     } = checkoutRenderOptions;
     await this.initializeHeadlessCheckout(clientToken, checkoutOptions);
     onMethodsAvailable?.(this.availableMethods);
@@ -440,6 +481,8 @@ class PrimerWrapper implements PrimerWrapperInterface {
             onMethodRender,
             onMethodRenderError,
             onCardInputValueChange,
+            isCardholderNameRequired,
+            isPostalCodeRequired,
           });
         } else {
           const buttonElementsMap = {

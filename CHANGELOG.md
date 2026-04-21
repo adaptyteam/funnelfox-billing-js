@@ -194,3 +194,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.7] - 2025-04-20
 
 - fix submitting and validating email field
+
+## [0.7.0] - 2026-04-20
+
+- Added country selector and postal code support for card checkout with backend-driven visibility overrides.
