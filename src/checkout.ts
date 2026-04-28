@@ -327,6 +327,9 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   }
 
   private getPaymentEmailAddress = () => {
+    if (this.cardEmailAddress?.trim() === this.checkoutConfig.customer.email) {
+      return undefined;
+    }
     const email =
       this.cardEmailAddress?.trim() || this.checkoutConfig.customer.email;
     if (!email || !isValidEmail(email)) {
