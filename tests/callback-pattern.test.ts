@@ -379,10 +379,10 @@ describe('Callback Pattern Tests', () => {
       expect(requestBody).toMatchObject({
         order_id: 'order-123',
         payment_method_token: 'pm-token-us',
-        email_address: 'test@example.com',
         country_code: 'US',
         postal_code: '10001',
       });
+      expect(requestBody).not.toHaveProperty('email_address');
 
       renderOptions.onCardInputValueChange('countryCode', 'DE');
       expect(renderOptions.isCardholderNameRequired()).toBe(false);
@@ -392,9 +392,9 @@ describe('Callback Pattern Tests', () => {
       expect(requestBody).toMatchObject({
         order_id: 'order-123',
         payment_method_token: 'pm-token-de',
-        email_address: 'test@example.com',
         country_code: 'DE',
       });
+      expect(requestBody).not.toHaveProperty('email_address');
       expect(requestBody).not.toHaveProperty('postal_code');
     });
 

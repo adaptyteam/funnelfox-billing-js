@@ -3,6 +3,8 @@
  * Loads Primer script and CSS from CDN independently of bundler
  */
 
+import { loadScript, loadStylesheet } from './script-loader';
+
 const PRIMER_CDN_BASE = 'https://sdk.primer.io/web';
 const DEFAULT_VERSION = '2.57.3';
 
@@ -15,71 +17,6 @@ const INTEGRITY_HASHES: Record<string, { js: string; css?: string }> = {
 
 let loadingPromise: Promise<void> | null = null;
 let isLoaded = false;
-
-/**
- * Injects a script tag into the document head
- */
-function injectScript(
-  src: string,
-  integrity?: string
-): Promise<HTMLScriptElement> {
-  return new Promise((resolve, reject) => {
-    // Check if script already exists
-    const existingScript = document.querySelector(
-      `script[src="${src}"]`
-    ) as HTMLScriptElement;
-    if (existingScript) {
-      resolve(existingScript);
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = src;
-    script.async = true;
-    script.crossOrigin = 'anonymous';
-
-    if (integrity) {
-      script.integrity = integrity;
-    }
-
-    script.onload = () => resolve(script);
-    script.onerror = () =>
-      reject(new Error(`Failed to load Primer SDK script from ${src}`));
-
-    document.head.appendChild(script);
-  });
-}
-
-/**
- * Injects a CSS link tag into the document head
- */
-function injectCSS(href: string, integrity?: string): Promise<HTMLLinkElement> {
-  return new Promise((resolve, reject) => {
-    // Check if stylesheet already exists
-    const existingLink = document.querySelector(
-      `link[href="${href}"]`
-    ) as HTMLLinkElement;
-    if (existingLink) {
-      resolve(existingLink);
-      return;
-    }
-
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = href;
-    link.crossOrigin = 'anonymous';
-
-    if (integrity) {
-      link.integrity = integrity;
-    }
-
-    link.onload = () => resolve(link);
-    link.onerror = () =>
-      reject(new Error(`Failed to load Primer SDK CSS from ${href}`));
-
-    document.head.appendChild(link);
-  });
-}
 
 /**
  * Waits for window.Primer to be available
@@ -148,8 +85,17 @@ export async function loadPrimerSDK(version?: string): Promise<void> {
     try {
       // Load CSS and JS in parallel
       await Promise.all([
-        injectCSS(cssUrl, hashes?.css),
-        injectScript(jsUrl, hashes?.js),
+        loadStylesheet({
+          href: cssUrl,
+          integrity: hashes?.css,
+          crossOrigin: 'anonymous',
+        }),
+        loadScript({
+          src: jsUrl,
+          integrity: hashes?.js,
+          crossOrigin: 'anonymous',
+          appendTo: 'head',
+        }),
       ]);
 
       // Wait for Primer to be available on window

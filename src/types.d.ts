@@ -406,6 +406,7 @@ export interface CreateClientSessionRequest {
 export interface CreateClientSessionResponse {
   status: 'success' | 'error';
   data: {
+    is_livemode: boolean;
     client_token: string;
     order_id: string;
     stripe_public_key?: string;
@@ -417,6 +418,7 @@ export interface CreateClientSessionResponse {
     detected_country_code?: string; //US
     valid_countries?: CountryOption[];
     country_field_overrides?: Record<string, CountryFieldOverride>;
+    airwallex_risk_enabled?: boolean;
   };
   error?: {
     code: string;

@@ -6,7 +6,7 @@ import EventEmitter from './utils/event-emitter';
 import PrimerWrapper from './primer-wrapper';
 import { CheckoutError } from './errors';
 import { isValidEmail, requireString } from './utils/validation';
-import { generateId, merge } from './utils/helpers';
+import { generateId, generateUUID, merge } from './utils/helpers';
 import APIClient from './api-client';
 import {
   APPLE_PAY_COLLECTING_EMAIL_OPTIONS,
@@ -43,6 +43,12 @@ import type {
 } from './types';
 import { loadStripe } from '@stripe/stripe-js';
 import { renderError } from './assets/error/error';
+import { loadAirwallexDeviceFingerprint } from './utils/airwallex-loader';
+
+type CachedClientSessionResponse = CreateClientSessionResponse & {
+  radarSessionId?: Promise<string>;
+  airwallexDeviceId?: Promise<string>;
+};
 
 interface CheckoutEventMap {
   [EVENTS.SUCCESS]: PaymentResult;
@@ -86,9 +92,9 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   private counter: number = 0;
   private static sessionCache = new Map<
     string,
-    Promise<CreateClientSessionResponse>
+    Promise<CachedClientSessionResponse>
   >();
-  private radarSessionId: Promise<string> | null = null;
+  private cachedSessionResponse: CachedClientSessionResponse | null = null;
   isCollectingApplePayEmail: boolean;
   cardEmailAddress?: string;
   cardCountryCode?: string;
@@ -201,7 +207,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       this.checkoutConfig.customer.email,
     ].join('-');
 
-    let sessionResponse: CreateClientSessionResponse;
+    let sessionResponse: CachedClientSessionResponse;
 
     // Return cached response if payload hasn't changed
     const cachedResponse = CheckoutInstance.sessionCache.get(cacheKey);
@@ -210,24 +216,46 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     } else {
       const sessionRequest = this.apiClient
         .createClientSession(sessionParams)
-        .then(response => {
+        .then((response): CachedClientSessionResponse => {
+          const cachedResponse = response as CachedClientSessionResponse;
           if (response.data?.stripe_public_key) {
-            loadStripe(response.data?.stripe_public_key).then(stripe => {
-              this.radarSessionId = stripe
-                .createRadarSession()
-                .then(session => session?.radarSession?.id)
-                .catch(() => '');
-            });
+            const stripePublicKey = response.data.stripe_public_key;
+            cachedResponse.radarSessionId = loadStripe(stripePublicKey)
+              .then(stripe =>
+                stripe
+                  ? stripe
+                      .createRadarSession()
+                      .then(session => session?.radarSession?.id || '')
+                      .catch(() => '')
+                  : ''
+              )
+              .catch(() => '');
           }
-          this.isCollectingApplePayEmail =
-            !!response.data?.collect_apple_pay_email;
-          this.applySessionCardFieldConfig(response);
-          return response;
+          // Initialize Airwallex device fingerprinting if enabled by backend
+          if (response.data?.airwallex_risk_enabled) {
+            const isLivemode = response.data?.is_livemode;
+            const deviceId = generateUUID();
+            cachedResponse.airwallexDeviceId = loadAirwallexDeviceFingerprint(
+              deviceId,
+              isLivemode
+            )
+              .then(() => deviceId)
+              .catch(() => {
+                // Silently fail - return deviceId anyway
+                return deviceId;
+              });
+          }
+          return cachedResponse;
         });
       // Cache the successful response
       CheckoutInstance.sessionCache.set(cacheKey, sessionRequest);
       sessionResponse = await sessionRequest;
     }
+
+    this.cachedSessionResponse = sessionResponse;
+    this.isCollectingApplePayEmail =
+      !!sessionResponse.data?.collect_apple_pay_email;
+    this.applySessionCardFieldConfig(sessionResponse);
 
     const sessionData = this.apiClient.processSessionResponse(sessionResponse);
     this.orderId = sessionData.orderId;
@@ -311,6 +339,9 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   }
 
   private getPaymentEmailAddress = () => {
+    if (this.cardEmailAddress?.trim() === this.checkoutConfig.customer.email) {
+      return undefined;
+    }
     const email =
       this.cardEmailAddress?.trim() || this.checkoutConfig.customer.email;
     if (!email || !isValidEmail(email)) {
@@ -534,7 +565,10 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     try {
       this.onLoaderChangeWithRace(true);
       this._setState('processing');
-      const radarSessionId = await this.radarSessionId;
+      const [radarSessionId, airwallexDeviceId] = await Promise.all([
+        this.cachedSessionResponse?.radarSessionId,
+        this.cachedSessionResponse?.airwallexDeviceId,
+      ]);
       const paymentResponse = await this.apiClient.createPayment({
         orderId: this.orderId as string,
         paymentMethodToken: paymentMethodTokenData.token,
@@ -543,6 +577,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         postalCode: this.getPaymentPostalCode(),
         clientMetadata: {
           radarSessionId,
+          airwallexDeviceId,
         },
       });
       const result = this.apiClient.processPaymentResponse(paymentResponse);

@@ -198,3 +198,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.7.0] - 2026-04-20
 
 - Added country selector and postal code support for card checkout with backend-driven visibility overrides.
+
+## [0.7.1] - 2026-04-28
+
+- Added Airwallex Risk Library fingerprint
