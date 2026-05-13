@@ -121,15 +121,10 @@ function reportToActiveScopes(
       baseUrl: activeScope.baseUrl,
       message: `${error.name}: ${error.message}`,
       code: error.code,
-      req_id: context.reqId,
       context: {
         ...eventContext,
-        checkout_id: context.checkoutId,
         order_id: context.orderId,
         price_id: context.priceId,
-        checkout_state: context.state,
-        payment_method: context.paymentMethod,
-        stack: error.stack,
         page_url: getPageUrl(),
       },
     });

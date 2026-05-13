@@ -2,7 +2,6 @@
  * @jest-environment jsdom
  */
 
-import { PaymentMethod } from '../src/enums';
 import { DEFAULTS } from '../src/constants';
 import { startUnhandledErrorTelemetry } from '../src/utils/unhandled-error-telemetry';
 
@@ -20,12 +19,8 @@ describe('unhandled error telemetry', () => {
       baseUrl: DEFAULTS.BASE_URL,
       enabled,
       getContext: () => ({
-        checkoutId: 'checkout_123',
         orderId: 'order_123',
         priceId: 'price_123',
-        state: 'ready',
-        paymentMethod: PaymentMethod.APPLE_PAY,
-        reqId: 'req_123',
       }),
     });
     cleanupFns.push(cleanup);
@@ -91,12 +86,12 @@ describe('unhandled error telemetry', () => {
     expect(params.get('message')).toContain('RangeError: Invalid Date');
     expect(params.get('code')).toBe('UNHANDLED_ERROR');
     expect(params.get('event_type')).toBe('error');
-    expect(params.get('checkout_id')).toBe('checkout_123');
     expect(params.get('order_id')).toBe('order_123');
     expect(params.get('price_id')).toBe('price_123');
-    expect(params.get('checkout_state')).toBe('ready');
-    expect(params.get('payment_method')).toBe(PaymentMethod.APPLE_PAY);
-    expect(params.get('req_id')).toBe('req_123');
+    expect(params.get('filename')).toBe('https://sdk.primer.io/apple-pay.js');
+    expect(params.get('lineno')).toBe('10');
+    expect(params.get('colno')).toBe('20');
+    expect(params.get('page_url')).toBeTruthy();
   });
 
   test('sends crash beacon to configured baseUrl', () => {
@@ -106,12 +101,8 @@ describe('unhandled error telemetry', () => {
       baseUrl: 'https://custom.billing.example/',
       enabled: true,
       getContext: () => ({
-        checkoutId: 'checkout_123',
         orderId: 'order_123',
         priceId: 'price_123',
-        state: 'ready',
-        paymentMethod: PaymentMethod.APPLE_PAY,
-        reqId: 'req_123',
       }),
     });
     cleanupFns.push(cleanup);
@@ -178,12 +169,8 @@ describe('unhandled error telemetry', () => {
       baseUrl: DEFAULTS.BASE_URL,
       enabled: true,
       getContext: () => ({
-        checkoutId: 'checkout_first',
         orderId: 'order_first',
         priceId: 'price_123',
-        state: 'ready',
-        paymentMethod: PaymentMethod.APPLE_PAY,
-        reqId: 'req_first',
       }),
     });
     cleanupFns.push(firstCleanup);
@@ -194,12 +181,8 @@ describe('unhandled error telemetry', () => {
       baseUrl: DEFAULTS.BASE_URL,
       enabled: true,
       getContext: () => ({
-        checkoutId: 'checkout_second',
         orderId: 'order_second',
         priceId: 'price_123',
-        state: 'ready',
-        paymentMethod: PaymentMethod.GOOGLE_PAY,
-        reqId: 'req_second',
       }),
     });
     cleanupFns.push(secondCleanup);
@@ -208,8 +191,7 @@ describe('unhandled error telemetry', () => {
     window.dispatchEvent(createWindowErrorEvent(new RangeError('Invalid Date')));
 
     const params = getReportParams();
-    expect(params.get('checkout_id')).toBe('checkout_second');
     expect(params.get('order_id')).toBe('order_second');
-    expect(params.get('payment_method')).toBe(PaymentMethod.GOOGLE_PAY);
+    expect(params.get('price_id')).toBe('price_123');
   });
 });
