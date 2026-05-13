@@ -1,4 +1,4 @@
-import { SDK_VERSION } from '../constants';
+import { DEFAULTS, SDK_VERSION } from '../constants';
 
 type ErrorImageContext = Record<
   string,
@@ -13,6 +13,7 @@ export function getErrorImage(
     message: string;
     code?: string;
     req_id?: string;
+    baseUrl?: string;
     context?: ErrorImageContext;
   }
 ) {
@@ -41,7 +42,8 @@ export function getErrorImage(
       }
     });
   }
-  const url = `https://billing.funnelfox.com/sdk_report/${encodeURIComponent(orgId)}/crash?${params.toString()}`;
+  const origin = (options.baseUrl || DEFAULTS.BASE_URL).replace(/\/$/, '');
+  const url = `${origin}/sdk_report/${encodeURIComponent(orgId)}/crash?${params.toString()}`;
   const img = new Image();
   img.src = url;
   img.style.display = 'none';

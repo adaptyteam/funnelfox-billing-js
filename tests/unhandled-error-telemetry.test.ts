@@ -3,6 +3,7 @@
  */
 
 import { PaymentMethod } from '../src/enums';
+import { DEFAULTS } from '../src/constants';
 import { startUnhandledErrorTelemetry } from '../src/utils/unhandled-error-telemetry';
 
 describe('unhandled error telemetry', () => {
@@ -16,6 +17,7 @@ describe('unhandled error telemetry', () => {
     const cleanup = startUnhandledErrorTelemetry({
       id: `checkout_${Math.random()}`,
       orgId: 'org_123',
+      baseUrl: DEFAULTS.BASE_URL,
       enabled,
       getContext: () => ({
         checkoutId: 'checkout_123',
@@ -97,6 +99,32 @@ describe('unhandled error telemetry', () => {
     expect(params.get('req_id')).toBe('req_123');
   });
 
+  test('sends crash beacon to configured baseUrl', () => {
+    const cleanup = startUnhandledErrorTelemetry({
+      id: 'url_scope',
+      orgId: 'org_123',
+      baseUrl: 'https://custom.billing.example/',
+      enabled: true,
+      getContext: () => ({
+        checkoutId: 'checkout_123',
+        orderId: 'order_123',
+        priceId: 'price_123',
+        state: 'ready',
+        paymentMethod: PaymentMethod.APPLE_PAY,
+        reqId: 'req_123',
+      }),
+    });
+    cleanupFns.push(cleanup);
+
+    window.dispatchEvent(createWindowErrorMessageEvent('boom'));
+
+    const img = document.querySelector('img') as HTMLImageElement | null;
+    expect(img).not.toBeNull();
+    expect(img?.src).toMatch(
+      /^https:\/\/custom\.billing\.example\/sdk_report\/org_123\/crash\?/
+    );
+  });
+
   test('reports unhandled promise rejections for an enabled scope', () => {
     startScope();
 
@@ -147,6 +175,7 @@ describe('unhandled error telemetry', () => {
     const firstCleanup = startUnhandledErrorTelemetry({
       id: 'first',
       orgId: 'org_123',
+      baseUrl: DEFAULTS.BASE_URL,
       enabled: true,
       getContext: () => ({
         checkoutId: 'checkout_first',
@@ -162,6 +191,7 @@ describe('unhandled error telemetry', () => {
     const secondCleanup = startUnhandledErrorTelemetry({
       id: 'second',
       orgId: 'org_123',
+      baseUrl: DEFAULTS.BASE_URL,
       enabled: true,
       getContext: () => ({
         checkoutId: 'checkout_second',

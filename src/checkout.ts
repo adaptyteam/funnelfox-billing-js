@@ -1041,6 +1041,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.telemetryCleanup = startUnhandledErrorTelemetry({
       id: this.id,
       orgId: this.orgId,
+      baseUrl: this.baseUrl,
       enabled: this.isTelemetryEnabled,
       getContext: () => ({
         checkoutId: this.id,

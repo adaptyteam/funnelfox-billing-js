@@ -16,6 +16,7 @@ interface TelemetryContext {
 interface TelemetryScope {
   id: string;
   orgId: string;
+  baseUrl: string;
   enabled: boolean;
   getContext: () => TelemetryContext;
 }
@@ -117,6 +118,7 @@ function reportToActiveScopes(
   try {
     const context = activeScope.getContext();
     getErrorImage(activeScope.orgId, {
+      baseUrl: activeScope.baseUrl,
       message: `${error.name}: ${error.message}`,
       code: error.code,
       req_id: context.reqId,
