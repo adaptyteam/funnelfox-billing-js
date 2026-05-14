@@ -125,6 +125,62 @@ class CheckoutPage {
     ) as HTMLButtonElement;
 
     createBtn?.addEventListener('click', () => this.createCheckout());
+
+    document
+      .getElementById('update-checkout-price')
+      ?.addEventListener('click', () => this.updateCheckoutPrice());
+  }
+
+  private setUpdatePriceEnabled(enabled: boolean) {
+    const btn = document.getElementById(
+      'update-checkout-price'
+    ) as HTMLButtonElement | null;
+    if (btn) {
+      btn.disabled = !enabled;
+    }
+  }
+
+  private async updateCheckoutPrice() {
+    const newPriceId = (
+      document.getElementById('checkout-new-priceId') as HTMLInputElement
+    )?.value?.trim();
+
+    if (!this.checkout || this.checkout.isDestroyed) {
+      this.logger.log('error', 'Create a checkout first');
+      return;
+    }
+
+    if (!newPriceId) {
+      this.logger.log('error', 'Enter a new price ID');
+      return;
+    }
+
+    const btn = document.getElementById(
+      'update-checkout-price'
+    ) as HTMLButtonElement | null;
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Updating...';
+    }
+
+    this.logger.log('info', `updatePrice → ${newPriceId}`);
+
+    try {
+      await this.checkout.updatePrice(newPriceId);
+      this.logger.log('success', `Price updated to ${newPriceId}`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      this.logger.log('error', `updatePrice failed: ${message}`);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Update price';
+      }
+      this.setUpdatePriceEnabled(
+        Boolean(this.checkout && !this.checkout.isDestroyed)
+      );
+    }
   }
 
   private async createCheckout() {
@@ -155,6 +211,7 @@ class CheckoutPage {
       createBtn.disabled = true;
       createBtn.textContent = 'Creating...';
     }
+    this.setUpdatePriceEnabled(false);
 
     try {
       // Destroy existing checkout if any
@@ -196,6 +253,7 @@ class CheckoutPage {
       });
 
       this.logger.log('success', 'Checkout created successfully!');
+      this.setUpdatePriceEnabled(true);
 
       // Setup event listeners
       this.checkout.on(EVENTS.START_PURCHASE, () => {

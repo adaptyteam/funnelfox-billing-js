@@ -266,6 +266,20 @@ body {
   height: 40px;
 }
 
+.checkout-update-price-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-4);
+  align-items: end;
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border-light);
+}
+
+.checkout-update-price-form .btn {
+  height: 40px;
+}
+
 /* ========================================
    Payment Set Card
    ======================================== */
@@ -775,6 +789,14 @@ body {
   
   .add-set-form {
     grid-template-columns: 1fr;
+  }
+
+  .checkout-update-price-form {
+    grid-template-columns: 1fr;
+  }
+
+  .checkout-update-price-form .btn {
+    width: 100%;
   }
   
   .add-set-form .btn {

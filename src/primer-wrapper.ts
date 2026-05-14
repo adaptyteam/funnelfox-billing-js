@@ -616,6 +616,12 @@ class PrimerWrapper implements PrimerWrapperInterface {
     }
     return element;
   }
+
+  refreshClientSession() {
+    return this.currentHeadless?.then(headless =>
+      headless.refreshClientSession()
+    );
+  }
 }
 
 export default PrimerWrapper;

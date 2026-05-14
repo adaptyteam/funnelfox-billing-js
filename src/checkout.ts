@@ -755,6 +755,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         clientMetadata,
       });
       this.checkoutConfig.priceId = newPriceId;
+      await this.primerWrapper.refreshClientSession();
       this._setState('ready');
     } catch (error) {
       this._setState('error');

@@ -83,6 +83,29 @@
             <button class="btn btn-primary" id="create-checkout">
               Create Checkout
             </button>
+
+            <div class="checkout-update-price-form">
+              <div class="input-group">
+                <label class="input-label" for="checkout-new-priceId"
+                  >New price ID (<code>updatePrice</code>)</label
+                >
+                <input
+                  class="input"
+                  type="text"
+                  id="checkout-new-priceId"
+                  value="example_paid_intro_eur"
+                  placeholder="Enter price ID to switch to"
+                />
+              </div>
+              <button
+                type="button"
+                class="btn btn-secondary"
+                id="update-checkout-price"
+                disabled
+              >
+                Update price
+              </button>
+            </div>
           </div>
 
           <div class="result-section">
