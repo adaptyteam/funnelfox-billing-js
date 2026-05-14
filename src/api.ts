@@ -70,6 +70,7 @@ export async function createCheckout(
     return checkout;
   } catch (error) {
     getErrorImage(options.orgId, {
+      baseUrl: options.apiConfig?.baseUrl,
       message: error.message,
       code: error.code,
       req_id: error?.response?.req_id,
@@ -137,6 +138,7 @@ export async function silentPurchase(options: {
     return true;
   } catch (error) {
     getErrorImage(orgId, {
+      baseUrl,
       message: error.message,
       code: error.code,
       req_id: error?.response?.req_id,
@@ -192,6 +194,7 @@ export async function initMethod(
     });
   } catch (error) {
     getErrorImage(options.orgId, {
+      baseUrl: options.baseUrl,
       message: error.message,
       code: error.code,
       req_id: error?.response?.req_id,
@@ -235,6 +238,7 @@ export async function getAvailablePaymentMethods(params: {
     });
   } catch (error) {
     getErrorImage(params.orgId, {
+      baseUrl: params.baseUrl,
       message: error.message,
       code: error.code,
       req_id: error?.response?.req_id,
