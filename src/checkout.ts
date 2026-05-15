@@ -751,6 +751,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     }
 
     try {
+      this.onLoaderChangeWithRace(true);
       this._setState('updating');
       // Invalidate session cache
       CheckoutInstance.sessionCache.clear();
@@ -762,8 +763,10 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       });
       this.checkoutConfig.priceId = newPriceId;
       await this.primerWrapper.refreshClientSession();
+      this.onLoaderChangeWithRace(false);
       this._setState('ready');
     } catch (error) {
+      this.onLoaderChangeWithRace(false);
       this._setState('error');
       this.emit(EVENTS.ERROR, error);
       throw error;
