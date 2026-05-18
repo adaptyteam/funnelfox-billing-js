@@ -44,6 +44,7 @@ import type {
 import { loadStripe } from '@stripe/stripe-js';
 import { renderError } from './assets/error/error';
 import { loadAirwallexDeviceFingerprint } from './utils/airwallex-loader';
+import { startUnhandledErrorTelemetry } from './utils/unhandled-error-telemetry';
 
 type CachedClientSessionResponse = CreateClientSessionResponse & {
   radarSessionId?: Promise<string>;
@@ -101,6 +102,9 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   cardPostalCode?: string;
   private shouldApplySessionCardholderNameConfig: boolean;
   private cardSessionFieldConfig: CardSessionFieldConfig = {};
+  private isTelemetryEnabled = false;
+  private telemetryCleanup: (() => void) | null = null;
+  private telemetryPaymentMethod?: PaymentMethod;
 
   constructor(config: {
     orgId: string;
@@ -166,6 +170,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       await this.createSession();
       await this._initializePrimerCheckout();
       this._setState('ready');
+      this.startUnhandledTelemetry();
       this.checkoutConfig?.onInitialized?.();
       return this;
     } catch (error) {
@@ -253,6 +258,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     }
 
     this.cachedSessionResponse = sessionResponse;
+    this.isTelemetryEnabled = !!sessionResponse.data?.sdk_telemetry_enabled;
     this.isCollectingApplePayEmail =
       !!sessionResponse.data?.collect_apple_pay_email;
     this.applySessionCardFieldConfig(sessionResponse);
@@ -745,6 +751,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     }
 
     try {
+      this.onLoaderChangeWithRace(true);
       this._setState('updating');
       // Invalidate session cache
       CheckoutInstance.sessionCache.clear();
@@ -755,8 +762,11 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         clientMetadata,
       });
       this.checkoutConfig.priceId = newPriceId;
+      await this.primerWrapper.refreshClientSession();
+      this.onLoaderChangeWithRace(false);
       this._setState('ready');
     } catch (error) {
+      this.onLoaderChangeWithRace(false);
       this._setState('error');
       this.emit(EVENTS.ERROR, error);
       throw error;
@@ -776,6 +786,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   async destroy() {
     if (this.isDestroyed) return;
     try {
+      this.stopUnhandledTelemetry();
       CheckoutInstance.sessionCache.clear();
       await this.primerWrapper.destroy();
       this._setState('destroyed');
@@ -1012,6 +1023,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       element,
       methodOptions
     );
+    this.startUnhandledTelemetry(method);
     return {
       ...methodInterface,
       destroy: async () => {
@@ -1019,6 +1031,37 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         await this.destroy();
       },
     };
+  }
+
+  private startUnhandledTelemetry(paymentMethod?: PaymentMethod): void {
+    if (paymentMethod) {
+      this.telemetryPaymentMethod = paymentMethod;
+    }
+
+    if (!this.isTelemetryEnabled || this.telemetryCleanup) {
+      return;
+    }
+
+    this.telemetryCleanup = startUnhandledErrorTelemetry({
+      id: this.id,
+      orgId: this.orgId,
+      baseUrl: this.baseUrl,
+      enabled: this.isTelemetryEnabled,
+      getContext: () => ({
+        checkoutId: this.id,
+        orderId: this.orderId,
+        priceId: this.checkoutConfig.priceId,
+        state: this.state,
+        paymentMethod: this.telemetryPaymentMethod,
+        reqId: this.cachedSessionResponse?.req_id,
+      }),
+    });
+  }
+
+  private stopUnhandledTelemetry(): void {
+    this.telemetryCleanup?.();
+    this.telemetryCleanup = null;
+    this.telemetryPaymentMethod = undefined;
   }
 }
 

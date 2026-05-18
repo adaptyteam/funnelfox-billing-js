@@ -167,7 +167,10 @@ class PrimerWrapper implements PrimerWrapperInterface {
       };
     } catch (error: unknown) {
       onMethodRenderError(allowedPaymentMethod);
-      throw new PrimerError('Failed to initialize Primer checkout', error);
+      throw new PrimerError(
+        `Failed to initialize Primer checkout method ${allowedPaymentMethod}`,
+        error
+      );
     }
   }
 
@@ -212,7 +215,10 @@ class PrimerWrapper implements PrimerWrapperInterface {
         return buttonInterface;
       }
     } catch (error: unknown) {
-      throw new PrimerError('Failed to initialize Primer checkout', error);
+      throw new PrimerError(
+        `Failed to initialize Primer checkout method ${method}`,
+        error
+      );
     }
   }
 
@@ -424,7 +430,10 @@ class PrimerWrapper implements PrimerWrapperInterface {
       };
     } catch (error: unknown) {
       onMethodRenderError(PaymentMethod.PAYMENT_CARD);
-      throw new PrimerError('Failed to initialize Primer checkout', error);
+      throw new PrimerError(
+        'Failed to initialize Primer checkout method PAYMENT_CARD',
+        error
+      );
     }
   }
 
@@ -615,6 +624,12 @@ class PrimerWrapper implements PrimerWrapperInterface {
       );
     }
     return element;
+  }
+
+  refreshClientSession() {
+    return this.currentHeadless?.then(headless =>
+      headless.refreshClientSession()
+    );
   }
 }
 

@@ -419,6 +419,7 @@ export interface CreateClientSessionResponse {
     valid_countries?: CountryOption[];
     country_field_overrides?: Record<string, CountryFieldOverride>;
     airwallex_risk_enabled?: boolean;
+    sdk_telemetry_enabled?: boolean;
   };
   error?: {
     code: string;
