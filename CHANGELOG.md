@@ -202,3 +202,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.7.1] - 2026-04-28
 
 - Added Airwallex Risk Library fingerprint
+
+## [0.8.0] - 2026-05-15
+
+- Added щptional SDK unhandled error telemetry, enabled via `sdk_telemetry_enabled` from `createClientSession`
+- Fixed `updatePrice` now refreshes the Primer client session correctly
+- Payment method buttons are disabled while the client session is refreshing
