@@ -284,7 +284,14 @@ export interface CreateClientSessionOptions {
   apiConfig?: APIConfig;
   clientMetadata?: MetadataType;
   countryCode?: string;
+  integration?: 'primer' | 'stripe';
 }
+
+export type StripeClientSessionResponse = Omit<CreateClientSessionResponse, 'data'> & {
+  data: CreateClientSessionResponse['data'] & {
+    stripe_public_key: string;
+  };
+};
 
 export interface ClientSessionData {
   clientToken: string;

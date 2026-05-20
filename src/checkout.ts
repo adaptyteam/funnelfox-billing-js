@@ -8,6 +8,7 @@ import { CheckoutError } from './errors';
 import { isValidEmail, requireString } from './utils/validation';
 import { generateId, generateUUID, merge } from './utils/helpers';
 import APIClient from './api-client';
+import sessionService from './shared/services/session-service';
 import {
   APPLE_PAY_COLLECTING_EMAIL_OPTIONS,
   DEFAULT_PAYMENT_METHOD_ORDER,
@@ -89,12 +90,8 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   clientToken: string | null;
   primerWrapper: PrimerWrapper;
   isDestroyed: boolean;
-  apiClient!: APIClient;
+  apiClient: APIClient;
   private counter: number = 0;
-  private static sessionCache = new Map<
-    string,
-    Promise<CachedClientSessionResponse>
-  >();
   private cachedSessionResponse: CachedClientSessionResponse | null = null;
   isCollectingApplePayEmail: boolean;
   cardEmailAddress?: string;
@@ -139,6 +136,12 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.cardEmailAddress = this.checkoutConfig.customer.email;
     this.shouldApplySessionCardholderNameConfig =
       this.checkoutConfig.card?.cardholderName?.required === undefined;
+    this.apiClient = new APIClient({
+      baseUrl: this.baseUrl || DEFAULTS.BASE_URL,
+      orgId: this.orgId,
+      timeout: DEFAULTS.REQUEST_TIMEOUT,
+      retryAttempts: DEFAULTS.RETRY_ATTEMPTS,
+    });
 
     this._setupCallbackBridges();
   }
@@ -191,70 +194,41 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   };
 
   private async createSession() {
-    this.apiClient = new APIClient({
-      baseUrl: this.baseUrl || DEFAULTS.BASE_URL,
+    const response = await sessionService.createSession({
       orgId: this.orgId,
-      timeout: DEFAULTS.REQUEST_TIMEOUT,
-      retryAttempts: DEFAULTS.RETRY_ATTEMPTS,
-    });
-    const sessionParams = {
+      baseUrl: this.baseUrl,
       priceId: this.checkoutConfig.priceId,
       externalId: this.checkoutConfig.customer.externalId,
       email: this.checkoutConfig.customer.email,
-      region: this.region || DEFAULTS.REGION,
+      region: this.region,
       clientMetadata: this.checkoutConfig.clientMetadata,
       countryCode: this.checkoutConfig.customer.countryCode,
-    };
-    const cacheKey = [
-      this.orgId,
-      this.checkoutConfig.priceId,
-      this.checkoutConfig.customer.externalId,
-      this.checkoutConfig.customer.email,
-    ].join('-');
+      integration: 'primer',
+    });
 
-    let sessionResponse: CachedClientSessionResponse;
-
-    // Return cached response if payload hasn't changed
-    const cachedResponse = CheckoutInstance.sessionCache.get(cacheKey);
-    if (cachedResponse) {
-      sessionResponse = await cachedResponse;
-    } else {
-      const sessionRequest = this.apiClient
-        .createClientSession(sessionParams)
-        .then((response): CachedClientSessionResponse => {
-          const cachedResponse = response as CachedClientSessionResponse;
-          if (response.data?.stripe_public_key) {
-            const stripePublicKey = response.data.stripe_public_key;
-            cachedResponse.radarSessionId = loadStripe(stripePublicKey)
-              .then(stripe =>
-                stripe
-                  ? stripe
-                      .createRadarSession()
-                      .then(session => session?.radarSession?.id || '')
-                      .catch(() => '')
-                  : ''
-              )
-              .catch(() => '');
-          }
-          // Initialize Airwallex device fingerprinting if enabled by backend
-          if (response.data?.airwallex_risk_enabled) {
-            const isLivemode = response.data?.is_livemode;
-            const deviceId = generateUUID();
-            cachedResponse.airwallexDeviceId = loadAirwallexDeviceFingerprint(
-              deviceId,
-              isLivemode
-            )
-              .then(() => deviceId)
-              .catch(() => {
-                // Silently fail - return deviceId anyway
-                return deviceId;
-              });
-          }
-          return cachedResponse;
-        });
-      // Cache the successful response
-      CheckoutInstance.sessionCache.set(cacheKey, sessionRequest);
-      sessionResponse = await sessionRequest;
+    const sessionResponse = response as CachedClientSessionResponse;
+    if (response.data?.stripe_public_key) {
+      const stripePublicKey = response.data.stripe_public_key;
+      sessionResponse.radarSessionId = loadStripe(stripePublicKey)
+        .then(stripe =>
+          stripe
+            ? stripe
+                .createRadarSession()
+                .then(session => session?.radarSession?.id || '')
+                .catch(() => '')
+            : ''
+        )
+        .catch(() => '');
+    }
+    if (response.data?.airwallex_risk_enabled) {
+      const isLivemode = response.data?.is_livemode;
+      const deviceId = generateUUID();
+      sessionResponse.airwallexDeviceId = loadAirwallexDeviceFingerprint(
+        deviceId,
+        isLivemode
+      )
+        .then(() => deviceId)
+        .catch(() => deviceId);
     }
 
     this.cachedSessionResponse = sessionResponse;
@@ -753,8 +727,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     try {
       this.onLoaderChangeWithRace(true);
       this._setState('updating');
-      // Invalidate session cache
-      CheckoutInstance.sessionCache.clear();
+      sessionService.clearCache();
       await this.apiClient.updateClientSession({
         orderId: this.orderId,
         clientToken: this.clientToken,
@@ -787,7 +760,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     if (this.isDestroyed) return;
     try {
       this.stopUnhandledTelemetry();
-      CheckoutInstance.sessionCache.clear();
+      sessionService.clearCache();
       await this.primerWrapper.destroy();
       this._setState('destroyed');
       this.orderId = null;

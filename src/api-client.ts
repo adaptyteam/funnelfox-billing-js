@@ -99,7 +99,7 @@ class APIClient {
   ): Promise<CreateClientSessionResponse> {
     const payload: CreateClientSessionRequest = {
       region: params.region || 'default',
-      integration_type: 'primer',
+      integration_type: params.integration ?? 'primer',
       pp_ident: params.priceId,
       external_id: params.externalId,
       email_address: params.email,
