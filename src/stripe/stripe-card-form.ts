@@ -11,7 +11,6 @@ export async function mountStripeCardForm(
   params: Pick<
     StripeCardFormOptions,
     | 'showWallets'
-    | 'linkEnabled'
     | 'appearance'
     | 'onRenderSuccess'
     | 'onRenderError'
