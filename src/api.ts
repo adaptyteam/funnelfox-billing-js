@@ -297,3 +297,38 @@ export async function purchaseStripeWallet(
 
   return purchaseWallet(session, params);
 }
+
+export async function getAvailableStripeWallet(
+  params: CreateClientSessionOptions
+): Promise<PaymentMethod.APPLE_PAY | PaymentMethod.GOOGLE_PAY | null> {
+  const config = resolveConfig(params, 'getAvailableStripeWallet');
+
+  const [session, { getAvailableWallet }] = await Promise.all([
+    sessionService.createSession({
+      orgId: config.orgId,
+      baseUrl: config.baseUrl,
+      region: config.region,
+      priceId: params.priceId,
+      externalId: params.externalId,
+      email: params.email,
+      clientMetadata: params.clientMetadata,
+      countryCode: params.countryCode,
+      integration: 'stripe',
+    }),
+    import('./stripe/stripe-wallet'),
+  ]);
+
+  const result = await getAvailableWallet(session);
+  if (result === 'APPLE_PAY') return PaymentMethod.APPLE_PAY;
+  if (result === 'GOOGLE_PAY') return PaymentMethod.GOOGLE_PAY;
+  return null;
+}
+
+export async function getAvailableStripePaymentMethods(
+  params: CreateClientSessionOptions
+): Promise<PaymentMethod[]> {
+  const wallet = await getAvailableStripeWallet(params);
+  return wallet
+    ? [PaymentMethod.PAYMENT_CARD, wallet]
+    : [PaymentMethod.PAYMENT_CARD];
+}
