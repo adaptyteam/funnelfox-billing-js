@@ -400,6 +400,14 @@ export declare function purchaseStripeWallet(
   params: StripeWalletOptions
 ): Promise<void>;
 
+export declare function getAvailableStripeWallet(
+  params: CreateClientSessionOptions
+): Promise<PaymentMethod.APPLE_PAY | PaymentMethod.GOOGLE_PAY | null>;
+
+export declare function getAvailableStripePaymentMethods(
+  params: CreateClientSessionOptions
+): Promise<PaymentMethod[]>;
+
 // Billing namespace
 export declare const Billing: {
   configure: typeof configure;
@@ -411,6 +419,8 @@ export declare const Billing: {
   stripe: {
     createCardForm: typeof createStripeCardForm;
     purchaseWallet: typeof purchaseStripeWallet;
+    getAvailableWallet: typeof getAvailableStripeWallet;
+    getAvailablePaymentMethods: typeof getAvailableStripePaymentMethods;
   };
 };
 

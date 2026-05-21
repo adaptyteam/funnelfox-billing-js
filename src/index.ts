@@ -38,6 +38,8 @@ export const Billing = {
   stripe: {
     createCardForm: api.createStripeCardForm,
     purchaseWallet: api.purchaseStripeWallet,
+    getAvailableWallet: api.getAvailableStripeWallet,
+    getAvailablePaymentMethods: api.getAvailableStripePaymentMethods,
   },
 };
 
