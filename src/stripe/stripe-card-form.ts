@@ -21,14 +21,15 @@ export async function mountStripeCardForm(
   >
 ): Promise<StripeCardForm> {
   const { stripe_public_key, stripe_intent } = session.data;
-  const { clientSecret, customerSessionClientSecret } = stripe_intent;
+  const { intent_client_secret, customer_session_client_secret } =
+    stripe_intent;
 
   const stripe = await getStripe(stripe_public_key);
   if (!stripe) throw new Error('Failed to load Stripe');
 
   const stripeElements = stripe.elements({
-    clientSecret,
-    customerSessionClientSecret,
+    clientSecret: intent_client_secret,
+    customerSessionClientSecret: customer_session_client_secret,
     appearance: params.appearance,
   });
 

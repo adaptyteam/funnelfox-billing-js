@@ -13,7 +13,7 @@ export async function purchaseWallet(
   >
 ): Promise<void> {
   const { stripe_public_key, stripe_intent } = session.data;
-  const { clientSecret, amount, currency, country } = stripe_intent;
+  const { intent_client_secret, amount, currency, country } = stripe_intent;
 
   const stripe = await getStripe(stripe_public_key);
   if (!stripe) throw new Error('Failed to load Stripe');
@@ -37,7 +37,7 @@ export async function purchaseWallet(
       params.onLoaderChange?.(true);
       try {
         const { error } = await stripe.confirmCardPayment(
-          clientSecret,
+          intent_client_secret,
           { payment_method: event.paymentMethod.id },
           { handleActions: false }
         );
