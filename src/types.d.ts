@@ -296,6 +296,9 @@ export type StripeClientSessionResponse = Omit<
     stripe_intent: {
       clientSecret: string;
       customerSessionClientSecret: string;
+      amount: number;
+      currency: string;
+      country: string;
     };
   };
 };
@@ -375,6 +378,16 @@ export interface StripeCardFormOptions
   linkEnabled?: boolean;
 }
 
+export interface StripeWalletOptions
+  extends
+    CreateClientSessionOptions,
+    Omit<InitMethodCallbacks, 'onPaymentSuccess'> {
+  onPaymentSuccess?: (
+    paymentMethod: import('@stripe/stripe-js').PaymentMethod
+  ) => void;
+  totalLabel?: string;
+}
+
 export interface StripeCardForm {
   submit: () => Promise<void>;
 }
@@ -383,6 +396,10 @@ export declare function createStripeCardForm(
   element: HTMLElement,
   params: StripeCardFormOptions
 ): Promise<StripeCardForm>;
+
+export declare function purchaseStripeWallet(
+  params: StripeWalletOptions
+): Promise<void>;
 
 // Billing namespace
 export declare const Billing: {
@@ -394,6 +411,7 @@ export declare const Billing: {
   getAvailablePaymentMethods: typeof getAvailablePaymentMethods;
   stripe: {
     createCardForm: typeof createStripeCardForm;
+    purchaseWallet: typeof purchaseStripeWallet;
   };
 };
 
@@ -452,6 +470,9 @@ export interface CreateClientSessionResponse {
     stripe_intent?: {
       clientSecret: string;
       customerSessionClientSecret: string;
+      amount?: number;
+      currency?: string;
+      country?: string;
     };
     collect_apple_pay_email?: boolean;
     show_email_field?: boolean;

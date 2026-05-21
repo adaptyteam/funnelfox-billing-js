@@ -37,6 +37,7 @@ export const Billing = {
   getAvailablePaymentMethods: api.getAvailablePaymentMethods,
   stripe: {
     createCardForm: api.createStripeCardForm,
+    purchaseWallet: api.purchaseStripeWallet,
   },
 };
 

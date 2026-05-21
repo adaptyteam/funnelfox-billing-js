@@ -14,6 +14,7 @@ import type {
   InitMethodOptions,
   StripeCardFormOptions,
   StripeCardForm,
+  StripeWalletOptions,
 } from './types';
 import { APIError } from './errors';
 import { PaymentMethod } from './enums';
@@ -272,4 +273,27 @@ export async function createStripeCardForm(
   ]);
 
   return mountStripeCardForm(element, session, params);
+}
+
+export async function purchaseStripeWallet(
+  params: StripeWalletOptions
+): Promise<void> {
+  const config = resolveConfig(params, 'purchaseStripeWallet');
+
+  const [session, { purchaseWallet }] = await Promise.all([
+    sessionService.createSession({
+      orgId: config.orgId,
+      baseUrl: config.baseUrl,
+      region: config.region,
+      priceId: params.priceId,
+      externalId: params.externalId,
+      email: params.email,
+      clientMetadata: params.clientMetadata,
+      countryCode: params.countryCode,
+      integration: 'stripe',
+    }),
+    import('./stripe/stripe-wallet'),
+  ]);
+
+  return purchaseWallet(session, params);
 }
