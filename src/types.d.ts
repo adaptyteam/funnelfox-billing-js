@@ -370,6 +370,7 @@ export interface StripeCardFormOptions
   onPaymentSuccess?: (
     paymentMethod: import('@stripe/stripe-js').PaymentMethod
   ) => void;
+  appearance?: import('@stripe/stripe-js').Appearance;
   showWallets?: boolean;
   linkEnabled?: boolean;
 }

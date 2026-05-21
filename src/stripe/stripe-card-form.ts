@@ -12,6 +12,7 @@ export async function mountStripeCardForm(
     StripeCardFormOptions,
     | 'showWallets'
     | 'linkEnabled'
+    | 'appearance'
     | 'onRenderSuccess'
     | 'onRenderError'
     | 'onPaymentSuccess'
@@ -28,7 +29,7 @@ export async function mountStripeCardForm(
   const stripeElements = stripe.elements({
     clientSecret,
     customerSessionClientSecret,
-    appearance: {},
+    appearance: params.appearance,
   });
 
   const paymentElement = stripeElements.create('payment', {
