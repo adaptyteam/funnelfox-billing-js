@@ -287,7 +287,10 @@ export interface CreateClientSessionOptions {
   integration?: 'primer' | 'stripe';
 }
 
-export type StripeClientSessionResponse = Omit<CreateClientSessionResponse, 'data'> & {
+export type StripeClientSessionResponse = Omit<
+  CreateClientSessionResponse,
+  'data'
+> & {
   data: CreateClientSessionResponse['data'] & {
     stripe_public_key: string;
   };
@@ -355,6 +358,22 @@ export declare function getAvailablePaymentMethods(params: {
   orgId: string;
   baseUrl: string;
 }): Promise<PaymentMethod[]>;
+
+export interface StripeCardFormOptions
+  extends CreateClientSessionOptions, InitMethodCallbacks {
+  showWallets?: boolean;
+  linkEnabled?: boolean;
+}
+
+export interface StripeCardForm {
+  submit: () => Promise<void>;
+}
+
+export declare function createStripeCardForm(
+  element: HTMLElement,
+  params: StripeCardFormOptions
+): Promise<StripeCardForm>;
+
 // Billing namespace
 export declare const Billing: {
   configure: typeof configure;
@@ -363,6 +382,9 @@ export declare const Billing: {
   initMethod: typeof initMethod;
   silentPurchase: typeof silentPurchase;
   getAvailablePaymentMethods: typeof getAvailablePaymentMethods;
+  stripe: {
+    createCardForm: typeof createStripeCardForm;
+  };
 };
 
 // Constants

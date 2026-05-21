@@ -12,6 +12,8 @@ import type {
   APIConfig,
   CreateClientSessionOptions,
   InitMethodOptions,
+  StripeCardFormOptions,
+  StripeCardForm,
 } from './types';
 import { APIError } from './errors';
 import { PaymentMethod } from './enums';
@@ -245,4 +247,12 @@ export async function getAvailablePaymentMethods(params: {
     });
     throw error;
   }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function createStripeCardForm(
+  _element: HTMLElement,
+  _params: StripeCardFormOptions
+): Promise<StripeCardForm> {
+  throw new Error('Not implemented');
 }
