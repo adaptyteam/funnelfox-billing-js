@@ -375,7 +375,6 @@ export interface StripeCardFormOptions
   ) => void;
   appearance?: import('@stripe/stripe-js').Appearance;
   showWallets?: boolean;
-  linkEnabled?: boolean;
 }
 
 export interface StripeWalletOptions
