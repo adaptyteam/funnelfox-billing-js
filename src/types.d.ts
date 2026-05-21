@@ -293,6 +293,10 @@ export type StripeClientSessionResponse = Omit<
 > & {
   data: CreateClientSessionResponse['data'] & {
     stripe_public_key: string;
+    stripe_intent: {
+      clientSecret: string;
+      customerSessionClientSecret: string;
+    };
   };
 };
 
@@ -360,7 +364,12 @@ export declare function getAvailablePaymentMethods(params: {
 }): Promise<PaymentMethod[]>;
 
 export interface StripeCardFormOptions
-  extends CreateClientSessionOptions, InitMethodCallbacks {
+  extends
+    CreateClientSessionOptions,
+    Omit<InitMethodCallbacks, 'onPaymentSuccess'> {
+  onPaymentSuccess?: (
+    paymentMethod: import('@stripe/stripe-js').PaymentMethod
+  ) => void;
   showWallets?: boolean;
   linkEnabled?: boolean;
 }
@@ -439,6 +448,10 @@ export interface CreateClientSessionResponse {
     client_token: string;
     order_id: string;
     stripe_public_key?: string;
+    stripe_intent?: {
+      clientSecret: string;
+      customerSessionClientSecret: string;
+    };
     collect_apple_pay_email?: boolean;
     show_email_field?: boolean;
     show_cardholder_name_field?: boolean; //true

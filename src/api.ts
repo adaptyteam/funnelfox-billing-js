@@ -18,6 +18,7 @@ import type {
 import { APIError } from './errors';
 import { PaymentMethod } from './enums';
 import { getErrorImage } from './utils/error-image';
+import sessionService from './shared/services/session-service';
 
 let defaultConfig: SDKConfig | null = null;
 
@@ -249,10 +250,26 @@ export async function getAvailablePaymentMethods(params: {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function createStripeCardForm(
-  _element: HTMLElement,
-  _params: StripeCardFormOptions
+  element: HTMLElement,
+  params: StripeCardFormOptions
 ): Promise<StripeCardForm> {
-  throw new Error('Not implemented');
+  const config = resolveConfig(params, 'createStripeCardForm');
+
+  const [session, { mountStripeCardForm }] = await Promise.all([
+    sessionService.createSession({
+      orgId: config.orgId,
+      baseUrl: config.baseUrl,
+      region: config.region,
+      priceId: params.priceId,
+      externalId: params.externalId,
+      email: params.email,
+      clientMetadata: params.clientMetadata,
+      countryCode: params.countryCode,
+      integration: 'stripe',
+    }),
+    import('./stripe/stripe-card-form'),
+  ]);
+
+  return mountStripeCardForm(element, session, params);
 }
