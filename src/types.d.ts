@@ -294,8 +294,6 @@ export type StripeClientSessionResponse = Omit<
   data: CreateClientSessionResponse['data'] & {
     stripe_public_key: string;
     stripe_intent: {
-      intent_client_secret: string;
-      customer_session_client_secret: string;
       amount: number;
       currency: string;
       country: string;
@@ -371,7 +369,8 @@ export interface StripeCardFormOptions
     CreateClientSessionOptions,
     Omit<InitMethodCallbacks, 'onPaymentSuccess'> {
   onPaymentSuccess?: (
-    paymentMethod: import('@stripe/stripe-js').PaymentMethod
+    paymentMethod: import('@stripe/stripe-js').PaymentMethod,
+    orderId: string
   ) => void;
   appearance?: import('@stripe/stripe-js').Appearance;
   showWallets?: boolean;
@@ -382,7 +381,8 @@ export interface StripeWalletOptions
     CreateClientSessionOptions,
     Omit<InitMethodCallbacks, 'onPaymentSuccess'> {
   onPaymentSuccess?: (
-    paymentMethod: import('@stripe/stripe-js').PaymentMethod
+    paymentMethod: import('@stripe/stripe-js').PaymentMethod,
+    orderId: string
   ) => void;
   totalLabel?: string;
 }

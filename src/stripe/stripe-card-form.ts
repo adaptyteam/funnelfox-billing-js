@@ -1,4 +1,5 @@
 import { getStripe } from './stripe-loader';
+import type APIClient from '../api-client';
 import type {
   StripeClientSessionResponse,
   StripeCardFormOptions,
@@ -17,18 +18,22 @@ export async function mountStripeCardForm(
     | 'onPaymentSuccess'
     | 'onPaymentFail'
     | 'onLoaderChange'
-  >
+    | 'email'
+    | 'countryCode'
+    | 'clientMetadata'
+  > & {
+    apiClient: APIClient;
+  }
 ): Promise<StripeCardForm> {
-  const { stripe_public_key, stripe_intent } = session.data;
-  const { intent_client_secret, customer_session_client_secret } =
-    stripe_intent;
+  const { stripe_public_key, stripe_intent, order_id } = session.data;
 
   const stripe = await getStripe(stripe_public_key);
   if (!stripe) throw new Error('Failed to load Stripe');
 
   const stripeElements = stripe.elements({
-    clientSecret: intent_client_secret,
-    customerSessionClientSecret: customer_session_client_secret,
+    mode: 'payment',
+    amount: stripe_intent.amount,
+    currency: stripe_intent.currency,
     appearance: params.appearance,
   });
 
@@ -63,8 +68,25 @@ export async function mountStripeCardForm(
         });
         if (error) throw error;
 
-        // TODO: send paymentMethod.id to backend to confirm PaymentIntent
-        params.onPaymentSuccess?.(paymentMethod);
+        const raw = await params.apiClient.createPayment({
+          orderId: order_id,
+          paymentMethodToken: paymentMethod.id,
+          email: params.email,
+          countryCode: params.countryCode,
+          clientMetadata: params.clientMetadata,
+        });
+        const result = params.apiClient.processPaymentResponse(raw);
+
+        if (result.type === 'action_required') {
+          const { error: confirmError } = await stripe.confirmPayment({
+            clientSecret: result.clientToken,
+            redirect: 'if_required',
+            confirmParams: { return_url: window.location.href },
+          });
+          if (confirmError) throw confirmError;
+        }
+
+        params.onPaymentSuccess?.(paymentMethod, order_id);
       } catch (err) {
         params.onPaymentFail?.(err as Error);
         throw err;
