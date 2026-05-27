@@ -293,11 +293,9 @@ export type StripeClientSessionResponse = Omit<
 > & {
   data: CreateClientSessionResponse['data'] & {
     stripe_public_key: string;
-    stripe_intent: {
-      amount: number;
-      currency: string;
-      country: string;
-    };
+    amount: number;
+    currency: string;
+    country: string;
   };
 };
 

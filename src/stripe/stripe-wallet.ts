@@ -8,15 +8,18 @@ import type {
 
 function buildPaymentRequest(
   stripe: Stripe,
-  stripe_intent: StripeClientSessionResponse['data']['stripe_intent'],
+  data: Pick<
+    StripeClientSessionResponse['data'],
+    'amount' | 'currency' | 'country'
+  >,
   totalLabel?: string
 ) {
   return stripe.paymentRequest({
-    country: stripe_intent.country || 'US',
-    currency: stripe_intent.currency || 'usd',
+    country: data.country || 'US',
+    currency: data.currency || 'usd',
     total: {
       label: totalLabel ?? 'Test Total',
-      amount: stripe_intent.amount || 1,
+      amount: data.amount || 1,
     },
     requestPayerName: false,
     requestPayerEmail: false,
@@ -26,12 +29,12 @@ function buildPaymentRequest(
 export async function getAvailableWallet(
   session: StripeClientSessionResponse
 ): Promise<'APPLE_PAY' | 'GOOGLE_PAY' | null> {
-  const { stripe_public_key, stripe_intent } = session.data;
+  const { stripe_public_key } = session.data;
 
   const stripe = await getStripe(stripe_public_key);
   if (!stripe) throw new Error('Failed to load Stripe');
 
-  const paymentRequest = buildPaymentRequest(stripe, stripe_intent);
+  const paymentRequest = buildPaymentRequest(stripe, session.data);
   const result = await paymentRequest.canMakePayment();
   if (!result) return null;
   if (result.applePay) return 'APPLE_PAY';
@@ -55,14 +58,14 @@ export async function purchaseWallet(
     apiClient: APIClient;
   }
 ): Promise<void> {
-  const { stripe_public_key, stripe_intent, order_id } = session.data;
+  const { stripe_public_key, order_id } = session.data;
 
   const stripe = await getStripe(stripe_public_key);
   if (!stripe) throw new Error('Failed to load Stripe');
 
   const paymentRequest = buildPaymentRequest(
     stripe,
-    stripe_intent,
+    session.data,
     params.totalLabel
   );
 
