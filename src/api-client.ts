@@ -160,6 +160,19 @@ class APIClient {
     })) as CreatePaymentResponse;
   }
 
+  async createStripePayment(params: {
+    orderId: string;
+    paymentMethodId: string;
+  }): Promise<CreatePaymentResponse> {
+    return (await this.request(API_ENDPOINTS.STRIPE_CREATE_PAYMENT, {
+      method: 'POST',
+      body: JSON.stringify({
+        order_id: params.orderId,
+        payment_method_id: params.paymentMethodId,
+      }),
+    })) as CreatePaymentResponse;
+  }
+
   async resumePayment(params: {
     orderId: string;
     resumeToken: string;

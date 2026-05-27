@@ -68,12 +68,9 @@ export async function mountStripeCardForm(
         });
         if (error) throw error;
 
-        const raw = await params.apiClient.createPayment({
+        const raw = await params.apiClient.createStripePayment({
           orderId: order_id,
-          paymentMethodToken: paymentMethod.id,
-          email: params.email,
-          countryCode: params.countryCode,
-          clientMetadata: params.clientMetadata,
+          paymentMethodId: paymentMethod.id,
         });
         const result = params.apiClient.processPaymentResponse(raw);
 
