@@ -1,6 +1,10 @@
 import { getStripe } from './stripe-loader';
 import type { Stripe } from '@stripe/stripe-js';
-import type { StripeClientSessionResponse, StripeWalletOptions } from '../types';
+import type APIClient from '../api-client';
+import type {
+  StripeClientSessionResponse,
+  StripeWalletOptions,
+} from '../types';
 
 function buildPaymentRequest(
   stripe: Stripe,
@@ -8,11 +12,11 @@ function buildPaymentRequest(
   totalLabel?: string
 ) {
   return stripe.paymentRequest({
-    country: stripe_intent.country,
-    currency: stripe_intent.currency,
+    country: stripe_intent.country || 'US',
+    currency: stripe_intent.currency || 'usd',
     total: {
-      label: totalLabel ?? 'Total',
-      amount: stripe_intent.amount,
+      label: totalLabel ?? 'Test Total',
+      amount: stripe_intent.amount || 1,
     },
     requestPayerName: false,
     requestPayerEmail: false,
@@ -44,15 +48,23 @@ export async function purchaseWallet(
     | 'onPaymentFail'
     | 'onPaymentCancel'
     | 'onLoaderChange'
-  >
+    | 'email'
+    | 'countryCode'
+    | 'clientMetadata'
+  > & {
+    apiClient: APIClient;
+  }
 ): Promise<void> {
-  const { stripe_public_key, stripe_intent } = session.data;
-  const { intent_client_secret } = stripe_intent;
+  const { stripe_public_key, stripe_intent, order_id } = session.data;
 
   const stripe = await getStripe(stripe_public_key);
   if (!stripe) throw new Error('Failed to load Stripe');
 
-  const paymentRequest = buildPaymentRequest(stripe, stripe_intent, params.totalLabel);
+  const paymentRequest = buildPaymentRequest(
+    stripe,
+    stripe_intent,
+    params.totalLabel
+  );
 
   const canPay = await paymentRequest.canMakePayment();
   if (!canPay) throw new Error('No wallet payment method available');
@@ -61,19 +73,32 @@ export async function purchaseWallet(
     paymentRequest.on('paymentmethod', async event => {
       params.onLoaderChange?.(true);
       try {
-        const { error } = await stripe.confirmCardPayment(
-          intent_client_secret,
-          { payment_method: event.paymentMethod.id },
-          { handleActions: false }
-        );
-        if (error) {
-          event.complete('fail');
-          throw error;
+        const raw = await params.apiClient.createPayment({
+          orderId: order_id,
+          paymentMethodToken: event.paymentMethod.id,
+          email: params.email,
+          countryCode: params.countryCode,
+          clientMetadata: params.clientMetadata,
+        });
+        const result = params.apiClient.processPaymentResponse(raw);
+
+        if (result.type === 'action_required') {
+          const { error } = await stripe.confirmPayment({
+            clientSecret: result.clientToken,
+            redirect: 'if_required',
+            confirmParams: { return_url: window.location.href },
+          });
+          if (error) {
+            event.complete('fail');
+            throw error;
+          }
         }
+
         event.complete('success');
-        params.onPaymentSuccess?.(event.paymentMethod);
+        params.onPaymentSuccess?.(event.paymentMethod, order_id);
         resolve();
       } catch (err) {
+        event.complete('fail');
         params.onPaymentFail?.(err as Error);
         reject(err);
       } finally {

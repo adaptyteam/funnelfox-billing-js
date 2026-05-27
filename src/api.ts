@@ -272,7 +272,12 @@ export async function createStripeCardForm(
     import('./stripe/stripe-card-form'),
   ]);
 
-  return mountStripeCardForm(element, session, params);
+  const apiClient = new APIClient({
+    orgId: config.orgId,
+    baseUrl: config.baseUrl || DEFAULTS.BASE_URL,
+  });
+
+  return mountStripeCardForm(element, session, { ...params, apiClient });
 }
 
 export async function purchaseStripeWallet(
@@ -295,7 +300,12 @@ export async function purchaseStripeWallet(
     import('./stripe/stripe-wallet'),
   ]);
 
-  return purchaseWallet(session, params);
+  const apiClient = new APIClient({
+    orgId: config.orgId,
+    baseUrl: config.baseUrl || DEFAULTS.BASE_URL,
+  });
+
+  return purchaseWallet(session, { ...params, apiClient });
 }
 
 export async function getAvailableStripeWallet(
