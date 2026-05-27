@@ -73,12 +73,9 @@ export async function purchaseWallet(
     paymentRequest.on('paymentmethod', async event => {
       params.onLoaderChange?.(true);
       try {
-        const raw = await params.apiClient.createPayment({
+        const raw = await params.apiClient.createStripePayment({
           orderId: order_id,
-          paymentMethodToken: event.paymentMethod.id,
-          email: params.email,
-          countryCode: params.countryCode,
-          clientMetadata: params.clientMetadata,
+          paymentMethodId: event.paymentMethod.id,
         });
         const result = params.apiClient.processPaymentResponse(raw);
 

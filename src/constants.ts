@@ -53,6 +53,7 @@ export const API_ENDPOINTS = {
   UPDATE_CLIENT_SESSION: '/v1/checkout/update_client_session',
   CREATE_PAYMENT: '/v1/checkout/create_payment',
   RESUME_PAYMENT: '/v1/checkout/resume_payment',
+  STRIPE_CREATE_PAYMENT: '/v1/stripe/create_payment',
   ONE_CLICK: '/v1/checkout/one_click',
   CREATE_SIMPLE_CLIENT_SESSION: '/v1/checkout/create_simple_client_session',
 } as const;
