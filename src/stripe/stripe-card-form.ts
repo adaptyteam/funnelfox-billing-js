@@ -25,15 +25,17 @@ export async function mountStripeCardForm(
     apiClient: APIClient;
   }
 ): Promise<StripeCardForm> {
-  const { stripe_public_key, stripe_intent, order_id } = session.data;
+  const { stripe_public_key, amount, currency, order_id } = session.data;
 
   const stripe = await getStripe(stripe_public_key);
   if (!stripe) throw new Error('Failed to load Stripe');
 
   const stripeElements = stripe.elements({
     mode: 'payment',
-    amount: stripe_intent.amount,
-    currency: stripe_intent.currency,
+    amount,
+    currency,
+    paymentMethodCreation: 'manual',
+    paymentMethodTypes: ['card', 'link'],
     appearance: params.appearance,
   });
 
