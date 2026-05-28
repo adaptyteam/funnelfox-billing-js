@@ -36,11 +36,11 @@ function buildPaymentRequest(
     : undefined;
 
   return stripe.paymentRequest({
-    country: data.country || 'US',
-    currency: data.currency || 'usd',
+    country: data.country,
+    currency: data.currency,
     total: {
       label: totalLabel?.trim() || 'Total',
-      amount: data.amount || 1,
+      amount: data.amount,
     },
     requestPayerName: false,
     requestPayerEmail: false,

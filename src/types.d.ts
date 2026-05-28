@@ -296,6 +296,7 @@ export type StripeClientSessionResponse = Omit<
     amount: number;
     currency: string;
     country: string;
+    is_link_enabled?: boolean;
     apple_pay_recurring_payment_request?: {
       paymentDescription: string;
       managementURL: string;
