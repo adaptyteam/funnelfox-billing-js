@@ -296,6 +296,27 @@ export type StripeClientSessionResponse = Omit<
     amount: number;
     currency: string;
     country: string;
+    apple_pay_recurring_payment_request?: {
+      paymentDescription: string;
+      managementURL: string;
+      billingAgreement?: string;
+      regularBilling: {
+        label: string;
+        amount: number;
+        recurringPaymentIntervalUnit: string;
+        recurringPaymentIntervalCount: number;
+        recurringPaymentStartDate?: string;
+        recurringPaymentEndDate?: string;
+      };
+      trialBilling?: {
+        label: string;
+        amount: number;
+        recurringPaymentIntervalUnit: string;
+        recurringPaymentIntervalCount: number;
+        recurringPaymentStartDate?: string;
+        recurringPaymentEndDate?: string;
+      };
+    } | null;
   };
 };
 

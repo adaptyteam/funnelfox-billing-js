@@ -10,19 +10,41 @@ function buildPaymentRequest(
   stripe: Stripe,
   data: Pick<
     StripeClientSessionResponse['data'],
-    'amount' | 'currency' | 'country'
+    'amount' | 'currency' | 'country' | 'apple_pay_recurring_payment_request'
   >,
   totalLabel?: string
 ) {
+  const raw = data.apple_pay_recurring_payment_request;
+  if (raw) {
+    const parseDates = (b: typeof raw.regularBilling) => {
+      if (b.recurringPaymentStartDate)
+        Object.assign(b, {
+          recurringPaymentStartDate: new Date(b.recurringPaymentStartDate),
+        });
+      if (b.recurringPaymentEndDate)
+        Object.assign(b, {
+          recurringPaymentEndDate: new Date(b.recurringPaymentEndDate),
+        });
+    };
+    parseDates(raw.regularBilling);
+    if (raw.trialBilling) parseDates(raw.trialBilling);
+  }
+  const applePay = raw
+    ? ({ recurringPaymentRequest: raw } as Parameters<
+        Stripe['paymentRequest']
+      >[0]['applePay'])
+    : undefined;
+
   return stripe.paymentRequest({
     country: data.country || 'US',
     currency: data.currency || 'usd',
     total: {
-      label: totalLabel ?? 'Test Total',
+      label: totalLabel?.trim() || 'Total',
       amount: data.amount || 1,
     },
     requestPayerName: false,
     requestPayerEmail: false,
+    applePay,
   });
 }
 
