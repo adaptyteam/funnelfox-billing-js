@@ -1,0 +1,48 @@
+name: Publish dev
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish-dev:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
+      - name: Compute version and tag
+        id: meta
+        run: |
+          BASE=$(node -p "require('./package.json').version.replace(/-.*/, '')")
+          SLUG=$(echo "$GITHUB_REF_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g;s/-\+/-/g;s/^-\|-$//g')
+          echo "version=${BASE}-${SLUG}.${{ github.run_number }}" >> $GITHUB_OUTPUT
+          echo "tag=${SLUG}" >> $GITHUB_OUTPUT
+
+      - name: Set version
+        run: npm version ${{ steps.meta.outputs.version }} --no-git-tag-version
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish
+        run: npm publish --tag ${{ steps.meta.outputs.tag }} --access public
