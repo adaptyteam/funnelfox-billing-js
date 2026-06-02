@@ -1,0 +1,21 @@
+name: Cleanup dev tag
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  remove-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Remove dist-tag
+        run: |
+          SLUG=$(echo "${{ github.event.pull_request.head.ref }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g;s/-\+/-/g;s/^-\|-$//g')
+          npm dist-tag rm @funnelfox/billing $SLUG || echo "Tag $SLUG not found, skipping"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
