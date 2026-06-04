@@ -108,10 +108,8 @@ export async function purchaseWallet(
         const result = params.apiClient.processPaymentResponse(raw);
 
         if (result.type === 'action_required') {
-          const { error } = await stripe.confirmPayment({
+          const { error } = await stripe.handleNextAction({
             clientSecret: result.clientToken,
-            redirect: 'if_required',
-            confirmParams: { return_url: window.location.href },
           });
           if (error) {
             event.complete('fail');

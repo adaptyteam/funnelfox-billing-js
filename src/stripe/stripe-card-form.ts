@@ -81,12 +81,10 @@ export async function mountStripeCardForm(
         const result = params.apiClient.processPaymentResponse(raw);
 
         if (result.type === 'action_required') {
-          const { error: confirmError } = await stripe.confirmPayment({
+          const { error: actionError } = await stripe.handleNextAction({
             clientSecret: result.clientToken,
-            redirect: 'if_required',
-            confirmParams: { return_url: window.location.href },
           });
-          if (confirmError) throw confirmError;
+          if (actionError) throw actionError;
         }
 
         params.onPaymentSuccess?.(paymentMethod, order_id);
