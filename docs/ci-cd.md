@@ -29,6 +29,12 @@ Runs checks, then publishes a dev build to npm tagged with the branch name.
 Because it's in a separate file with only `workflow_dispatch` as the trigger, it never
 appears in PR status checks and never runs accidentally on push.
 
+### `publish-release.yml` — runs automatically on version tag push
+
+Triggered when you push a tag matching `v*.*.*` to the repo. Runs checks, verifies the
+tagged commit is on `main` (so you can't accidentally release from a feature branch), then
+publishes to npm as the `latest` dist-tag.
+
 ### `cleanup.yml` — runs when a PR is closed (merged or abandoned)
 
 Removes the branch's npm dist-tag so it doesn't accumulate indefinitely. The published
@@ -68,7 +74,7 @@ install, but the named tag will no longer resolve.
 
 ## One-time setup
 
-### 1. Configure npm Trusted Publishers (for `publish-dev.yml`)
+### 1. Configure npm Trusted Publishers (for `publish-dev.yml` and `publish-release.yml`)
 
 Trusted Publishers lets GitHub Actions publish to npm using short-lived OIDC credentials —
 no token stored anywhere.
@@ -82,6 +88,7 @@ no token stored anywhere.
    - **Workflow filename**: `publish-dev.yml` (exact, case-sensitive)
    - **Allowed action**: Publish
 4. Save
+5. Repeat for `publish-release.yml` — same fields, different workflow filename
 
 That's it — no token needed in GitHub secrets for publishing.
 
@@ -102,6 +109,28 @@ a token. Use a **Granular Access Token** scoped to just this package:
 2. Click **Run workflow**
 3. Select your branch from the dropdown
 4. Click **Run workflow**
+
+## Publishing a stable release
+
+When your PR is merged to `main` and you're ready to publish:
+
+1. Go to the GitHub repo → **Releases** → **Draft a new release**
+2. Click **"Choose a tag"** → type `v1.0.0` → select **"Create new tag: v1.0.0 on publish"**
+3. Set the target to **`main`**
+4. Add release notes (optional)
+5. Click **Publish release**
+
+GitHub creates the tag and the `publish-release.yml` workflow fires automatically. It verifies
+the tag points to a commit on `main`, stamps the version, builds, and publishes to npm as
+`latest`. No local git commands needed.
+
+```bash
+# Confirm it published
+npm view @funnelfox/billing dist-tags
+```
+
+The workflow fails if the tag doesn't point to a commit that's on `main` — this prevents
+accidental releases from feature branches.
 
 ## Note on availability
 
