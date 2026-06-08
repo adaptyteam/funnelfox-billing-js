@@ -50,3 +50,5 @@ declare global {
 if (typeof window !== 'undefined') {
   window.Billing = Billing;
 }
+
+console.debug('Billing SDK inited');
