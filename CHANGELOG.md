@@ -208,3 +208,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added щptional SDK unhandled error telemetry, enabled via `sdk_telemetry_enabled` from `createClientSession`
 - Fixed `updatePrice` now refreshes the Primer client session correctly
 - Payment method buttons are disabled while the client session is refreshing
+
+## [0.8.1] - 2026-06-08
+
+- Update docs
