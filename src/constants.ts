@@ -13,7 +13,7 @@ import { PaymentMethod } from './enums';
 export const SDK_VERSION = '0.8.0';
 
 export const DEFAULTS = {
-  BASE_URL: 'https://billing.funnelfox.com',
+  BASE_URL: 'https://payments.funnelfox.com',
   REGION: 'default',
   SANDBOX: false,
   REQUEST_TIMEOUT: 30000,
