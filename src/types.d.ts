@@ -529,10 +529,12 @@ export interface CreateClientSessionResponse {
     country_field_overrides?: Record<string, CountryFieldOverride>;
     airwallex_risk_enabled?: boolean;
     sdk_telemetry_enabled?: boolean;
-    // Managed-tax (Primer) session estimate in minor units, for showing tax on mount.
+    // Session tax estimate (detected-country) in minor units — for showing tax on mount and in the
+    // wallet sheet, and (Stripe-direct) collecting it via the wallet.
     tax_amount?: number;
     amount_total?: number;
     currency?: string;
+    tax_calculation_id?: string;
   };
   error?: {
     code: string;
