@@ -88,6 +88,14 @@ export interface CheckoutConfig extends PrimerCheckoutConfig {
   container: string;
   clientMetadata?: MetadataType;
   paymentMethodOrder?: PaymentMethod[];
+  // When true, recalculates tax live as the buyer edits the country/postal code in the card form,
+  // updating the provider client session amount and reporting the new total via onTaxChange.
+  enableTax?: boolean;
+  onTaxChange?: (info: {
+    amountTotal: number;
+    taxAmount: number;
+    currency: string;
+  }) => void;
 }
 
 export interface PaymentButtonSelectors {

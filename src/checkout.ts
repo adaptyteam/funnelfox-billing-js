@@ -70,6 +70,8 @@ interface CheckoutEventMap {
   [EVENTS.METHODS_AVAILABLE]: [PaymentMethod[]];
 }
 
+const TAX_RECALC_DEBOUNCE_MS = 600;
+
 class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   id: string;
   orgId: string;
@@ -97,6 +99,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   cardEmailAddress?: string;
   cardCountryCode?: string;
   cardPostalCode?: string;
+  private taxRecalcDebounce?: ReturnType<typeof setTimeout>;
   private shouldApplySessionCardholderNameConfig: boolean;
   private cardSessionFieldConfig: CardSessionFieldConfig = {};
   private isTelemetryEnabled = false;
@@ -383,11 +386,39 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       if (!this.isPostalCodeVisible()) {
         this.cardPostalCode = undefined;
       }
-      return;
-    }
-    if (inputName === 'postalCode') {
+    } else if (inputName === 'postalCode') {
       this.cardPostalCode = value?.trim() || undefined;
     }
+    if (this.checkoutConfig.enableTax) {
+      this.scheduleTaxRecalc();
+    }
+  };
+
+  private scheduleTaxRecalc = () => {
+    if (this.taxRecalcDebounce) {
+      clearTimeout(this.taxRecalcDebounce);
+    }
+    this.taxRecalcDebounce = setTimeout(async () => {
+      const orderId = this.orderId;
+      const countryCode = this.cardCountryCode;
+      if (!orderId || !countryCode) {
+        return;
+      }
+      try {
+        const tax = await this.apiClient.recalculateTax({
+          orderId,
+          countryCode,
+          postalCode: this.cardPostalCode,
+        });
+        this.checkoutConfig.onTaxChange?.({
+          amountTotal: tax.amount_total,
+          taxAmount: tax.tax_amount,
+          currency: tax.currency,
+        });
+      } catch {
+        // Best-effort: keep the current total if recalculation fails.
+      }
+    }, TAX_RECALC_DEBOUNCE_MS);
   };
 
   private convertCardSelectorsToElements(
