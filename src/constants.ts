@@ -55,6 +55,7 @@ export const API_ENDPOINTS = {
   RESUME_PAYMENT: '/v1/checkout/resume_payment',
   ONE_CLICK: '/v1/checkout/one_click',
   CREATE_SIMPLE_CLIENT_SESSION: '/v1/checkout/create_simple_client_session',
+  RECALCULATE_TAX: '/v1/checkout/recalculate_tax',
 } as const;
 
 export const ERROR_CODES = {

@@ -394,6 +394,14 @@ export interface StripeCardFormOptions
   ) => void;
   appearance?: import('@stripe/stripe-js').Appearance;
   showWallets?: boolean;
+  // When true, mounts a Stripe Address Element and recalculates tax (Stripe Tax) live as the
+  // address changes, updating the displayed total and the PaymentIntent it is attached to.
+  enableTax?: boolean;
+  onTaxChange?: (info: {
+    amountTotal: number;
+    taxAmount: number;
+    currency: string;
+  }) => void;
 }
 
 export interface StripeWalletOptions
@@ -528,7 +536,22 @@ export interface CreatePaymentRequest {
   email_address?: string;
   country_code?: string;
   postal_code?: string;
+  subdivision?: string;
+  tax_calculation_id?: string;
   client_metadata?: MetadataType;
+}
+
+export interface TaxRecalculationData {
+  tax_calculation_id: string;
+  amount_total: number;
+  tax_amount: number;
+  currency: string;
+}
+
+export interface TaxRecalculationResponse {
+  status: 'success' | 'error';
+  data: TaxRecalculationData;
+  req_id?: string;
 }
 
 export interface PaymentResponseData {
