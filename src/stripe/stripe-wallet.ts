@@ -10,7 +10,12 @@ function buildPaymentRequest(
   stripe: Stripe,
   data: Pick<
     StripeClientSessionResponse['data'],
-    'amount' | 'currency' | 'country' | 'apple_pay_recurring_payment_request'
+    | 'amount'
+    | 'currency'
+    | 'country'
+    | 'apple_pay_recurring_payment_request'
+    | 'amount_total'
+    | 'tax_amount'
   >,
   totalLabel?: string
 ) {
@@ -35,13 +40,25 @@ function buildPaymentRequest(
       >[0]['applePay'])
     : undefined;
 
+  const base = data.amount;
+  const tax = data.tax_amount ?? 0;
+  const total = data.amount_total ?? base;
   return stripe.paymentRequest({
     country: data.country,
     currency: data.currency,
     total: {
       label: totalLabel?.trim() || 'Total',
-      amount: data.amount,
+      amount: total,
     },
+    // Detected-country tax. The wallet sheet amount is fixed at open (not recomputed from the address
+    // picked in the sheet), so this line is the final charged tax, shown plainly as "Tax".
+    displayItems:
+      tax > 0
+        ? [
+            { label: 'Subtotal', amount: base },
+            { label: 'Tax', amount: tax },
+          ]
+        : undefined,
     requestPayerName: false,
     requestPayerEmail: false,
     applePay,
@@ -102,7 +119,10 @@ export async function purchaseWallet(
           orderId: order_id,
           paymentMethodToken: event.paymentMethod.id,
           email: params.email,
-          countryCode: params.countryCode,
+          // Collect the estimated tax shown in the sheet: use the detected country the estimate was
+          // built for so the charged amount equals what the sheet authorized.
+          countryCode: session.data.detected_country_code || params.countryCode,
+          taxCalculationId: session.data.tax_calculation_id,
           clientMetadata: params.clientMetadata,
         });
         const result = params.apiClient.processPaymentResponse(raw);
