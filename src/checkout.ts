@@ -177,7 +177,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       await this._initializePrimerCheckout();
       this._setState('ready');
       if (this.checkoutConfig.enableTax) {
-        this.scheduleTaxRecalc();
+        this.emitSessionTaxEstimate();
       }
       this.startUnhandledTelemetry();
       this.checkoutConfig?.onInitialized?.();
@@ -395,6 +395,18 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     if (this.checkoutConfig.enableTax) {
       this.scheduleTaxRecalc();
     }
+  };
+
+  private emitSessionTaxEstimate = () => {
+    const data = this.cachedSessionResponse?.data;
+    if (!data || data.amount_total == null) {
+      return;
+    }
+    this.checkoutConfig.onTaxChange?.({
+      amountTotal: data.amount_total,
+      taxAmount: data.tax_amount ?? 0,
+      currency: data.currency ?? '',
+    });
   };
 
   private scheduleTaxRecalc = () => {
