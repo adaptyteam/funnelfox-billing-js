@@ -176,6 +176,9 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       await this.createSession();
       await this._initializePrimerCheckout();
       this._setState('ready');
+      if (this.checkoutConfig.enableTax) {
+        this.scheduleTaxRecalc();
+      }
       this.startUnhandledTelemetry();
       this.checkoutConfig?.onInitialized?.();
       return this;
@@ -400,7 +403,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     }
     this.taxRecalcDebounce = setTimeout(async () => {
       const orderId = this.orderId;
-      const countryCode = this.cardCountryCode;
+      const countryCode = this.getSelectedCountryCode();
       if (!orderId || !countryCode) {
         return;
       }
@@ -769,6 +772,9 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       await this.primerWrapper.refreshClientSession();
       this.onLoaderChangeWithRace(false);
       this._setState('ready');
+      if (this.checkoutConfig.enableTax) {
+        this.scheduleTaxRecalc();
+      }
     } catch (error) {
       this.onLoaderChangeWithRace(false);
       this._setState('error');
