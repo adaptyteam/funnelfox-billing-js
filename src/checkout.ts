@@ -176,7 +176,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       await this.createSession();
       await this._initializePrimerCheckout();
       this._setState('ready');
-      if (this.checkoutConfig.enableTax) {
+      if (this.isTaxEnabled()) {
         this.emitSessionTaxEstimate();
       }
       this.startUnhandledTelemetry();
@@ -392,10 +392,15 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     } else if (inputName === 'postalCode') {
       this.cardPostalCode = value?.trim() || undefined;
     }
-    if (this.checkoutConfig.enableTax) {
+    if (this.isTaxEnabled()) {
       this.scheduleTaxRecalc();
     }
   };
+
+  // Tax is driven by the tenant's tax_calculation_provider setting (surfaced as session.tax_enabled).
+  // enableTax stays as a legacy host override only when the backend doesn't report the flag.
+  private isTaxEnabled = (): boolean =>
+    this.cachedSessionResponse?.data?.tax_enabled ?? this.checkoutConfig.enableTax ?? false;
 
   private emitSessionTaxEstimate = () => {
     const data = this.cachedSessionResponse?.data;
@@ -784,7 +789,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       await this.primerWrapper.refreshClientSession();
       this.onLoaderChangeWithRace(false);
       this._setState('ready');
-      if (this.checkoutConfig.enableTax) {
+      if (this.isTaxEnabled()) {
         this.scheduleTaxRecalc();
       }
     } catch (error) {

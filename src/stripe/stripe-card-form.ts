@@ -31,6 +31,8 @@ export async function mountStripeCardForm(
 ): Promise<StripeCardForm> {
   const { stripe_public_key, amount, currency, order_id, is_link_enabled } =
     session.data;
+  // Tax flow is driven by the tenant setting (session.tax_enabled); enableTax is a legacy override.
+  const taxEnabled = session.data.tax_enabled ?? taxEnabled ?? false;
 
   const stripe = await getStripe(stripe_public_key);
   if (!stripe) throw new Error('Failed to load Stripe');
@@ -60,7 +62,7 @@ export async function mountStripeCardForm(
   let taxAddress: { country?: string; postalCode?: string; state?: string } =
     {};
 
-  if (params.enableTax) {
+  if (taxEnabled) {
     const addressContainer = document.createElement('div');
     const paymentContainer = document.createElement('div');
     element.appendChild(addressContainer);
@@ -130,12 +132,12 @@ export async function mountStripeCardForm(
           orderId: order_id,
           paymentMethodToken: paymentMethod.id,
           email: params.email,
-          countryCode: params.enableTax
+          countryCode: taxEnabled
             ? taxAddress.country
             : params.countryCode,
-          postalCode: params.enableTax ? taxAddress.postalCode : undefined,
-          subdivision: params.enableTax ? taxAddress.state : undefined,
-          taxCalculationId: params.enableTax ? taxCalculationId : undefined,
+          postalCode: taxEnabled ? taxAddress.postalCode : undefined,
+          subdivision: taxEnabled ? taxAddress.state : undefined,
+          taxCalculationId: taxEnabled ? taxCalculationId : undefined,
           clientMetadata: params.clientMetadata,
         });
         const result = params.apiClient.processPaymentResponse(raw);
