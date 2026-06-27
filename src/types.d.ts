@@ -529,6 +529,8 @@ export interface CreateClientSessionResponse {
     country_field_overrides?: Record<string, CountryFieldOverride>;
     airwallex_risk_enabled?: boolean;
     sdk_telemetry_enabled?: boolean;
+    // The tenant's tax setting is on (provider != none); the SDK renders the tax flow off this.
+    tax_enabled?: boolean;
     // Session tax estimate (detected-country) in minor units — for showing tax on mount and in the
     // wallet sheet, and (Stripe-direct) collecting it via the wallet.
     tax_amount?: number;
