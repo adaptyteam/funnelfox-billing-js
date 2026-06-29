@@ -98,6 +98,7 @@ export async function purchaseWallet(
   }
 ): Promise<void> {
   const { stripe_public_key, order_id } = session.data;
+  const taxEnabled = session.data.tax_enabled ?? false;
 
   const stripe = await getStripe(stripe_public_key);
   if (!stripe) throw new Error('Failed to load Stripe');
@@ -115,20 +116,24 @@ export async function purchaseWallet(
     paymentRequest.on('paymentmethod', async event => {
       params.onLoaderChange?.(true);
       try {
-        // Charge stays the detected-country estimate (the amount the sheet authorized, via
+        // Tax on: charge stays the detected-country estimate (the amount the sheet authorized, via
         // tax_calculation_id); commit the finalized tax from the card's real billing address, which
-        // Stripe only exposes on the payment method after authorization.
-        const billingAddress = event.paymentMethod.billing_details.address;
+        // Stripe only exposes on the payment method after authorization. Tax off: send only the
+        // caller-provided country, exactly as before the tax flow existed.
+        const billingAddress = taxEnabled
+          ? event.paymentMethod.billing_details.address
+          : undefined;
         const raw = await params.apiClient.createPayment({
           orderId: order_id,
           paymentMethodToken: event.paymentMethod.id,
           email: params.email,
-          countryCode:
-            billingAddress?.country ||
-            session.data.detected_country_code ||
-            params.countryCode,
-          postalCode: billingAddress?.postal_code || undefined,
-          taxCalculationId: session.data.tax_calculation_id,
+          countryCode: taxEnabled
+            ? billingAddress?.country ||
+              session.data.detected_country_code ||
+              params.countryCode
+            : params.countryCode,
+          postalCode: taxEnabled ? billingAddress?.postal_code || undefined : undefined,
+          taxCalculationId: taxEnabled ? session.data.tax_calculation_id : undefined,
           clientMetadata: params.clientMetadata,
         });
         const result = params.apiClient.processPaymentResponse(raw);
