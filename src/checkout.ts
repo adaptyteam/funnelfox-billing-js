@@ -100,6 +100,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   cardCountryCode?: string;
   cardPostalCode?: string;
   private taxRecalcDebounce?: ReturnType<typeof setTimeout>;
+  private activePaymentMethodType?: PaymentMethod;
   private shouldApplySessionCardholderNameConfig: boolean;
   private cardSessionFieldConfig: CardSessionFieldConfig = {};
   private isTelemetryEnabled = false;
@@ -400,7 +401,9 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   // Tax is driven by the tenant's tax_calculation_provider setting (surfaced as session.tax_enabled).
   // enableTax stays as a legacy host override only when the backend doesn't report the flag.
   private isTaxEnabled = (): boolean =>
-    this.cachedSessionResponse?.data?.tax_enabled ?? this.checkoutConfig.enableTax ?? false;
+    this.cachedSessionResponse?.data?.tax_enabled ??
+    this.checkoutConfig.enableTax ??
+    false;
 
   private emitSessionTaxEstimate = () => {
     const data = this.cachedSessionResponse?.data;
@@ -414,31 +417,51 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     });
   };
 
+  private runTaxRecalc = async (): Promise<void> => {
+    const orderId = this.orderId;
+    const countryCode = this.getSelectedCountryCode();
+    if (!orderId || !countryCode) {
+      return;
+    }
+    try {
+      const tax = await this.apiClient.recalculateTax({
+        orderId,
+        clientToken: this.cachedSessionResponse?.data?.client_token ?? '',
+        countryCode,
+        postalCode: this.cardPostalCode,
+      });
+      this.checkoutConfig.onTaxChange?.({
+        amountTotal: tax.amount_total,
+        taxAmount: tax.tax_amount,
+        currency: tax.currency,
+      });
+    } catch (err) {
+      // Recalc failed for the new address; surface it instead of silently showing a stale total.
+      console.warn('[funnelfox-billing] tax recalculation failed', err);
+      this.checkoutConfig.onTaxError?.(err as Error);
+    }
+  };
+
   private scheduleTaxRecalc = () => {
     if (this.taxRecalcDebounce) {
       clearTimeout(this.taxRecalcDebounce);
     }
-    this.taxRecalcDebounce = setTimeout(async () => {
-      const orderId = this.orderId;
-      const countryCode = this.getSelectedCountryCode();
-      if (!orderId || !countryCode) {
-        return;
-      }
-      try {
-        const tax = await this.apiClient.recalculateTax({
-          orderId,
-          countryCode,
-          postalCode: this.cardPostalCode,
-        });
-        this.checkoutConfig.onTaxChange?.({
-          amountTotal: tax.amount_total,
-          taxAmount: tax.tax_amount,
-          currency: tax.currency,
-        });
-      } catch {
-        // Best-effort: keep the current total if recalculation fails.
-      }
-    }, TAX_RECALC_DEBOUNCE_MS);
+    this.taxRecalcDebounce = setTimeout(
+      this.runTaxRecalc,
+      TAX_RECALC_DEBOUNCE_MS
+    );
+  };
+
+  // Flush a pending recalc so a card charge reflects the final entered address (no estimate drift).
+  // Used for card payments only; wallets authorize their own amount and are left untouched.
+  private flushTaxRecalc = async (): Promise<void> => {
+    if (this.taxRecalcDebounce) {
+      clearTimeout(this.taxRecalcDebounce);
+      this.taxRecalcDebounce = undefined;
+    }
+    if (this.isTaxEnabled()) {
+      await this.runTaxRecalc();
+    }
   };
 
   private convertCardSelectorsToElements(
@@ -596,6 +619,11 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     try {
       this.onLoaderChangeWithRace(true);
       this._setState('processing');
+      // Card charge must reflect the final entered address; wallets authorize their own amount, so
+      // only flush the pending recalc for card payments.
+      if (this.activePaymentMethodType === PaymentMethod.PAYMENT_CARD) {
+        await this.flushTaxRecalc();
+      }
       const [radarSessionId, airwallexDeviceId] = await Promise.all([
         this.cachedSessionResponse?.radarSessionId,
         this.cachedSessionResponse?.airwallexDeviceId,
@@ -743,6 +771,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         wasPaymentProcessedStarted = true;
       },
       onTokenizeShouldStart: data => {
+        this.activePaymentMethodType = data.paymentMethodType as PaymentMethod;
         this.emit(EVENTS.ERROR, undefined);
         this.emit(
           EVENTS.START_PURCHASE,

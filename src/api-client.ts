@@ -172,12 +172,14 @@ class APIClient {
 
   async recalculateTax(params: {
     orderId: string;
+    clientToken: string;
     countryCode: string;
     postalCode?: string;
     subdivision?: string;
   }): Promise<TaxRecalculationData> {
     const payload: Record<string, string> = {
       order_id: params.orderId,
+      client_token: params.clientToken,
       country_code: params.countryCode,
     };
     if (params.postalCode) {
