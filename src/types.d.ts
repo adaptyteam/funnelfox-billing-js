@@ -96,6 +96,7 @@ export interface CheckoutConfig extends PrimerCheckoutConfig {
     taxAmount: number;
     currency: string;
   }) => void;
+  onTaxError?: (error: Error) => void;
 }
 
 export interface PaymentButtonSelectors {
@@ -410,6 +411,7 @@ export interface StripeCardFormOptions
     taxAmount: number;
     currency: string;
   }) => void;
+  onTaxError?: (error: Error) => void;
 }
 
 export interface StripeWalletOptions

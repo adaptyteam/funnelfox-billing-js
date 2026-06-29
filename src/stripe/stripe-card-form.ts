@@ -32,7 +32,7 @@ export async function mountStripeCardForm(
   const { stripe_public_key, amount, currency, order_id, is_link_enabled } =
     session.data;
   // Tax flow is driven by the tenant setting (session.tax_enabled); enableTax is a legacy override.
-  const taxEnabled = session.data.tax_enabled ?? taxEnabled ?? false;
+  const taxEnabled = session.data.tax_enabled ?? params.enableTax ?? false;
 
   const stripe = await getStripe(stripe_public_key);
   if (!stripe) throw new Error('Failed to load Stripe');
@@ -55,12 +55,15 @@ export async function mountStripeCardForm(
     terms: { card: 'never' },
   });
 
-  // Tax mode mounts an Address Element above the Payment Element and recalculates tax (via Stripe
-  // Tax on the backend) as the address changes, updating the displayed total live. The resulting
+  // Tax mode mounts Stripe's Address Element (its change events are readable, so tax recalculates live
+  // as the buyer edits the address) above the Payment Element. The country is pre-filled from the
+  // detected location so tax is computed from the address (not a separate IP estimate); the resulting
   // calculation id is attached to the PaymentIntent at payment time so Stripe records the tax.
   let taxCalculationId: string | undefined;
   let taxAddress: { country?: string; postalCode?: string; state?: string } =
     {};
+  // Flushed on submit so the charge always reflects the final entered address (no estimate drift).
+  let flushTaxRecalc = async (): Promise<void> => {};
 
   if (taxEnabled) {
     const addressContainer = document.createElement('div');
@@ -70,11 +73,50 @@ export async function mountStripeCardForm(
 
     const addressElement = stripeElements.create('address', {
       mode: 'billing',
+      fields: { phone: 'never' },
+      ...(session.data.detected_country_code
+        ? {
+            defaultValues: {
+              address: { country: session.data.detected_country_code },
+            },
+          }
+        : {}),
     });
     addressElement.mount(addressContainer);
     paymentElement.mount(paymentContainer);
 
+    const runRecalc = async (): Promise<void> => {
+      const country = taxAddress.country;
+      if (!country) return;
+      try {
+        const tax = await params.apiClient.recalculateTax({
+          orderId: order_id,
+          clientToken: session.data.client_token,
+          countryCode: country,
+          postalCode: taxAddress.postalCode,
+          subdivision: taxAddress.state,
+        });
+        taxCalculationId = tax.tax_calculation_id;
+        stripeElements.update({ amount: tax.amount_total });
+        params.onTaxChange?.({
+          amountTotal: tax.amount_total,
+          taxAmount: tax.tax_amount,
+          currency: tax.currency,
+        });
+      } catch {
+        // Best-effort: keep the current total if recalculation fails.
+      }
+    };
+
     let debounce: ReturnType<typeof setTimeout> | undefined;
+    flushTaxRecalc = async () => {
+      if (debounce) {
+        clearTimeout(debounce);
+        debounce = undefined;
+      }
+      await runRecalc();
+    };
+
     addressElement.on('change', event => {
       const address = event.value.address;
       taxAddress = {
@@ -84,25 +126,7 @@ export async function mountStripeCardForm(
       };
       if (!taxAddress.country) return;
       if (debounce) clearTimeout(debounce);
-      debounce = setTimeout(async () => {
-        try {
-          const tax = await params.apiClient.recalculateTax({
-            orderId: order_id,
-            countryCode: taxAddress.country as string,
-            postalCode: taxAddress.postalCode,
-            subdivision: taxAddress.state,
-          });
-          taxCalculationId = tax.tax_calculation_id;
-          stripeElements.update({ amount: tax.amount_total });
-          params.onTaxChange?.({
-            amountTotal: tax.amount_total,
-            taxAmount: tax.tax_amount,
-            currency: tax.currency,
-          });
-        } catch {
-          // Best-effort: keep the current total if recalculation fails.
-        }
-      }, TAX_RECALC_DEBOUNCE_MS);
+      debounce = setTimeout(runRecalc, TAX_RECALC_DEBOUNCE_MS);
     });
   } else {
     paymentElement.mount(element);
@@ -120,6 +144,7 @@ export async function mountStripeCardForm(
     submit: async () => {
       params.onLoaderChange?.(true);
       try {
+        await flushTaxRecalc();
         const { error: submitError } = await stripeElements.submit();
         if (submitError) throw submitError;
 
@@ -132,9 +157,7 @@ export async function mountStripeCardForm(
           orderId: order_id,
           paymentMethodToken: paymentMethod.id,
           email: params.email,
-          countryCode: taxEnabled
-            ? taxAddress.country
-            : params.countryCode,
+          countryCode: taxEnabled ? taxAddress.country : params.countryCode,
           postalCode: taxEnabled ? taxAddress.postalCode : undefined,
           subdivision: taxEnabled ? taxAddress.state : undefined,
           taxCalculationId: taxEnabled ? taxCalculationId : undefined,
