@@ -115,13 +115,19 @@ export async function purchaseWallet(
     paymentRequest.on('paymentmethod', async event => {
       params.onLoaderChange?.(true);
       try {
+        // Charge stays the detected-country estimate (the amount the sheet authorized, via
+        // tax_calculation_id); commit the finalized tax from the card's real billing address, which
+        // Stripe only exposes on the payment method after authorization.
+        const billingAddress = event.paymentMethod.billing_details.address;
         const raw = await params.apiClient.createPayment({
           orderId: order_id,
           paymentMethodToken: event.paymentMethod.id,
           email: params.email,
-          // Collect the estimated tax shown in the sheet: use the detected country the estimate was
-          // built for so the charged amount equals what the sheet authorized.
-          countryCode: session.data.detected_country_code || params.countryCode,
+          countryCode:
+            billingAddress?.country ||
+            session.data.detected_country_code ||
+            params.countryCode,
+          postalCode: billingAddress?.postal_code || undefined,
           taxCalculationId: session.data.tax_calculation_id,
           clientMetadata: params.clientMetadata,
         });
