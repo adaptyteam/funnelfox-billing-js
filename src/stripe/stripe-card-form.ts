@@ -37,6 +37,9 @@ export async function mountStripeCardForm(
   const stripe = await getStripe(stripe_public_key);
   if (!stripe) throw new Error('Failed to load Stripe');
 
+  // Remounting (e.g. picking another price) must replace the form, not stack a second one.
+  element.replaceChildren();
+
   const stripeElements = stripe.elements({
     mode: 'subscription',
     amount,
