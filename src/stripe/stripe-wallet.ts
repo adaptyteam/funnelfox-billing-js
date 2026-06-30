@@ -10,7 +10,12 @@ function buildPaymentRequest(
   stripe: Stripe,
   data: Pick<
     StripeClientSessionResponse['data'],
-    'amount' | 'currency' | 'country' | 'apple_pay_recurring_payment_request'
+    | 'amount'
+    | 'currency'
+    | 'country'
+    | 'apple_pay_recurring_payment_request'
+    | 'amount_total'
+    | 'tax_amount'
   >,
   totalLabel?: string
 ) {
@@ -35,13 +40,25 @@ function buildPaymentRequest(
       >[0]['applePay'])
     : undefined;
 
+  const base = data.amount;
+  const tax = data.tax_amount ?? 0;
+  const total = data.amount_total ?? base;
   return stripe.paymentRequest({
     country: data.country,
     currency: data.currency,
     total: {
       label: totalLabel?.trim() || 'Total',
-      amount: data.amount,
+      amount: total,
     },
+    // Detected-country tax. The wallet sheet amount is fixed at open (not recomputed from the address
+    // picked in the sheet), so this line is the final charged tax, shown plainly as "Tax".
+    displayItems:
+      tax > 0
+        ? [
+            { label: 'Subtotal', amount: base },
+            { label: 'Tax', amount: tax },
+          ]
+        : undefined,
     requestPayerName: false,
     requestPayerEmail: false,
     applePay,
@@ -81,6 +98,7 @@ export async function purchaseWallet(
   }
 ): Promise<void> {
   const { stripe_public_key, order_id } = session.data;
+  const taxEnabled = session.data.tax_enabled ?? false;
 
   const stripe = await getStripe(stripe_public_key);
   if (!stripe) throw new Error('Failed to load Stripe');
@@ -98,11 +116,24 @@ export async function purchaseWallet(
     paymentRequest.on('paymentmethod', async event => {
       params.onLoaderChange?.(true);
       try {
+        // Tax on: charge stays the detected-country estimate (the amount the sheet authorized, via
+        // tax_calculation_id); commit the finalized tax from the card's real billing address, which
+        // Stripe only exposes on the payment method after authorization. Tax off: send only the
+        // caller-provided country, exactly as before the tax flow existed.
+        const billingAddress = taxEnabled
+          ? event.paymentMethod.billing_details.address
+          : undefined;
         const raw = await params.apiClient.createPayment({
           orderId: order_id,
           paymentMethodToken: event.paymentMethod.id,
           email: params.email,
-          countryCode: params.countryCode,
+          countryCode: taxEnabled
+            ? billingAddress?.country ||
+              session.data.detected_country_code ||
+              params.countryCode
+            : params.countryCode,
+          postalCode: taxEnabled ? billingAddress?.postal_code || undefined : undefined,
+          taxCalculationId: taxEnabled ? session.data.tax_calculation_id : undefined,
           clientMetadata: params.clientMetadata,
         });
         const result = params.apiClient.processPaymentResponse(raw);
