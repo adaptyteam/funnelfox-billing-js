@@ -132,8 +132,12 @@ export async function purchaseWallet(
               session.data.detected_country_code ||
               params.countryCode
             : params.countryCode,
-          postalCode: taxEnabled ? billingAddress?.postal_code || undefined : undefined,
-          taxCalculationId: taxEnabled ? session.data.tax_calculation_id : undefined,
+          postalCode: taxEnabled
+            ? billingAddress?.postal_code || undefined
+            : undefined,
+          taxCalculationId: taxEnabled
+            ? session.data.tax_calculation_id
+            : undefined,
           clientMetadata: params.clientMetadata,
         });
         const result = params.apiClient.processPaymentResponse(raw);
