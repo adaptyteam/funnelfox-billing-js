@@ -297,7 +297,7 @@ export interface CreateClientSessionOptions {
   apiConfig?: APIConfig;
   clientMetadata?: MetadataType;
   countryCode?: string;
-  integration?: 'primer' | 'stripe';
+  integration?: 'primer' | 'stripe' | 'adyen';
 }
 
 export type StripeClientSessionResponse = Omit<
@@ -331,6 +331,19 @@ export type StripeClientSessionResponse = Omit<
         recurringPaymentEndDate?: string;
       };
     } | null;
+  };
+};
+
+export type AdyenClientSessionResponse = Omit<
+  CreateClientSessionResponse,
+  'data'
+> & {
+  data: CreateClientSessionResponse['data'] & {
+    adyen_client_key: string;
+    // Adyen /paymentMethods response passed to AdyenCheckout as paymentMethodsResponse.
+    adyen_payment_methods: unknown;
+    amount: number;
+    currency: string;
   };
 };
 
@@ -429,10 +442,35 @@ export interface StripeCardForm {
   submit: () => Promise<void>;
 }
 
+export interface AdyenCardFormOptions
+  extends
+    CreateClientSessionOptions,
+    Omit<InitMethodCallbacks, 'onPaymentSuccess'> {
+  onPaymentSuccess?: (orderId: string) => void;
+  // When true, collects the billing country/postal in the card form and recalculates tax live via
+  // /recalculate_tax, reporting the new total through onTaxChange.
+  enableTax?: boolean;
+  onTaxChange?: (info: {
+    amountTotal: number;
+    taxAmount: number;
+    currency: string;
+  }) => void;
+  onTaxError?: (error: Error) => void;
+}
+
+export interface AdyenCardForm {
+  submit: () => Promise<void>;
+}
+
 export declare function createStripeCardForm(
   element: HTMLElement,
   params: StripeCardFormOptions
 ): Promise<StripeCardForm>;
+
+export declare function createAdyenCardForm(
+  element: HTMLElement,
+  params: AdyenCardFormOptions
+): Promise<AdyenCardForm>;
 
 export declare function purchaseStripeWallet(
   params: StripeWalletOptions
@@ -459,6 +497,9 @@ export declare const Billing: {
     purchaseWallet: typeof purchaseStripeWallet;
     getAvailableWallet: typeof getAvailableStripeWallet;
     getAvailablePaymentMethods: typeof getAvailableStripePaymentMethods;
+  };
+  adyen: {
+    createCardForm: typeof createAdyenCardForm;
   };
 };
 

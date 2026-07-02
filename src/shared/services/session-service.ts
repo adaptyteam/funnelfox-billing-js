@@ -3,6 +3,7 @@ import { DEFAULTS } from '../../constants';
 import type {
   CreateClientSessionResponse,
   StripeClientSessionResponse,
+  AdyenClientSessionResponse,
   MetadataType,
 } from '../../types';
 
@@ -49,11 +50,18 @@ class SessionService {
     p: SessionParams & { integration: 'stripe' }
   ): Promise<StripeClientSessionResponse>;
   createSession(
+    p: SessionParams & { integration: 'adyen' }
+  ): Promise<AdyenClientSessionResponse>;
+  createSession(
     p: SessionParams & { integration: 'primer' }
   ): Promise<CreateClientSessionResponse>;
   createSession(
-    p: SessionParams & { integration: 'primer' | 'stripe' }
-  ): Promise<CreateClientSessionResponse | StripeClientSessionResponse> {
+    p: SessionParams & { integration: 'primer' | 'stripe' | 'adyen' }
+  ): Promise<
+    | CreateClientSessionResponse
+    | StripeClientSessionResponse
+    | AdyenClientSessionResponse
+  > {
     const key = this.buildCacheKey(p);
     const cached = this.cache.get(key);
     if (cached) return cached;

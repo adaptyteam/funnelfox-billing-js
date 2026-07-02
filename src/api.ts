@@ -15,6 +15,8 @@ import type {
   StripeCardFormOptions,
   StripeCardForm,
   StripeWalletOptions,
+  AdyenCardFormOptions,
+  AdyenCardForm,
 } from './types';
 import { APIError } from './errors';
 import { PaymentMethod } from './enums';
@@ -284,6 +286,35 @@ export async function createStripeCardForm(
     apiClient,
     invalidateSession: () => sessionService.invalidate(sessionParams),
   });
+}
+
+export async function createAdyenCardForm(
+  element: HTMLElement,
+  params: AdyenCardFormOptions
+): Promise<AdyenCardForm> {
+  const config = resolveConfig(params, 'createAdyenCardForm');
+
+  const [session, { mountAdyenCardForm }] = await Promise.all([
+    sessionService.createSession({
+      orgId: config.orgId,
+      baseUrl: config.baseUrl,
+      region: config.region,
+      priceId: params.priceId,
+      externalId: params.externalId,
+      email: params.email,
+      clientMetadata: params.clientMetadata,
+      countryCode: params.countryCode,
+      integration: 'adyen',
+    }),
+    import('./adyen/adyen-card-form'),
+  ]);
+
+  const apiClient = new APIClient({
+    orgId: config.orgId,
+    baseUrl: config.baseUrl || DEFAULTS.BASE_URL,
+  });
+
+  return mountAdyenCardForm(element, session, { ...params, apiClient });
 }
 
 export async function purchaseStripeWallet(

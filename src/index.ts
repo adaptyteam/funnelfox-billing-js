@@ -41,6 +41,9 @@ export const Billing = {
     getAvailableWallet: api.getAvailableStripeWallet,
     getAvailablePaymentMethods: api.getAvailableStripePaymentMethods,
   },
+  adyen: {
+    createCardForm: api.createAdyenCardForm,
+  },
 };
 
 export default Billing;
