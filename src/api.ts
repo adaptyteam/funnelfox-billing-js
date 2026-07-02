@@ -17,6 +17,7 @@ import type {
   StripeWalletOptions,
   AdyenCardFormOptions,
   AdyenCardForm,
+  AdyenWalletOptions,
 } from './types';
 import { APIError } from './errors';
 import { PaymentMethod } from './enums';
@@ -315,6 +316,69 @@ export async function createAdyenCardForm(
   });
 
   return mountAdyenCardForm(element, session, { ...params, apiClient });
+}
+
+export async function purchaseAdyenWallet(
+  params: AdyenWalletOptions
+): Promise<void> {
+  const config = resolveConfig(params, 'purchaseAdyenWallet');
+
+  const [session, { purchaseWallet }] = await Promise.all([
+    sessionService.createSession({
+      orgId: config.orgId,
+      baseUrl: config.baseUrl,
+      region: config.region,
+      priceId: params.priceId,
+      externalId: params.externalId,
+      email: params.email,
+      clientMetadata: params.clientMetadata,
+      countryCode: params.countryCode,
+      integration: 'adyen',
+    }),
+    import('./adyen/adyen-wallet'),
+  ]);
+
+  const apiClient = new APIClient({
+    orgId: config.orgId,
+    baseUrl: config.baseUrl || DEFAULTS.BASE_URL,
+  });
+
+  return purchaseWallet(session, { ...params, apiClient });
+}
+
+export async function getAvailableAdyenWallet(
+  params: CreateClientSessionOptions
+): Promise<PaymentMethod.APPLE_PAY | PaymentMethod.GOOGLE_PAY | null> {
+  const config = resolveConfig(params, 'getAvailableAdyenWallet');
+
+  const [session, { getAvailableWallet }] = await Promise.all([
+    sessionService.createSession({
+      orgId: config.orgId,
+      baseUrl: config.baseUrl,
+      region: config.region,
+      priceId: params.priceId,
+      externalId: params.externalId,
+      email: params.email,
+      clientMetadata: params.clientMetadata,
+      countryCode: params.countryCode,
+      integration: 'adyen',
+    }),
+    import('./adyen/adyen-wallet'),
+  ]);
+
+  const result = await getAvailableWallet(session);
+  if (result === 'APPLE_PAY') return PaymentMethod.APPLE_PAY;
+  if (result === 'GOOGLE_PAY') return PaymentMethod.GOOGLE_PAY;
+  return null;
+}
+
+export async function getAvailableAdyenPaymentMethods(
+  params: CreateClientSessionOptions
+): Promise<PaymentMethod[]> {
+  const wallet = await getAvailableAdyenWallet(params);
+  return wallet
+    ? [PaymentMethod.PAYMENT_CARD, wallet]
+    : [PaymentMethod.PAYMENT_CARD];
 }
 
 export async function purchaseStripeWallet(

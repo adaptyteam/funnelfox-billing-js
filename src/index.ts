@@ -43,6 +43,9 @@ export const Billing = {
   },
   adyen: {
     createCardForm: api.createAdyenCardForm,
+    purchaseWallet: api.purchaseAdyenWallet,
+    getAvailableWallet: api.getAvailableAdyenWallet,
+    getAvailablePaymentMethods: api.getAvailableAdyenPaymentMethods,
   },
 };
 

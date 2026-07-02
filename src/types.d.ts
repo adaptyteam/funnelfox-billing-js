@@ -342,6 +342,9 @@ export type AdyenClientSessionResponse = Omit<
     adyen_client_key: string;
     // Adyen /paymentMethods response passed to AdyenCheckout as paymentMethodsResponse.
     adyen_payment_methods: unknown;
+    // Google Pay & Wallet Console merchant id (required by Google for live web payments);
+    // overrides the merchantId from the /paymentMethods googlepay configuration.
+    adyen_google_pay_merchant_id?: string | null;
     amount: number;
     currency: string;
   };
@@ -462,6 +465,13 @@ export interface AdyenCardForm {
   submit: () => Promise<void>;
 }
 
+export interface AdyenWalletOptions
+  extends
+    CreateClientSessionOptions,
+    Omit<InitMethodCallbacks, 'onPaymentSuccess'> {
+  onPaymentSuccess?: (orderId: string) => void;
+}
+
 export declare function createStripeCardForm(
   element: HTMLElement,
   params: StripeCardFormOptions
@@ -484,6 +494,18 @@ export declare function getAvailableStripePaymentMethods(
   params: CreateClientSessionOptions
 ): Promise<PaymentMethod[]>;
 
+export declare function purchaseAdyenWallet(
+  params: AdyenWalletOptions
+): Promise<void>;
+
+export declare function getAvailableAdyenWallet(
+  params: CreateClientSessionOptions
+): Promise<PaymentMethod.APPLE_PAY | PaymentMethod.GOOGLE_PAY | null>;
+
+export declare function getAvailableAdyenPaymentMethods(
+  params: CreateClientSessionOptions
+): Promise<PaymentMethod[]>;
+
 // Billing namespace
 export declare const Billing: {
   configure: typeof configure;
@@ -500,6 +522,9 @@ export declare const Billing: {
   };
   adyen: {
     createCardForm: typeof createAdyenCardForm;
+    purchaseWallet: typeof purchaseAdyenWallet;
+    getAvailableWallet: typeof getAvailableAdyenWallet;
+    getAvailablePaymentMethods: typeof getAvailableAdyenPaymentMethods;
   };
 };
 

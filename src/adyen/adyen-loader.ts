@@ -24,6 +24,8 @@ export interface AdyenComponent {
   mount(target: HTMLElement | string): AdyenComponent;
   submit(): void;
   handleAction(action: unknown): void;
+  // Wallet components only (googlepay/applepay): device/browser availability check.
+  isAvailable?(): Promise<unknown>;
 }
 
 export interface AdyenCheckoutConfig {
