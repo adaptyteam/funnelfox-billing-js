@@ -164,6 +164,20 @@ export async function mountAdyenCardForm(
     cardConfig.data = { billingAddress: { country: detected_country_code } };
   }
 
+  // Adyen lays postalCode out at 30% width (a col meant to share a row with city); we don't collect
+  // city, so it sits alone at a third of the form. Widen it to fill the row.
+  const POSTAL_STYLE_ID = 'ff-adyen-postal-width';
+  if (
+    typeof document !== 'undefined' &&
+    !document.getElementById(POSTAL_STYLE_ID)
+  ) {
+    const style = document.createElement('style');
+    style.id = POSTAL_STYLE_ID;
+    style.textContent =
+      '.adyen-checkout__field--postalCode.adyen-checkout__field--col-30{width:100%!important}';
+    document.head.appendChild(style);
+  }
+
   const card = checkout.create('card', cardConfig);
   card.mount(element);
 
