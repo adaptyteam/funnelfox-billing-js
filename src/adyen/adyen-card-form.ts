@@ -156,17 +156,16 @@ export async function mountAdyenCardForm(
       debounce = setTimeout(() => void runRecalc(), TAX_RECALC_DEBOUNCE_MS);
     },
   };
-  // Adyen renders a reduced billing form (country + zip) only in 'partial' mode; passing
-  // billingAddressRequiredFields alone leaves the postal field unrendered. Use 'partial' when both
-  // are wanted (also yields postal for every selected country); otherwise mark just the one field.
-  if (show_country_selector_field && show_postal_code_field) {
-    cardConfig.billingAddressMode = 'partial';
-  } else if (billingFields.length > 0) {
+  // Adyen 5.66: 'partial' mode alone renders the postal field but not the country selector, while
+  // billingAddressRequiredFields alone renders country but not postal — set both so the reduced
+  // billing form shows country + zip.
+  if (billingFields.length > 0) {
     cardConfig.billingAddressRequiredFields = billingFields;
+    if (show_country_selector_field && show_postal_code_field) {
+      cardConfig.billingAddressMode = 'partial';
+    }
   }
-  // Prefilling the country fixes its value and hides the selector in 'partial' mode, so only prefill
-  // when the country field isn't shown. Tax falls back to detected_country_code until the shopper picks.
-  if (detected_country_code && !show_country_selector_field) {
+  if (detected_country_code) {
     cardConfig.data = { billingAddress: { country: detected_country_code } };
   }
 
