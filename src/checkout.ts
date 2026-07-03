@@ -41,6 +41,7 @@ import type {
   CreateClientSessionResponse,
   InitMethodCallbacks,
   MetadataType,
+  TaxInfo,
 } from './types';
 import { loadStripe } from '@stripe/stripe-js';
 import { renderError } from './assets/error/error';
@@ -68,6 +69,8 @@ interface CheckoutEventMap {
   [EVENTS.PURCHASE_COMPLETED]: void;
   [EVENTS.PURCHASE_CANCELLED]: void;
   [EVENTS.METHODS_AVAILABLE]: [PaymentMethod[]];
+  [EVENTS.TAX_CHANGE]: TaxInfo;
+  [EVENTS.TAX_PENDING]: void;
 }
 
 const TAX_RECALC_DEBOUNCE_MS = 600;
@@ -100,6 +103,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   cardCountryCode?: string;
   cardPostalCode?: string;
   private taxRecalcDebounce?: ReturnType<typeof setTimeout>;
+  private lastTaxInfo?: TaxInfo;
   private activePaymentMethodType?: PaymentMethod;
   private shouldApplySessionCardholderNameConfig: boolean;
   private cardSessionFieldConfig: CardSessionFieldConfig = {};
@@ -405,16 +409,38 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.checkoutConfig.enableTax ??
     false;
 
-  private emitSessionTaxEstimate = () => {
+  private getSessionTaxInfo = (): TaxInfo | undefined => {
     const data = this.cachedSessionResponse?.data;
     if (!data || data.amount_total == null) {
-      return;
+      return undefined;
     }
-    this.checkoutConfig.onTaxChange?.({
+    return {
       amountTotal: data.amount_total,
       taxAmount: data.tax_amount ?? 0,
       currency: data.currency ?? '',
-    });
+    };
+  };
+
+  private emitTaxInfo = (info: TaxInfo) => {
+    this.lastTaxInfo = info;
+    this.checkoutConfig.onTaxChange?.(info);
+    this.emit(EVENTS.TAX_CHANGE, info);
+  };
+
+  private emitSessionTaxEstimate = () => {
+    const info = this.getSessionTaxInfo();
+    if (info) {
+      this.emitTaxInfo(info);
+    }
+  };
+
+  // Re-render the current tax figures to a skin that subscribed after the estimate was first
+  // emitted (the initMethod card path wires the skin only once the method mounts).
+  private renderTaxToSkin = () => {
+    const info = this.lastTaxInfo ?? this.getSessionTaxInfo();
+    if (info) {
+      this.emit(EVENTS.TAX_CHANGE, info);
+    }
   };
 
   private runTaxRecalc = async (): Promise<void> => {
@@ -430,7 +456,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         countryCode,
         postalCode: this.cardPostalCode,
       });
-      this.checkoutConfig.onTaxChange?.({
+      this.emitTaxInfo({
         amountTotal: tax.amount_total,
         taxAmount: tax.tax_amount,
         currency: tax.currency,
@@ -438,6 +464,9 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     } catch (err) {
       // Recalc failed for the new address; surface it instead of silently showing a stale total.
       console.warn('[funnelfox-billing] tax recalculation failed', err);
+      if (this.lastTaxInfo) {
+        this.emit(EVENTS.TAX_CHANGE, this.lastTaxInfo);
+      }
       this.checkoutConfig.onTaxError?.(err as Error);
     }
   };
@@ -446,6 +475,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     if (this.taxRecalcDebounce) {
       clearTimeout(this.taxRecalcDebounce);
     }
+    this.emit(EVENTS.TAX_PENDING);
     this.taxRecalcDebounce = setTimeout(
       this.runTaxRecalc,
       TAX_RECALC_DEBOUNCE_MS
@@ -595,6 +625,12 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
 
   private handleMethodRender = (method: PaymentMethod) => {
     this.emit(EVENTS.METHOD_RENDER, method);
+  };
+
+  private handleTaxMethodRender = (method: PaymentMethod) => {
+    if (method === PaymentMethod.PAYMENT_CARD && this.isTaxEnabled()) {
+      this.renderTaxToSkin();
+    }
   };
 
   private handleMethodRenderError = (method: PaymentMethod) => {
@@ -969,6 +1005,13 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
 
     this.on(EVENTS.INPUT_ERROR, skin.onInputError);
     this.on(EVENTS.STATUS_CHANGE, skin.onStatusChange);
+    if (skin.onTaxChange) {
+      this.on(EVENTS.TAX_CHANGE, skin.onTaxChange);
+    }
+    if (skin.onTaxPending) {
+      this.on(EVENTS.TAX_PENDING, skin.onTaxPending);
+    }
+    this.on(EVENTS.METHOD_RENDER, this.handleTaxMethodRender);
 
     this.on(EVENTS.ERROR, (error: Error) => skin.onError(error));
     this.on(EVENTS.LOADER_CHANGE, skin.onLoaderChange);
@@ -991,6 +1034,13 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     skin.init();
     this.on(EVENTS.INPUT_ERROR, skin.onInputError);
     this.on(EVENTS.METHOD_RENDER, skin.onMethodRender);
+    if (skin.onTaxChange) {
+      this.on(EVENTS.TAX_CHANGE, skin.onTaxChange);
+    }
+    if (skin.onTaxPending) {
+      this.on(EVENTS.TAX_PENDING, skin.onTaxPending);
+    }
+    this.on(EVENTS.METHOD_RENDER, this.handleTaxMethodRender);
     this.on(EVENTS.SUCCESS, skin.onDestroy);
     this.on(EVENTS.DESTROY, skin.onDestroy);
     return skin.getCheckoutOptions();

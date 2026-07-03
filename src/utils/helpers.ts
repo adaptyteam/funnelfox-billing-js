@@ -3,6 +3,24 @@
  * @fileoverview Helper utilities for Funnefox SDK
  */
 
+export function formatCurrencyAmount(
+  minorAmount: number,
+  currency: string
+): string {
+  const code = currency?.trim().toUpperCase() || 'USD';
+  try {
+    const formatter = new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: code,
+    });
+    const fractionDigits =
+      formatter.resolvedOptions().maximumFractionDigits ?? 2;
+    return formatter.format(minorAmount / 10 ** fractionDigits);
+  } catch {
+    return `${(minorAmount / 100).toFixed(2)} ${code}`;
+  }
+}
+
 export function debounce<T extends (...args: any[]) => void>(
   func: T,
   wait: number

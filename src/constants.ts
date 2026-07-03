@@ -46,6 +46,8 @@ export const EVENTS = {
   PURCHASE_COMPLETED: 'purchase-completed',
   PURCHASE_CANCELLED: 'purchase-cancelled',
   METHODS_AVAILABLE: 'methods-available',
+  TAX_CHANGE: 'tax-change',
+  TAX_PENDING: 'tax-pending',
 } as const;
 
 export const API_ENDPOINTS = {

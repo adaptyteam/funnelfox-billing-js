@@ -9,6 +9,7 @@ import type {
   CardInputElementsWithButton,
   CountryFieldOverride,
   CountryOption,
+  TaxInfo,
 } from '../types';
 
 export interface CardSessionFieldConfig {
@@ -56,6 +57,10 @@ export interface Skin {
   onDestroy?(): void;
 
   onInputError?(event: { name: keyof CardInputSelectors; error: string }): void;
+
+  onTaxChange?(info: TaxInfo): void;
+
+  onTaxPending?(): void;
 
   onStartPurchase?(paymentMethod: PaymentMethod): void;
 

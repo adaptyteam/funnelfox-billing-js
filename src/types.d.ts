@@ -91,12 +91,14 @@ export interface CheckoutConfig extends PrimerCheckoutConfig {
   // When true, recalculates tax live as the buyer edits the country/postal code in the card form,
   // updating the provider client session amount and reporting the new total via onTaxChange.
   enableTax?: boolean;
-  onTaxChange?: (info: {
-    amountTotal: number;
-    taxAmount: number;
-    currency: string;
-  }) => void;
+  onTaxChange?: (info: TaxInfo) => void;
   onTaxError?: (error: Error) => void;
+}
+
+export interface TaxInfo {
+  amountTotal: number;
+  taxAmount: number;
+  currency: string;
 }
 
 export interface PaymentButtonSelectors {
@@ -406,11 +408,7 @@ export interface StripeCardFormOptions
   // When true, mounts a Stripe Address Element and recalculates tax (Stripe Tax) live as the
   // address changes, updating the displayed total and the PaymentIntent it is attached to.
   enableTax?: boolean;
-  onTaxChange?: (info: {
-    amountTotal: number;
-    taxAmount: number;
-    currency: string;
-  }) => void;
+  onTaxChange?: (info: TaxInfo) => void;
   onTaxError?: (error: Error) => void;
 }
 
