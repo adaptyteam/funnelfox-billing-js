@@ -50,7 +50,17 @@ export function loadScript(options: ScriptOptions): Promise<HTMLScriptElement> {
       ) as HTMLScriptElement;
     }
     if (existingScript) {
-      resolve(existingScript);
+      // A concurrent caller may have appended the tag but not yet finished loading it (e.g. the
+      // card form and the wallet probe both request Adyen Web at once). Resolving now would let the
+      // caller read the not-yet-defined global; wait for the in-flight load instead.
+      if (existingScript.dataset.loaded === 'true') {
+        resolve(existingScript);
+      } else {
+        existingScript.addEventListener('load', () => resolve(existingScript));
+        existingScript.addEventListener('error', () =>
+          reject(new Error(`Failed to load script: ${src}`))
+        );
+      }
       return;
     }
 
@@ -78,7 +88,10 @@ export function loadScript(options: ScriptOptions): Promise<HTMLScriptElement> {
       script.setAttribute(key, value);
     });
 
-    script.onload = () => resolve(script);
+    script.onload = () => {
+      script.dataset.loaded = 'true';
+      resolve(script);
+    };
     script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
 
     const target = appendTo === 'head' ? document.head : document.body;
@@ -104,7 +117,15 @@ export function loadStylesheet(
       `link[href="${href}"]`
     ) as HTMLLinkElement;
     if (existingLink) {
-      resolve(existingLink);
+      // Wait for an in-flight load from a concurrent caller rather than resolving prematurely.
+      if (existingLink.dataset.loaded === 'true') {
+        resolve(existingLink);
+      } else {
+        existingLink.addEventListener('load', () => resolve(existingLink));
+        existingLink.addEventListener('error', () =>
+          reject(new Error(`Failed to load stylesheet: ${href}`))
+        );
+      }
       return;
     }
 
@@ -120,7 +141,10 @@ export function loadStylesheet(
       link.crossOrigin = crossOrigin;
     }
 
-    link.onload = () => resolve(link);
+    link.onload = () => {
+      link.dataset.loaded = 'true';
+      resolve(link);
+    };
     link.onerror = () =>
       reject(new Error(`Failed to load stylesheet: ${href}`));
 
