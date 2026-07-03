@@ -143,7 +143,6 @@ export async function mountAdyenCardForm(
   const cardConfig: Record<string, unknown> = {
     showPayButton: false,
     billingAddressRequired: billingFields.length > 0,
-    billingAddressRequiredFields: billingFields,
     onChange: (state: AdyenState) => {
       if (!taxEnabled) return;
       const address = state.data.billingAddress;
@@ -157,6 +156,14 @@ export async function mountAdyenCardForm(
       debounce = setTimeout(() => void runRecalc(), TAX_RECALC_DEBOUNCE_MS);
     },
   };
+  // Adyen renders a reduced billing form (country + zip) only in 'partial' mode; passing
+  // billingAddressRequiredFields alone leaves the postal field unrendered. Use 'partial' when both
+  // are wanted (also yields postal for every selected country); otherwise mark just the one field.
+  if (show_country_selector_field && show_postal_code_field) {
+    cardConfig.billingAddressMode = 'partial';
+  } else if (billingFields.length > 0) {
+    cardConfig.billingAddressRequiredFields = billingFields;
+  }
   if (detected_country_code) {
     cardConfig.data = { billingAddress: { country: detected_country_code } };
   }
