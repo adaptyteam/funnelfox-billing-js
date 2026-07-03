@@ -164,7 +164,9 @@ export async function mountAdyenCardForm(
   } else if (billingFields.length > 0) {
     cardConfig.billingAddressRequiredFields = billingFields;
   }
-  if (detected_country_code) {
+  // Prefilling the country fixes its value and hides the selector in 'partial' mode, so only prefill
+  // when the country field isn't shown. Tax falls back to detected_country_code until the shopper picks.
+  if (detected_country_code && !show_country_selector_field) {
     cardConfig.data = { billingAddress: { country: detected_country_code } };
   }
 
