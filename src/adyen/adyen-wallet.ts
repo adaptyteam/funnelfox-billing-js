@@ -5,13 +5,23 @@
  * `purchaseWallet` from the click; the Adyen component is created without mounting and
  * `submit()` opens the native sheet. Availability comes from the session's /paymentMethods
  * response plus the component's own `isAvailable()` device check.
+ *
+ * Standalone from `adyen-card-form.ts`'s Drop-in, which already renders these same wallets inline —
+ * this is for hosts that want a prominent wallet button outside the full payment form.
  */
 
-import { getAdyenCheckout } from './adyen-loader';
+import {
+  getAdyenWeb,
+  findAdyenPaymentMethod,
+  isAdyenCancel,
+} from './adyen-loader';
 import type {
+  AdyenActions,
+  AdyenCheckoutConfig,
   AdyenCheckoutInstance,
   AdyenComponent,
   AdyenState,
+  AdyenWeb,
 } from './adyen-loader';
 import type APIClient from '../api-client';
 import type { AdyenClientSessionResponse, AdyenWalletOptions } from '../types';
@@ -25,37 +35,30 @@ const WALLET_TX_VARIANTS: [AdyenWallet, string][] = [
   ['GOOGLE_PAY', 'googlepay'],
 ];
 
-interface PaymentMethodsEntry {
-  type?: string;
-  configuration?: Record<string, unknown>;
-}
+const WALLET_COMPONENT: Record<string, 'GooglePay' | 'ApplePay'> = {
+  googlepay: 'GooglePay',
+  applepay: 'ApplePay',
+};
 
-function paymentMethodEntry(
-  session: AdyenClientSessionResponse,
-  txVariant: string
-): PaymentMethodsEntry | undefined {
-  const methods = (
-    session.data.adyen_payment_methods as {
-      paymentMethods?: PaymentMethodsEntry[];
-    } | null
-  )?.paymentMethods;
-  return methods?.find(m => m.type === txVariant);
-}
+type AdyenCheckoutHandlers = Pick<
+  AdyenCheckoutConfig,
+  'onSubmit' | 'onAdditionalDetails' | 'onError'
+>;
 
 function walletConfig(
   session: AdyenClientSessionResponse,
   txVariant: string,
   collectBillingAddress: boolean
 ): Record<string, unknown> {
-  const { detected_country_code, adyen_google_pay_merchant_id } = session.data;
+  const { adyen_google_pay_merchant_id } = session.data;
   const config: Record<string, unknown> = {};
-  if (detected_country_code) config.countryCode = detected_country_code;
   if (txVariant === 'googlepay') {
     // /paymentMethods carries gatewayMerchantId (and merchantId when set in the Customer Area);
     // the org-level Google Pay Console merchant id from the session overrides — Google requires
     // it for production web integrations.
     const configuration = {
-      ...paymentMethodEntry(session, txVariant)?.configuration,
+      ...findAdyenPaymentMethod(session.data.adyen_payment_methods, txVariant)
+        ?.configuration,
       ...(adyen_google_pay_merchant_id
         ? { merchantId: adyen_google_pay_merchant_id }
         : {}),
@@ -83,14 +86,17 @@ async function isComponentAvailable(
 }
 
 async function pickWallet(
+  adyenWeb: AdyenWeb,
   checkout: AdyenCheckoutInstance,
   session: AdyenClientSessionResponse,
   collectBillingAddress: boolean
 ): Promise<{ wallet: AdyenWallet; component: AdyenComponent } | null> {
   for (const [wallet, txVariant] of WALLET_TX_VARIANTS) {
-    if (!paymentMethodEntry(session, txVariant)) continue;
-    const component = checkout.create(
-      txVariant,
+    if (!findAdyenPaymentMethod(session.data.adyen_payment_methods, txVariant))
+      continue;
+    const Component = adyenWeb[WALLET_COMPONENT[txVariant]];
+    const component = new Component(
+      checkout,
       walletConfig(session, txVariant, collectBillingAddress)
     );
     if (await isComponentAvailable(component)) return { wallet, component };
@@ -99,11 +105,10 @@ async function pickWallet(
 }
 
 async function buildCheckout(
+  adyenWeb: AdyenWeb,
   session: AdyenClientSessionResponse,
-  handlers: Pick<
-    Parameters<Awaited<ReturnType<typeof getAdyenCheckout>>>[0],
-    'onSubmit' | 'onAdditionalDetails' | 'onError'
-  >
+  handlers: AdyenCheckoutHandlers,
+  countryCode?: string
 ): Promise<AdyenCheckoutInstance> {
   const {
     adyen_client_key,
@@ -112,11 +117,12 @@ async function buildCheckout(
     amount_total,
     currency,
     is_livemode,
+    detected_country_code,
   } = session.data;
-  const AdyenCheckout = await getAdyenCheckout(!!is_livemode);
-  return AdyenCheckout({
+  return adyenWeb.AdyenCheckout({
     environment: is_livemode ? 'live' : 'test',
     clientKey: adyen_client_key,
+    countryCode: detected_country_code || countryCode || 'US',
     paymentMethodsResponse: adyen_payment_methods,
     // The wallet sheet total is fixed at open: first-payment amount plus the detected-country tax
     // estimate, same as the Stripe wallet sheet.
@@ -132,14 +138,10 @@ async function buildCheckout(
 export async function getAvailableWallet(
   session: AdyenClientSessionResponse
 ): Promise<AdyenWallet | null> {
-  const checkout = await buildCheckout(session, {});
-  const picked = await pickWallet(checkout, session, false);
+  const adyenWeb = await getAdyenWeb(!!session.data.is_livemode);
+  const checkout = await buildCheckout(adyenWeb, session, {});
+  const picked = await pickWallet(adyenWeb, checkout, session, false);
   return picked?.wallet ?? null;
-}
-
-function isCancel(error: unknown): boolean {
-  const name = (error as { name?: string } | null)?.name;
-  return name === 'CANCEL';
 }
 
 export async function purchaseWallet(
@@ -157,6 +159,7 @@ export async function purchaseWallet(
 ): Promise<void> {
   const { order_id, detected_country_code, tax_calculation_id } = session.data;
   const taxEnabled = session.data.tax_enabled ?? false;
+  const adyenWeb = await getAdyenWeb(!!session.data.is_livemode);
 
   return new Promise<void>((resolve, reject) => {
     const fail = (err: Error): void => {
@@ -164,7 +167,11 @@ export async function purchaseWallet(
       reject(err);
     };
 
-    const onSubmit = (state: AdyenState, component: AdyenComponent): void => {
+    const onSubmit = (
+      state: AdyenState,
+      _component: AdyenComponent,
+      actions: AdyenActions
+    ): void => {
       void (async () => {
         params.onLoaderChange?.(true);
         try {
@@ -189,12 +196,14 @@ export async function purchaseWallet(
           });
           const result = params.apiClient.processPaymentResponse(raw);
           if (result.type === 'action_required') {
-            component.handleAction(JSON.parse(result.clientToken));
+            actions.resolve({ action: JSON.parse(result.clientToken) });
             return;
           }
           params.onPaymentSuccess?.(order_id);
+          actions.resolve({ resultCode: 'Authorised' });
           resolve();
         } catch (err) {
+          actions.reject();
           fail(err as Error);
         } finally {
           params.onLoaderChange?.(false);
@@ -204,7 +213,8 @@ export async function purchaseWallet(
 
     const onAdditionalDetails = (
       state: AdyenState,
-      component: AdyenComponent
+      _component: AdyenComponent,
+      actions: AdyenActions
     ): void => {
       void (async () => {
         params.onLoaderChange?.(true);
@@ -215,12 +225,14 @@ export async function purchaseWallet(
           });
           const result = params.apiClient.processPaymentResponse(raw);
           if (result.type === 'action_required') {
-            component.handleAction(JSON.parse(result.clientToken));
+            actions.resolve({ action: JSON.parse(result.clientToken) });
             return;
           }
           params.onPaymentSuccess?.(order_id);
+          actions.resolve({ resultCode: 'Authorised' });
           resolve();
         } catch (err) {
+          actions.reject();
           fail(err as Error);
         } finally {
           params.onLoaderChange?.(false);
@@ -230,21 +242,31 @@ export async function purchaseWallet(
 
     void (async () => {
       try {
-        const checkout = await buildCheckout(session, {
-          onSubmit,
-          onAdditionalDetails,
-          onError: error => {
-            if (isCancel(error)) {
-              params.onPaymentCancel?.();
-              resolve();
-              return;
-            }
-            fail(error as Error);
+        const checkout = await buildCheckout(
+          adyenWeb,
+          session,
+          {
+            onSubmit,
+            onAdditionalDetails,
+            onError: error => {
+              if (isAdyenCancel(error)) {
+                params.onPaymentCancel?.();
+                resolve();
+                return;
+              }
+              fail(error as Error);
+            },
           },
-        });
-        const picked = await pickWallet(checkout, session, taxEnabled);
+          params.countryCode
+        );
+        const picked = await pickWallet(
+          adyenWeb,
+          checkout,
+          session,
+          taxEnabled
+        );
         if (!picked) throw new Error('No wallet payment method available');
-        picked.component.submit();
+        picked.component.submit?.();
       } catch (err) {
         fail(err as Error);
       }

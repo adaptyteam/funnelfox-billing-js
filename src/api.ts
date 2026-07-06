@@ -16,7 +16,6 @@ import type {
   StripeCardForm,
   StripeWalletOptions,
   AdyenCardFormOptions,
-  AdyenCardForm,
   AdyenWalletOptions,
 } from './types';
 import { APIError } from './errors';
@@ -292,7 +291,7 @@ export async function createStripeCardForm(
 export async function createAdyenCardForm(
   element: HTMLElement,
   params: AdyenCardFormOptions
-): Promise<AdyenCardForm> {
+): Promise<void> {
   const config = resolveConfig(params, 'createAdyenCardForm');
 
   const [session, { mountAdyenCardForm }] = await Promise.all([

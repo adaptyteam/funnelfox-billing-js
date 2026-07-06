@@ -461,10 +461,6 @@ export interface AdyenCardFormOptions
   onTaxError?: (error: Error) => void;
 }
 
-export interface AdyenCardForm {
-  submit: () => Promise<void>;
-}
-
 export interface AdyenWalletOptions
   extends
     CreateClientSessionOptions,
@@ -480,7 +476,7 @@ export declare function createStripeCardForm(
 export declare function createAdyenCardForm(
   element: HTMLElement,
   params: AdyenCardFormOptions
-): Promise<AdyenCardForm>;
+): Promise<void>;
 
 export declare function purchaseStripeWallet(
   params: StripeWalletOptions
