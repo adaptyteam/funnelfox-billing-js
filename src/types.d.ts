@@ -96,7 +96,9 @@ export interface CheckoutConfig extends PrimerCheckoutConfig {
 }
 
 export interface TaxInfo {
+  /** Minor units; the total the customer pays. */
   amountTotal: number;
+  /** Minor units; tax ADDED on top of the price — 0 for tax-inclusive pricing and non-taxed locations. */
   taxAmount: number;
   currency: string;
 }

@@ -275,6 +275,13 @@ class CardSkin implements Skin {
     if (!summary) {
       return;
     }
+    // taxAmount is the tax added on top of the price; it is 0 for tax-inclusive pricing and for
+    // non-taxed locations — in both cases there is nothing to itemise, so the summary stays hidden.
+    if (!(info.taxAmount > 0)) {
+      summary.hidden = true;
+      summary.classList.remove('ff-tax-summary--updating');
+      return;
+    }
     const subtotal = this.containerEl.querySelector('#ffTaxSubtotal');
     const tax = this.containerEl.querySelector('#ffTaxAmount');
     const total = this.containerEl.querySelector('#ffTaxTotal');
