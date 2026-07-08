@@ -132,6 +132,12 @@ export async function mountStripeCardForm(
     appearance: params.appearance,
   });
 
+  // Which location fields the org collects at checkout (Taxes → Settings). When neither is on, tax
+  // follows the IP-derived location the backend already used for the session estimate.
+  const showCountry = session.data.show_country_selector_field ?? false;
+  const showPostal = session.data.show_postal_code_field ?? false;
+  const collectLocation = showCountry || showPostal;
+
   const paymentElement = stripeElements.create('payment', {
     layout: 'tabs',
     wallets: {
@@ -139,20 +145,23 @@ export async function mountStripeCardForm(
       googlePay: params.showWallets ? 'auto' : 'never',
     },
     terms: { card: 'never' },
-    // Collect only the country + postal code Stripe Tax needs; hide the rest of the billing address.
     fields: {
       billingDetails: {
-        address: {
-          line1: 'never' as const,
-          line2: 'never' as const,
-          city: 'never' as const,
-          state: 'never' as const,
-          country: 'auto' as const,
-          postalCode: 'auto' as const,
-        },
+        // In tax mode collect only what the org configured (country and/or postal) and hide the rest
+        // of the address; otherwise use Stripe's default card billing (country + postal).
+        address: taxEnabled
+          ? {
+              line1: 'never',
+              line2: 'never',
+              city: 'never',
+              state: 'never',
+              country: showCountry ? 'auto' : 'never',
+              postalCode: collectLocation ? 'auto' : 'never',
+            }
+          : 'auto',
       },
     },
-    ...(session.data.detected_country_code
+    ...(session.data.detected_country_code && (!taxEnabled || showCountry)
       ? {
           defaultValues: {
             billingDetails: {
@@ -163,10 +172,23 @@ export async function mountStripeCardForm(
       : {}),
   });
 
-  // Tax needs only the country + postal code, which the Payment Element collects (see fields above). We
-  // read them from its change events as the buyer types to recalculate tax live, then attach the
-  // calculation id to the charge so the PaymentIntent records the right tax. The country is pre-filled
-  // from the detected location so the first calculation matches the buyer's likely jurisdiction.
+  // Address fields we hid (fields=never) must still be supplied to createPaymentMethod. Only country +
+  // postal matter for tax; country is hidden only when the selector is off, postal only when we collect
+  // no location at all.
+  const hiddenBillingAddress: {
+    line1: string;
+    line2: string;
+    city: string;
+    state: string;
+    country?: string;
+    postal_code?: string;
+  } = { line1: '', line2: '', city: '', state: '' };
+  if (!showCountry) hiddenBillingAddress.country = session.data.detected_country_code ?? '';
+  if (!collectLocation) hiddenBillingAddress.postal_code = '';
+
+  // Tax needs only the country + postal code. When the org collects location on the form we read it from
+  // the Payment Element's change events as the buyer types and recalculate tax live, then attach the
+  // calculation id to the charge. When it does not, tax follows the IP-derived session estimate.
   let taxCalculationId: string | undefined;
   let taxAddress: { country?: string; postalCode?: string } = {};
   let flushTaxRecalc = async (): Promise<void> => {};
@@ -196,7 +218,8 @@ export async function mountStripeCardForm(
 
   paymentElement.mount(element);
 
-  if (taxEnabled) {
+  if (taxEnabled && collectLocation) {
+    taxAddress = { country: session.data.detected_country_code || undefined };
     let debounce: ReturnType<typeof setTimeout> | undefined;
     flushTaxRecalc = async () => {
       if (debounce) {
@@ -207,25 +230,26 @@ export async function mountStripeCardForm(
     };
     paymentElement.on('change', event => {
       // Stripe exposes the entered billing address on the change event as the buyer types (camelCase,
-      // not yet reflected in the installed @stripe/stripe-js types), so we recalculate tax live.
+      // not yet reflected in the installed @stripe/stripe-js types), so we recalculate tax live. The
+      // country falls back to the detected one when only a postal field is shown.
       const address = (
         event.value as {
           billingDetails?: { address?: { country?: string; postalCode?: string } };
         }
       ).billingDetails?.address;
-      if (!address?.country) return;
       taxAddress = {
-        country: address.country,
-        postalCode: address.postalCode || undefined,
+        country: address?.country || session.data.detected_country_code || undefined,
+        postalCode: address?.postalCode || undefined,
       };
+      if (!taxAddress.country) return;
       taxSummary.setPending();
       if (debounce) clearTimeout(debounce);
       debounce = setTimeout(runRecalc, TAX_RECALC_DEBOUNCE_MS);
     });
   }
 
-  // SDK-owned summary lives below the form and reflects the session's tax estimate immediately; in tax
-  // mode the Payment Element's country + postal fields then keep it in sync as the buyer edits them.
+  // SDK-owned summary lives below the form and reflects the session's tax estimate immediately; when the
+  // org collects location, the Payment Element's fields then keep it in sync as the buyer edits them.
   element.appendChild(taxSummary.root);
   taxSummary.render(
     amount_total != null
@@ -233,7 +257,7 @@ export async function mountStripeCardForm(
       : null
   );
   // Refine the initial estimate against the pre-filled country right away.
-  if (taxEnabled) void runRecalc();
+  if (taxEnabled && collectLocation) void runRecalc();
 
   await new Promise<void>((resolve, reject) => {
     paymentElement.once('ready', () => resolve());
@@ -248,23 +272,17 @@ export async function mountStripeCardForm(
       params.onLoaderChange?.(true);
       try {
         // Flush any pending debounce so the charge reflects the final entered country + postal code.
-        if (taxEnabled) await flushTaxRecalc();
+        if (taxEnabled && collectLocation) await flushTaxRecalc();
 
         const { error: submitError } = await stripeElements.submit();
         if (submitError) throw submitError;
 
         const { error, paymentMethod } = await stripe.createPaymentMethod({
           elements: stripeElements,
-          // We hide line1/line2/city/state on the Payment Element (fields=never); Stripe then requires
-          // those values here. Only country + postal (collected by the element) matter for tax.
+          // Supply the address fields we hid on the Payment Element (fields=never); Stripe requires
+          // them here. Country/postal collected by the element are filled by Stripe automatically.
           ...(taxEnabled
-            ? {
-                params: {
-                  billing_details: {
-                    address: { line1: '', line2: '', city: '', state: '' },
-                  },
-                },
-              }
+            ? { params: { billing_details: { address: hiddenBillingAddress } } }
             : {}),
         });
         if (error) throw error;
@@ -273,9 +291,12 @@ export async function mountStripeCardForm(
           orderId: order_id,
           paymentMethodToken: paymentMethod.id,
           email: params.email,
-          countryCode: taxEnabled ? taxAddress.country : params.countryCode,
-          postalCode: taxEnabled ? taxAddress.postalCode : undefined,
-          taxCalculationId: taxEnabled ? taxCalculationId : undefined,
+          countryCode: taxEnabled
+            ? (collectLocation ? taxAddress.country : session.data.detected_country_code) ??
+              params.countryCode
+            : params.countryCode,
+          postalCode: taxEnabled && collectLocation ? taxAddress.postalCode : undefined,
+          taxCalculationId: taxEnabled && collectLocation ? taxCalculationId : undefined,
           clientMetadata: params.clientMetadata,
         });
         const result = params.apiClient.processPaymentResponse(raw);
