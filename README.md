@@ -800,6 +800,8 @@ if (wallet === 'APPLE_PAY') {
 
 **Returns:** `Promise<'APPLE_PAY' | 'GOOGLE_PAY' | null>`
 
+Call `Billing.stripe.getAvailableWallet(...)` while rendering the page (it decides whether to show the wallet button anyway). Besides detecting availability it prewarms the payment sheet, so `purchaseWallet(...)` inside the click handler can open it immediately — Safari cancels Apple Pay sheets that open after long async work in the click handler. Pass the same `priceId`/`externalId`/`email`/`countryCode` to both calls: they share one checkout session, and mismatched params create a second session and skip the prewarmed sheet.
+
 ---
 
 ### `Billing.stripe.purchaseWallet(params)`

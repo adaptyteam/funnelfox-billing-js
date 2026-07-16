@@ -1,10 +1,19 @@
 import { getStripe } from './stripe-loader';
-import type { Stripe } from '@stripe/stripe-js';
+import type {
+  Stripe,
+  PaymentRequest,
+  CanMakePaymentResult,
+} from '@stripe/stripe-js';
 import type APIClient from '../api-client';
 import type {
   StripeClientSessionResponse,
   StripeWalletOptions,
 } from '../types';
+
+const prewarmed = new WeakMap<
+  StripeClientSessionResponse['data'],
+  { paymentRequest: PaymentRequest; canMakePayment: CanMakePaymentResult }
+>();
 
 function buildPaymentRequest(
   stripe: Stripe,
@@ -76,6 +85,7 @@ export async function getAvailableWallet(
   const paymentRequest = buildPaymentRequest(stripe, session.data);
   const result = await paymentRequest.canMakePayment();
   if (!result) return null;
+  prewarmed.set(session.data, { paymentRequest, canMakePayment: result });
   if (result.applePay) return 'APPLE_PAY';
   if (result.googlePay) return 'GOOGLE_PAY';
   return null;
@@ -95,6 +105,7 @@ export async function purchaseWallet(
     | 'clientMetadata'
   > & {
     apiClient: APIClient;
+    invalidateSession?: () => void;
   }
 ): Promise<void> {
   const { stripe_public_key, order_id } = session.data;
@@ -103,17 +114,45 @@ export async function purchaseWallet(
   const stripe = await getStripe(stripe_public_key);
   if (!stripe) throw new Error('Failed to load Stripe');
 
-  const paymentRequest = buildPaymentRequest(
-    stripe,
-    session.data,
-    params.totalLabel
-  );
+  const cached = prewarmed.get(session.data);
+  prewarmed.delete(session.data);
 
-  const canPay = await paymentRequest.canMakePayment();
-  if (!canPay) throw new Error('No wallet payment method available');
+  let paymentRequest: PaymentRequest;
+  if (cached) {
+    paymentRequest = cached.paymentRequest;
+    const replacement = buildPaymentRequest(stripe, session.data);
+    void replacement.canMakePayment().catch(() => {});
+    prewarmed.set(session.data, {
+      paymentRequest: replacement,
+      canMakePayment: cached.canMakePayment,
+    });
+    const label = params.totalLabel?.trim();
+    if (label) {
+      const total = session.data.amount_total ?? session.data.amount;
+      paymentRequest.update({ total: { label, amount: total } });
+    }
+  } else {
+    paymentRequest = buildPaymentRequest(
+      stripe,
+      session.data,
+      params.totalLabel
+    );
+    const canPay = await paymentRequest.canMakePayment();
+    if (!canPay) throw new Error('No wallet payment method available');
+  }
 
   return new Promise<void>((resolve, reject) => {
     paymentRequest.on('paymentmethod', async event => {
+      let completed = false;
+      const completeOnce = (status: 'success' | 'fail') => {
+        if (completed) return;
+        completed = true;
+        try {
+          event.complete(status);
+        } catch {
+          return;
+        }
+      };
       params.onLoaderChange?.(true);
       try {
         // Tax on: charge stays the detected-country estimate (the amount the sheet authorized, via
@@ -147,16 +186,16 @@ export async function purchaseWallet(
             clientSecret: result.clientToken,
           });
           if (error) {
-            event.complete('fail');
             throw error;
           }
         }
 
-        event.complete('success');
+        completeOnce('success');
+        params.invalidateSession?.();
         params.onPaymentSuccess?.(event.paymentMethod, order_id);
         resolve();
       } catch (err) {
-        event.complete('fail');
+        completeOnce('fail');
         params.onPaymentFail?.(err as Error);
         reject(err);
       } finally {

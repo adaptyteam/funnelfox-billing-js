@@ -24,7 +24,16 @@ class SessionService {
   >();
 
   private buildCacheKey(p: SessionParams & { integration: string }): string {
-    return [p.orgId, p.priceId, p.externalId, p.email, p.integration].join('-');
+    return [
+      p.orgId,
+      p.baseUrl || DEFAULTS.BASE_URL,
+      p.region || DEFAULTS.REGION,
+      p.countryCode ?? '',
+      p.priceId,
+      p.externalId,
+      p.email,
+      p.integration,
+    ].join('|');
   }
 
   private makeClient(orgId: string, baseUrl?: string): APIClient {
@@ -61,7 +70,17 @@ class SessionService {
     });
 
     this.cache.set(key, req);
+    const evict = () => {
+      if (this.cache.get(key) === req) this.cache.delete(key);
+    };
+    req.then(resp => {
+      if (!resp || resp.status === 'error' || !resp.data) evict();
+    }, evict);
     return req;
+  }
+
+  invalidate(p: SessionParams & { integration: 'primer' | 'stripe' }): void {
+    this.cache.delete(this.buildCacheKey(p));
   }
 
   clearCache(): void {

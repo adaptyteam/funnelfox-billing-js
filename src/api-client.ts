@@ -192,6 +192,15 @@ class APIClient {
       method: 'POST',
       body: JSON.stringify(payload),
     })) as TaxRecalculationResponse;
+    if (raw.status === 'error' || !raw.data) {
+      const firstError = raw.error?.[0];
+      throw new APIError(firstError?.msg || 'Tax recalculation failed', null, {
+        errorCode: firstError?.code,
+        errorType: firstError?.type,
+        requestId: raw.req_id,
+        response: raw,
+      });
+    }
     return raw.data;
   }
 

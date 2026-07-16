@@ -568,7 +568,12 @@ export interface TaxRecalculationData {
 
 export interface TaxRecalculationResponse {
   status: 'success' | 'error';
-  data: TaxRecalculationData;
+  data?: TaxRecalculationData;
+  error?: {
+    code: string;
+    msg: string;
+    type: string;
+  }[];
   req_id?: string;
 }
 

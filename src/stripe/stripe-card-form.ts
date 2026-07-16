@@ -33,6 +33,7 @@ interface TaxSummary {
   root: HTMLElement;
   render(info: TaxInfo | null): void;
   setPending(): void;
+  setIdle(): void;
 }
 
 function createTaxSummary(): TaxSummary {
@@ -78,6 +79,9 @@ function createTaxSummary(): TaxSummary {
     setPending() {
       if (!root.hidden) root.classList.add('ff-tax-summary--updating');
     },
+    setIdle() {
+      root.classList.remove('ff-tax-summary--updating');
+    },
   };
 }
 
@@ -98,8 +102,10 @@ export async function mountStripeCardForm(
     | 'clientMetadata'
     | 'enableTax'
     | 'onTaxChange'
+    | 'onTaxError'
   > & {
     apiClient: APIClient;
+    invalidateSession?: () => void;
   }
 ): Promise<StripeCardForm> {
   const {
@@ -183,27 +189,42 @@ export async function mountStripeCardForm(
     country?: string;
     postal_code?: string;
   } = { line1: '', line2: '', city: '', state: '' };
-  if (!showCountry) hiddenBillingAddress.country = session.data.detected_country_code ?? '';
+  if (!showCountry)
+    hiddenBillingAddress.country = session.data.detected_country_code ?? '';
   if (!collectLocation) hiddenBillingAddress.postal_code = '';
 
   // Tax needs only the country + postal code. When the org collects location on the form we read it from
   // the Payment Element's change events as the buyer types and recalculate tax live, then attach the
   // calculation id to the charge. When it does not, tax follows the IP-derived session estimate.
-  let taxCalculationId: string | undefined;
+  let taxCalc: { id: string; country?: string; postal?: string } | undefined;
+  let recalcSeq = 0;
+  if (taxEnabled && session.data.tax_calculation_id) {
+    taxCalc = {
+      id: session.data.tax_calculation_id,
+      country: session.data.detected_country_code ?? undefined,
+      postal: undefined,
+    };
+  }
   let taxAddress: { country?: string; postalCode?: string } = {};
   let flushTaxRecalc = async (): Promise<void> => {};
 
   const runRecalc = async (): Promise<void> => {
     const country = taxAddress.country;
-    if (!country) return;
+    const postal = taxAddress.postalCode;
+    if (!country) {
+      taxSummary.setIdle();
+      return;
+    }
+    const seq = ++recalcSeq;
     try {
       const tax = await params.apiClient.recalculateTax({
         orderId: order_id,
         clientToken: session.data.client_token,
         countryCode: country,
-        postalCode: taxAddress.postalCode,
+        postalCode: postal,
       });
-      taxCalculationId = tax.tax_calculation_id;
+      if (seq !== recalcSeq) return; // a newer recalc superseded this one
+      taxCalc = { id: tax.tax_calculation_id, country, postal };
       const info: TaxInfo = {
         amountTotal: tax.amount_total,
         taxAmount: tax.tax_amount,
@@ -211,8 +232,15 @@ export async function mountStripeCardForm(
       };
       taxSummary.render(info);
       params.onTaxChange?.(info);
-    } catch {
-      // Best-effort: keep the current tax estimate if recalculation fails.
+    } catch (err) {
+      if (seq !== recalcSeq) return;
+      if (
+        !(taxCalc && taxCalc.country === country && taxCalc.postal === postal)
+      ) {
+        taxCalc = undefined;
+        params.onTaxError?.(err as Error);
+      }
+      taxSummary.setIdle();
     }
   };
 
@@ -234,11 +262,14 @@ export async function mountStripeCardForm(
       // country falls back to the detected one when only a postal field is shown.
       const address = (
         event.value as {
-          billingDetails?: { address?: { country?: string; postalCode?: string } };
+          billingDetails?: {
+            address?: { country?: string; postalCode?: string };
+          };
         }
       ).billingDetails?.address;
       taxAddress = {
-        country: address?.country || session.data.detected_country_code || undefined,
+        country:
+          address?.country || session.data.detected_country_code || undefined,
         postalCode: address?.postalCode || undefined,
       };
       if (!taxAddress.country) return;
@@ -287,16 +318,26 @@ export async function mountStripeCardForm(
         });
         if (error) throw error;
 
+        const finalCountry = taxEnabled
+          ? ((collectLocation
+              ? taxAddress.country
+              : session.data.detected_country_code) ?? params.countryCode)
+          : params.countryCode;
+        const finalPostal =
+          taxEnabled && collectLocation ? taxAddress.postalCode : undefined;
+        const calcIdMatchesAddress =
+          taxEnabled &&
+          taxCalc &&
+          taxCalc.country === finalCountry &&
+          taxCalc.postal === finalPostal;
+
         const raw = await params.apiClient.createPayment({
           orderId: order_id,
           paymentMethodToken: paymentMethod.id,
           email: params.email,
-          countryCode: taxEnabled
-            ? (collectLocation ? taxAddress.country : session.data.detected_country_code) ??
-              params.countryCode
-            : params.countryCode,
-          postalCode: taxEnabled && collectLocation ? taxAddress.postalCode : undefined,
-          taxCalculationId: taxEnabled && collectLocation ? taxCalculationId : undefined,
+          countryCode: finalCountry,
+          postalCode: finalPostal,
+          taxCalculationId: calcIdMatchesAddress ? taxCalc!.id : undefined,
           clientMetadata: params.clientMetadata,
         });
         const result = params.apiClient.processPaymentResponse(raw);
@@ -308,6 +349,7 @@ export async function mountStripeCardForm(
           if (actionError) throw actionError;
         }
 
+        params.invalidateSession?.();
         params.onPaymentSuccess?.(paymentMethod, order_id);
       } catch (err) {
         params.onPaymentFail?.(err as Error);

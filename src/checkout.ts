@@ -103,6 +103,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   cardCountryCode?: string;
   cardPostalCode?: string;
   private taxRecalcDebounce?: ReturnType<typeof setTimeout>;
+  private taxRecalcSeq = 0;
   private lastTaxInfo?: TaxInfo;
   private activePaymentMethodType?: PaymentMethod;
   private shouldApplySessionCardholderNameConfig: boolean;
@@ -218,7 +219,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     });
 
     const sessionResponse = response as CachedClientSessionResponse;
-    if (response.data?.stripe_public_key) {
+    if (response.data?.stripe_public_key && !sessionResponse.radarSessionId) {
       const stripePublicKey = response.data.stripe_public_key;
       sessionResponse.radarSessionId = loadStripe(stripePublicKey)
         .then(stripe =>
@@ -231,7 +232,10 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         )
         .catch(() => '');
     }
-    if (response.data?.airwallex_risk_enabled) {
+    if (
+      response.data?.airwallex_risk_enabled &&
+      !sessionResponse.airwallexDeviceId
+    ) {
       const isLivemode = response.data?.is_livemode;
       const deviceId = generateUUID();
       sessionResponse.airwallexDeviceId = loadAirwallexDeviceFingerprint(
@@ -449,6 +453,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     if (!orderId || !countryCode) {
       return;
     }
+    const seq = ++this.taxRecalcSeq;
     try {
       const tax = await this.apiClient.recalculateTax({
         orderId,
@@ -456,12 +461,18 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         countryCode,
         postalCode: this.cardPostalCode,
       });
+      if (seq !== this.taxRecalcSeq) {
+        return;
+      }
       this.emitTaxInfo({
         amountTotal: tax.amount_total,
         taxAmount: tax.tax_amount,
         currency: tax.currency,
       });
     } catch (err) {
+      if (seq !== this.taxRecalcSeq) {
+        return;
+      }
       // Recalc failed for the new address; surface it instead of silently showing a stale total.
       console.warn('[funnelfox-billing] tax recalculation failed', err);
       if (this.lastTaxInfo) {
