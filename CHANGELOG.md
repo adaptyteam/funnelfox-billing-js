@@ -212,3 +212,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.8.1] - 2026-06-08
 
 - Update docs
+
+## [0.9.0] - 2026-07-17
+
+- Added Stripe direct integration: `Billing.stripe.createCardForm`, `Billing.stripe.purchaseWallet` (Apple Pay / Google Pay), `Billing.stripe.getAvailableWallet`, `Billing.stripe.getAvailablePaymentMethods`
+- Added dynamic tax support for Primer and Stripe flows: session tax estimate on mount, live recalculation on country/postal change, `onTaxChange`/`onTaxError` callbacks, tax summary in the card skin (shown only when tax is added on top and non-zero)
+- Added `apple_pay_recurring_payment_request` and `is_link_enabled` session options support for Stripe wallets
+- Stripe 3DS is now completed with `handleNextAction` (fixes free-trial SetupIntent flows)
+- Session creation extracted into a shared cached service; failed session responses are no longer cached forever, and paid orders are evicted after purchase so a repeat purchase creates a fresh order
+- Fixed the Apple Pay sheet not opening in Safari: `getAvailableWallet` now prewarms the payment sheet so `purchaseWallet` can open it directly in the click handler
+- Fixed `purchaseWallet` hanging forever when a 3DS challenge failed
+- Fixed tax recalculation races and stale tax calculations being attached to payments for a different address
