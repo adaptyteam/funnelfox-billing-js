@@ -11,6 +11,7 @@ A modern TypeScript SDK for subscription payments with Primer Headless Checkout 
 - 🔧 **Robust**: Built-in error handling, retries, and validation
 - 📦 **Lightweight**: Minimal dependencies, browser-optimized
 - 🎨 **Headless Checkout**: Full control over checkout UI with Primer Headless Checkout
+- 💳 **Stripe Integration**: Native Stripe Elements card form and Apple Pay / Google Pay wallets
 
 ## Installation
 
@@ -710,6 +711,218 @@ const headlessCheckout = await Primer.createHeadless(session.clientToken, {
 
 await headlessCheckout.start();
 ```
+
+## Stripe Integration
+
+The `Billing.stripe` namespace provides a Stripe-native checkout experience — no Primer dependency required. It supports card payments via Stripe Elements and native wallet payments (Apple Pay / Google Pay) via the Payment Request API.
+
+> **Note:** `@primer-io/checkout-web` is **not** required for Stripe integration. Only `@funnelfox/billing` and a Stripe-enabled price in your Funnelfox account are needed.
+
+---
+
+### `Billing.stripe.createCardForm(element, params)`
+
+Mounts a Stripe Elements payment form into a DOM element. Returns a `{ submit() }` handle — you control when payment is triggered (e.g. on your own button click).
+
+```javascript
+const element = document.getElementById('card-form');
+
+const cardForm = await Billing.stripe.createCardForm(element, {
+  // Required
+  priceId: 'price_123',
+  externalId: 'user_456',
+
+  // Optional
+  orgId: 'your-org-id',
+  email: 'user@example.com',
+  countryCode: 'US',
+  showWallets: false, // show Apple Pay / Google Pay inside the form
+  appearance: {
+    // Stripe Elements appearance API
+    theme: 'stripe',
+  },
+
+  // Callbacks
+  onRenderSuccess: () => {
+    document.getElementById('pay-button').disabled = false;
+  },
+  onLoaderChange: loading => {
+    document.getElementById('pay-button').disabled = loading;
+  },
+  onPaymentSuccess: (paymentMethod, orderId) => {
+    window.location.href = '/success?order=' + orderId;
+  },
+  onPaymentFail: error => {
+    console.error('Payment failed:', error.message);
+  },
+});
+
+// Wire up your own submit button
+document.getElementById('pay-button').addEventListener('click', async () => {
+  await cardForm.submit();
+});
+```
+
+**Key parameters:**
+
+| Parameter        | Type     | Description                                                                       |
+| ---------------- | -------- | --------------------------------------------------------------------------------- |
+| `priceId`        | string   | Price identifier                                                                  |
+| `externalId`     | string   | Your user identifier                                                              |
+| `email`          | string?  | Customer email                                                                    |
+| `orgId`          | string?  | Org ID (if not globally configured)                                               |
+| `showWallets`    | boolean? | Show Apple Pay / Google Pay inside the Stripe form                                |
+| `appearance`     | object?  | [Stripe Elements Appearance API](https://stripe.com/docs/elements/appearance-api) |
+| `clientMetadata` | object?  | Custom metadata attached to the order                                             |
+
+**Returns:** `Promise<{ submit: () => Promise<void> }>`
+
+---
+
+### `Billing.stripe.getAvailableWallet(params)`
+
+Checks whether Apple Pay or Google Pay is available on the current device and browser. Use this to conditionally show a wallet button before attempting payment.
+
+```javascript
+const wallet = await Billing.stripe.getAvailableWallet({
+  priceId: 'price_123',
+  externalId: 'user_456',
+});
+
+if (wallet === 'APPLE_PAY') {
+  document.getElementById('apple-pay-btn').style.display = 'block';
+} else if (wallet === 'GOOGLE_PAY') {
+  document.getElementById('google-pay-btn').style.display = 'block';
+} else {
+  // No wallet available — show card form only
+}
+```
+
+**Returns:** `Promise<'APPLE_PAY' | 'GOOGLE_PAY' | null>`
+
+Call `Billing.stripe.getAvailableWallet(...)` while rendering the page (it decides whether to show the wallet button anyway). Besides detecting availability it prewarms the payment sheet, so `purchaseWallet(...)` inside the click handler can open it immediately — Safari cancels Apple Pay sheets that open after long async work in the click handler. Pass the same `priceId`/`externalId`/`email`/`countryCode` to both calls: they share one checkout session, and mismatched params create a second session and skip the prewarmed sheet.
+
+---
+
+### `Billing.stripe.purchaseWallet(params)`
+
+Triggers the native Apple Pay or Google Pay payment sheet. Call this on button click after confirming a wallet is available via `getAvailableWallet`.
+
+```javascript
+document.getElementById('wallet-btn').addEventListener('click', async () => {
+  await Billing.stripe.purchaseWallet({
+    priceId: 'price_123',
+    externalId: 'user_456',
+    totalLabel: 'Premium Plan', // Label shown in the payment sheet
+
+    onPaymentSuccess: (paymentMethod, orderId) => {
+      window.location.href = '/success?order=' + orderId;
+    },
+    onPaymentFail: error => {
+      console.error('Wallet payment failed:', error.message);
+    },
+    onPaymentCancel: () => {
+      console.log('User cancelled');
+    },
+    onLoaderChange: loading => {
+      document.getElementById('wallet-btn').disabled = loading;
+    },
+  });
+});
+```
+
+**Key parameters:**
+
+| Parameter        | Type    | Description                                         |
+| ---------------- | ------- | --------------------------------------------------- |
+| `priceId`        | string  | Price identifier                                    |
+| `externalId`     | string  | Your user identifier                                |
+| `totalLabel`     | string? | Label shown next to the amount in the payment sheet |
+| `email`          | string? | Customer email                                      |
+| `clientMetadata` | object? | Custom metadata attached to the order               |
+
+---
+
+### `Billing.stripe.getAvailablePaymentMethods(params)`
+
+Returns all Stripe payment methods available for the current device. Always includes `PAYMENT_CARD`; also includes a wallet method if one is detected.
+
+```javascript
+const methods = await Billing.stripe.getAvailablePaymentMethods({
+  priceId: 'price_123',
+  externalId: 'user_456',
+});
+
+// methods: ['PAYMENT_CARD', 'APPLE_PAY'] or ['PAYMENT_CARD'] etc.
+console.log('Available:', methods);
+```
+
+**Returns:** `Promise<PaymentMethod[]>` — always contains `PAYMENT_CARD`, optionally `APPLE_PAY` or `GOOGLE_PAY`
+
+---
+
+### Combined Example: Wallet Detection + Card Form Fallback
+
+The recommended pattern — show a wallet button when available, always show the card form as fallback:
+
+```javascript
+import { Billing } from '@funnelfox/billing';
+
+Billing.configure({ orgId: 'your-org-id' });
+
+const params = {
+  priceId: 'price_123',
+  externalId: 'user_456',
+  email: 'user@example.com',
+};
+
+async function initCheckout() {
+  // 1. Check for wallet availability
+  const wallet = await Billing.stripe.getAvailableWallet(params);
+
+  if (wallet) {
+    const walletBtn = document.getElementById('wallet-btn');
+    walletBtn.textContent =
+      wallet === 'APPLE_PAY' ? 'Pay with Apple Pay' : 'Pay with Google Pay';
+    walletBtn.style.display = 'block';
+
+    walletBtn.addEventListener('click', () => {
+      Billing.stripe.purchaseWallet({
+        ...params,
+        totalLabel: 'Premium Plan',
+        onPaymentSuccess: (_, orderId) => {
+          window.location.href = '/success?order=' + orderId;
+        },
+        onPaymentFail: err => alert(err.message),
+        onPaymentCancel: () => console.log('Cancelled'),
+      });
+    });
+  }
+
+  // 2. Always mount card form as fallback
+  const cardForm = await Billing.stripe.createCardForm(
+    document.getElementById('card-form'),
+    {
+      ...params,
+      onPaymentSuccess: (_, orderId) => {
+        window.location.href = '/success?order=' + orderId;
+      },
+      onPaymentFail: err => alert(err.message),
+      onLoaderChange: loading => {
+        document.getElementById('pay-btn').disabled = loading;
+      },
+    }
+  );
+
+  document.getElementById('pay-btn').addEventListener('click', () => {
+    cardForm.submit();
+  });
+}
+
+initCheckout();
+```
+
+---
 
 ## Browser Support
 

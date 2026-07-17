@@ -88,6 +88,19 @@ export interface CheckoutConfig extends PrimerCheckoutConfig {
   container: string;
   clientMetadata?: MetadataType;
   paymentMethodOrder?: PaymentMethod[];
+  // When true, recalculates tax live as the buyer edits the country/postal code in the card form,
+  // updating the provider client session amount and reporting the new total via onTaxChange.
+  enableTax?: boolean;
+  onTaxChange?: (info: TaxInfo) => void;
+  onTaxError?: (error: Error) => void;
+}
+
+export interface TaxInfo {
+  /** Minor units; the total the customer pays. */
+  amountTotal: number;
+  /** Minor units; tax ADDED on top of the price — 0 for tax-inclusive pricing and non-taxed locations. */
+  taxAmount: number;
+  currency: string;
 }
 
 export interface PaymentButtonSelectors {
@@ -284,7 +297,42 @@ export interface CreateClientSessionOptions {
   apiConfig?: APIConfig;
   clientMetadata?: MetadataType;
   countryCode?: string;
+  integration?: 'primer' | 'stripe';
 }
+
+export type StripeClientSessionResponse = Omit<
+  CreateClientSessionResponse,
+  'data'
+> & {
+  data: CreateClientSessionResponse['data'] & {
+    stripe_public_key: string;
+    amount: number;
+    currency: string;
+    country: string;
+    is_link_enabled?: boolean;
+    apple_pay_recurring_payment_request?: {
+      paymentDescription: string;
+      managementURL: string;
+      billingAgreement?: string;
+      regularBilling: {
+        label: string;
+        amount: number;
+        recurringPaymentIntervalUnit: string;
+        recurringPaymentIntervalCount: number;
+        recurringPaymentStartDate?: string;
+        recurringPaymentEndDate?: string;
+      };
+      trialBilling?: {
+        label: string;
+        amount: number;
+        recurringPaymentIntervalUnit: string;
+        recurringPaymentIntervalCount: number;
+        recurringPaymentStartDate?: string;
+        recurringPaymentEndDate?: string;
+      };
+    } | null;
+  };
+};
 
 export interface ClientSessionData {
   clientToken: string;
@@ -348,6 +396,56 @@ export declare function getAvailablePaymentMethods(params: {
   orgId: string;
   baseUrl: string;
 }): Promise<PaymentMethod[]>;
+
+export interface StripeCardFormOptions
+  extends
+    CreateClientSessionOptions,
+    Omit<InitMethodCallbacks, 'onPaymentSuccess'> {
+  onPaymentSuccess?: (
+    paymentMethod: import('@stripe/stripe-js').PaymentMethod,
+    orderId: string
+  ) => void;
+  appearance?: import('@stripe/stripe-js').Appearance;
+  showWallets?: boolean;
+  // When true, mounts a Stripe Address Element and recalculates tax (Stripe Tax) live as the
+  // address changes, updating the displayed total and the PaymentIntent it is attached to.
+  enableTax?: boolean;
+  onTaxChange?: (info: TaxInfo) => void;
+  onTaxError?: (error: Error) => void;
+}
+
+export interface StripeWalletOptions
+  extends
+    CreateClientSessionOptions,
+    Omit<InitMethodCallbacks, 'onPaymentSuccess'> {
+  onPaymentSuccess?: (
+    paymentMethod: import('@stripe/stripe-js').PaymentMethod,
+    orderId: string
+  ) => void;
+  totalLabel?: string;
+}
+
+export interface StripeCardForm {
+  submit: () => Promise<void>;
+}
+
+export declare function createStripeCardForm(
+  element: HTMLElement,
+  params: StripeCardFormOptions
+): Promise<StripeCardForm>;
+
+export declare function purchaseStripeWallet(
+  params: StripeWalletOptions
+): Promise<void>;
+
+export declare function getAvailableStripeWallet(
+  params: CreateClientSessionOptions
+): Promise<PaymentMethod.APPLE_PAY | PaymentMethod.GOOGLE_PAY | null>;
+
+export declare function getAvailableStripePaymentMethods(
+  params: CreateClientSessionOptions
+): Promise<PaymentMethod[]>;
+
 // Billing namespace
 export declare const Billing: {
   configure: typeof configure;
@@ -356,6 +454,12 @@ export declare const Billing: {
   initMethod: typeof initMethod;
   silentPurchase: typeof silentPurchase;
   getAvailablePaymentMethods: typeof getAvailablePaymentMethods;
+  stripe: {
+    createCardForm: typeof createStripeCardForm;
+    purchaseWallet: typeof purchaseStripeWallet;
+    getAvailableWallet: typeof getAvailableStripeWallet;
+    getAvailablePaymentMethods: typeof getAvailableStripePaymentMethods;
+  };
 };
 
 // Constants
@@ -410,6 +514,13 @@ export interface CreateClientSessionResponse {
     client_token: string;
     order_id: string;
     stripe_public_key?: string;
+    stripe_intent?: {
+      intent_client_secret: string;
+      customer_session_client_secret: string;
+      amount?: number;
+      currency?: string;
+      country?: string;
+    };
     collect_apple_pay_email?: boolean;
     show_email_field?: boolean;
     show_cardholder_name_field?: boolean; //true
@@ -420,6 +531,14 @@ export interface CreateClientSessionResponse {
     country_field_overrides?: Record<string, CountryFieldOverride>;
     airwallex_risk_enabled?: boolean;
     sdk_telemetry_enabled?: boolean;
+    // The tenant's tax setting is on (provider != none); the SDK renders the tax flow off this.
+    tax_enabled?: boolean;
+    // Session tax estimate (detected-country) in minor units — for showing tax on mount and in the
+    // wallet sheet, and (Stripe-direct) collecting it via the wallet.
+    tax_amount?: number;
+    amount_total?: number;
+    currency?: string;
+    tax_calculation_id?: string;
   };
   error?: {
     code: string;
@@ -435,7 +554,27 @@ export interface CreatePaymentRequest {
   email_address?: string;
   country_code?: string;
   postal_code?: string;
+  subdivision?: string;
+  tax_calculation_id?: string;
   client_metadata?: MetadataType;
+}
+
+export interface TaxRecalculationData {
+  tax_calculation_id: string;
+  amount_total: number;
+  tax_amount: number;
+  currency: string;
+}
+
+export interface TaxRecalculationResponse {
+  status: 'success' | 'error';
+  data?: TaxRecalculationData;
+  error?: {
+    code: string;
+    msg: string;
+    type: string;
+  }[];
+  req_id?: string;
 }
 
 export interface PaymentResponseData {

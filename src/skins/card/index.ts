@@ -7,7 +7,9 @@ import {
   CheckoutConfig,
   CardInputElements,
   PaymentMethod,
+  TaxInfo,
 } from '../../types';
+import { formatCurrencyAmount } from '../../utils/helpers';
 
 class CardSkin implements Skin {
   private containerEl: HTMLElement;
@@ -267,6 +269,46 @@ class CardSkin implements Skin {
       }
     }
   };
+  onTaxChange = (info: TaxInfo) => {
+    const summary =
+      this.containerEl.querySelector<HTMLElement>('#ffTaxSummary');
+    if (!summary) {
+      return;
+    }
+    // taxAmount is the tax added on top of the price; it is 0 for tax-inclusive pricing and for
+    // non-taxed locations — in both cases there is nothing to itemise, so the summary stays hidden.
+    if (!(info.taxAmount > 0)) {
+      summary.hidden = true;
+      summary.classList.remove('ff-tax-summary--updating');
+      return;
+    }
+    const subtotal = this.containerEl.querySelector('#ffTaxSubtotal');
+    const tax = this.containerEl.querySelector('#ffTaxAmount');
+    const total = this.containerEl.querySelector('#ffTaxTotal');
+    if (subtotal) {
+      subtotal.textContent = formatCurrencyAmount(
+        info.amountTotal - info.taxAmount,
+        info.currency
+      );
+    }
+    if (tax) {
+      tax.textContent = formatCurrencyAmount(info.taxAmount, info.currency);
+    }
+    if (total) {
+      total.textContent = formatCurrencyAmount(info.amountTotal, info.currency);
+    }
+    summary.hidden = false;
+    summary.classList.remove('ff-tax-summary--updating');
+  };
+
+  onTaxPending = () => {
+    const summary =
+      this.containerEl.querySelector<HTMLElement>('#ffTaxSummary');
+    if (summary && !summary.hidden) {
+      summary.classList.add('ff-tax-summary--updating');
+    }
+  };
+
   onMethodRender = () => {
     this.containerEl.style.display = 'block';
   };

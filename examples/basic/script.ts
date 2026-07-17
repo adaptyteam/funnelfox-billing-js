@@ -5,6 +5,7 @@ import {
   InitMethodOptions,
   PaymentMethod,
   PaymentMethodInterface,
+  StripeCardForm,
   getAvailablePaymentMethods,
 } from '@funnelfox/billing';
 
@@ -244,7 +245,7 @@ class CheckoutPage {
           },
         },
         apiConfig: {
-          baseUrl: 'https://billing-dev.funnelfox.dev',
+          baseUrl: 'https://billing.funnelfox.com',
         },
         clientMetadata: {
           fieldA: 'valueA',
@@ -336,7 +337,7 @@ class InitMethodPage {
     try {
       const availableMethods = await getAvailablePaymentMethods({
         orgId,
-        baseUrl: 'https://billing-dev.funnelfox.dev',
+        baseUrl: 'https://billing.funnelfox.com',
         countryCode: 'US',
       });
       this.hasLoadedAvailableMethods = true;
@@ -367,7 +368,7 @@ class InitMethodPage {
       priceId,
       externalId: this.externalId,
       email: `${this.externalId}@example.com`,
-      baseUrl: 'https://billing-dev.funnelfox.dev',
+      baseUrl: 'https://billing.funnelfox.com',
       onPaymentStarted: (method: PaymentMethod) => {
         this.logger.log('info', `[${priceId}] Payment started with ${method}`);
       },
@@ -772,6 +773,169 @@ class InitMethodPage {
 }
 
 // ========================================
+// Stripe Page (createCardForm + purchaseWallet)
+// ========================================
+
+class StripePage {
+  private logger = createLogger('stripe-logs');
+  private externalId = 'user_' + Math.random().toString(36).substring(7, 10);
+  private cardForm: StripeCardForm | null = null;
+
+  constructor() {
+    this.setupEventListeners();
+  }
+
+  private getConfig() {
+    const orgId =
+      (document.getElementById('stripe-orgId') as HTMLInputElement)?.value ||
+      'ffsandbox';
+    const priceId =
+      (document.getElementById('stripe-priceId') as HTMLInputElement)?.value ||
+      '';
+    return { orgId, priceId };
+  }
+
+  private setupEventListeners() {
+    document
+      .getElementById('stripe-card-mount')
+      ?.addEventListener('click', () => this.mountCardForm());
+    document
+      .getElementById('stripe-card-submit')
+      ?.addEventListener('click', () => this.submitCard());
+    document
+      .getElementById('stripe-card-destroy')
+      ?.addEventListener('click', () => this.destroyCard());
+    document
+      .getElementById('stripe-wallet-trigger')
+      ?.addEventListener('click', () => this.purchaseWallet());
+  }
+
+  private setCardButtonStates(mounted: boolean) {
+    (
+      document.getElementById('stripe-card-mount') as HTMLButtonElement
+    ).disabled = mounted;
+    (
+      document.getElementById('stripe-card-submit') as HTMLButtonElement
+    ).disabled = !mounted;
+    (
+      document.getElementById('stripe-card-destroy') as HTMLButtonElement
+    ).disabled = !mounted;
+  }
+
+  private async mountCardForm() {
+    const { orgId, priceId } = this.getConfig();
+    if (!orgId || !priceId) {
+      this.logger.log('error', 'Please provide orgId and priceId');
+      return;
+    }
+
+    const container = document.getElementById(
+      'stripe-card-container'
+    ) as HTMLElement;
+    const mountBtn = document.getElementById(
+      'stripe-card-mount'
+    ) as HTMLButtonElement;
+    mountBtn.disabled = true;
+    mountBtn.textContent = 'Mounting...';
+
+    this.logger.log('info', `Mounting card form for ${priceId}`);
+
+    try {
+      this.cardForm = await Billing.stripe.createCardForm(container, {
+        orgId,
+        priceId,
+        externalId: this.externalId,
+        email: `${this.externalId}@example.com`,
+        apiConfig: { baseUrl: 'https://billing.funnelfox.com' },
+        showWallets: false,
+        onRenderSuccess: () => this.logger.log('success', 'Card form rendered'),
+        onRenderError: (method: PaymentMethod) =>
+          this.logger.log('error', `Render error: ${method}`),
+        onPaymentSuccess: pm =>
+          this.logger.log('success', `Payment method created: ${pm.id}`),
+        onPaymentFail: err =>
+          this.logger.log('error', `Payment failed: ${err.message}`),
+        onLoaderChange: loading =>
+          this.logger.log('info', `Loader ${loading ? 'shown' : 'hidden'}`),
+      });
+      this.setCardButtonStates(true);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      this.logger.log('error', `Failed to mount: ${message}`);
+      mountBtn.disabled = false;
+      mountBtn.textContent = 'Mount';
+    }
+  }
+
+  private async submitCard() {
+    if (!this.cardForm) return;
+    this.logger.log('info', 'Submitting card payment...');
+    try {
+      await this.cardForm.submit();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      this.logger.log('error', `Submit failed: ${message}`);
+    }
+  }
+
+  private destroyCard() {
+    this.cardForm = null;
+    const container = document.getElementById('stripe-card-container');
+    if (container) container.innerHTML = '';
+    const mountBtn = document.getElementById(
+      'stripe-card-mount'
+    ) as HTMLButtonElement;
+    mountBtn.textContent = 'Mount';
+    this.setCardButtonStates(false);
+    this.logger.log('info', 'Card form destroyed');
+  }
+
+  private async purchaseWallet() {
+    const { orgId, priceId } = this.getConfig();
+    if (!orgId || !priceId) {
+      this.logger.log('error', 'Please provide orgId and priceId');
+      return;
+    }
+
+    const totalLabel =
+      (document.getElementById('stripe-wallet-label') as HTMLInputElement)
+        ?.value || 'Total';
+    const triggerBtn = document.getElementById(
+      'stripe-wallet-trigger'
+    ) as HTMLButtonElement;
+    triggerBtn.disabled = true;
+    triggerBtn.textContent = 'Checking availability...';
+
+    this.logger.log('info', `Triggering wallet payment for ${priceId}`);
+
+    try {
+      await Billing.stripe.purchaseWallet({
+        orgId,
+        priceId,
+        externalId: this.externalId,
+        email: `${this.externalId}@example.com`,
+        apiConfig: { baseUrl: 'https://billing.funnelfox.com' },
+        totalLabel,
+        onPaymentSuccess: pm =>
+          this.logger.log('success', `Wallet payment completed: ${pm.id}`),
+        onPaymentFail: err =>
+          this.logger.log('error', `Wallet payment failed: ${err.message}`),
+        onPaymentCancel: () =>
+          this.logger.log('warn', 'Wallet payment cancelled'),
+        onLoaderChange: loading =>
+          this.logger.log('info', `Loader ${loading ? 'shown' : 'hidden'}`),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      this.logger.log('error', `Wallet error: ${message}`);
+    } finally {
+      triggerBtn.disabled = false;
+      triggerBtn.textContent = 'Pay with Wallet';
+    }
+  }
+}
+
+// ========================================
 // Initialize Application
 // ========================================
 
@@ -779,6 +943,7 @@ class InitMethodPage {
   // Initialize pages
   const checkoutPage = new CheckoutPage();
   const initMethodPage = new InitMethodPage();
+  new StripePage();
 
   // Setup router
   const router = new Router();
@@ -787,8 +952,10 @@ class InitMethodPage {
       // Checkout page activated
     })
     .addRoute('/init-method', () => {
-      // Init method page activated - fetch available payment methods
       initMethodPage.onPageOpen();
+    })
+    .addRoute('/stripe', () => {
+      // Stripe page activated
     });
 
   // Log initialization

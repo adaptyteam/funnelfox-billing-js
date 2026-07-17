@@ -12,10 +12,14 @@ import type {
   APIConfig,
   CreateClientSessionOptions,
   InitMethodOptions,
+  StripeCardFormOptions,
+  StripeCardForm,
+  StripeWalletOptions,
 } from './types';
 import { APIError } from './errors';
 import { PaymentMethod } from './enums';
 import { getErrorImage } from './utils/error-image';
+import sessionService from './shared/services/session-service';
 
 let defaultConfig: SDKConfig | null = null;
 
@@ -245,4 +249,114 @@ export async function getAvailablePaymentMethods(params: {
     });
     throw error;
   }
+}
+
+export async function createStripeCardForm(
+  element: HTMLElement,
+  params: StripeCardFormOptions
+): Promise<StripeCardForm> {
+  const config = resolveConfig(params, 'createStripeCardForm');
+  const sessionParams = {
+    orgId: config.orgId,
+    baseUrl: config.baseUrl,
+    region: config.region,
+    priceId: params.priceId,
+    externalId: params.externalId,
+    email: params.email,
+    clientMetadata: params.clientMetadata,
+    countryCode: params.countryCode,
+    integration: 'stripe' as const,
+  };
+
+  const [session, { mountStripeCardForm }] = await Promise.all([
+    sessionService.createSession(sessionParams),
+    import('./stripe/stripe-card-form'),
+  ]);
+
+  const apiClient = new APIClient({
+    orgId: config.orgId,
+    baseUrl: config.baseUrl || DEFAULTS.BASE_URL,
+  });
+  apiClient.processSessionResponse(session);
+
+  return mountStripeCardForm(element, session, {
+    ...params,
+    apiClient,
+    invalidateSession: () => sessionService.invalidate(sessionParams),
+  });
+}
+
+export async function purchaseStripeWallet(
+  params: StripeWalletOptions
+): Promise<void> {
+  const config = resolveConfig(params, 'purchaseStripeWallet');
+  const sessionParams = {
+    orgId: config.orgId,
+    baseUrl: config.baseUrl,
+    region: config.region,
+    priceId: params.priceId,
+    externalId: params.externalId,
+    email: params.email,
+    clientMetadata: params.clientMetadata,
+    countryCode: params.countryCode,
+    integration: 'stripe' as const,
+  };
+
+  const [session, { purchaseWallet }] = await Promise.all([
+    sessionService.createSession(sessionParams),
+    import('./stripe/stripe-wallet'),
+  ]);
+
+  const apiClient = new APIClient({
+    orgId: config.orgId,
+    baseUrl: config.baseUrl || DEFAULTS.BASE_URL,
+  });
+  apiClient.processSessionResponse(session);
+
+  return purchaseWallet(session, {
+    ...params,
+    apiClient,
+    invalidateSession: () => sessionService.invalidate(sessionParams),
+  });
+}
+
+export async function getAvailableStripeWallet(
+  params: CreateClientSessionOptions
+): Promise<PaymentMethod.APPLE_PAY | PaymentMethod.GOOGLE_PAY | null> {
+  const config = resolveConfig(params, 'getAvailableStripeWallet');
+
+  const [session, { getAvailableWallet }] = await Promise.all([
+    sessionService.createSession({
+      orgId: config.orgId,
+      baseUrl: config.baseUrl,
+      region: config.region,
+      priceId: params.priceId,
+      externalId: params.externalId,
+      email: params.email,
+      clientMetadata: params.clientMetadata,
+      countryCode: params.countryCode,
+      integration: 'stripe',
+    }),
+    import('./stripe/stripe-wallet'),
+  ]);
+
+  const apiClient = new APIClient({
+    orgId: config.orgId,
+    baseUrl: config.baseUrl || DEFAULTS.BASE_URL,
+  });
+  apiClient.processSessionResponse(session);
+
+  const result = await getAvailableWallet(session);
+  if (result === 'APPLE_PAY') return PaymentMethod.APPLE_PAY;
+  if (result === 'GOOGLE_PAY') return PaymentMethod.GOOGLE_PAY;
+  return null;
+}
+
+export async function getAvailableStripePaymentMethods(
+  params: CreateClientSessionOptions
+): Promise<PaymentMethod[]> {
+  const wallet = await getAvailableStripeWallet(params);
+  return wallet
+    ? [PaymentMethod.PAYMENT_CARD, wallet]
+    : [PaymentMethod.PAYMENT_CARD];
 }

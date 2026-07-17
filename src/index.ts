@@ -35,6 +35,12 @@ export const Billing = {
   initMethod: api.initMethod,
   silentPurchase: api.silentPurchase,
   getAvailablePaymentMethods: api.getAvailablePaymentMethods,
+  stripe: {
+    createCardForm: api.createStripeCardForm,
+    purchaseWallet: api.purchaseStripeWallet,
+    getAvailableWallet: api.getAvailableStripeWallet,
+    getAvailablePaymentMethods: api.getAvailableStripePaymentMethods,
+  },
 };
 
 export default Billing;

@@ -10,7 +10,7 @@ import {
 } from '@primer-io/checkout-web';
 import { PaymentMethod } from './enums';
 
-export const SDK_VERSION = '0.8.0';
+export const SDK_VERSION = '0.9.0-beta.1';
 
 export const DEFAULTS = {
   BASE_URL: 'https://billing.funnelfox.com',
@@ -46,6 +46,8 @@ export const EVENTS = {
   PURCHASE_COMPLETED: 'purchase-completed',
   PURCHASE_CANCELLED: 'purchase-cancelled',
   METHODS_AVAILABLE: 'methods-available',
+  TAX_CHANGE: 'tax-change',
+  TAX_PENDING: 'tax-pending',
 } as const;
 
 export const API_ENDPOINTS = {
@@ -55,6 +57,7 @@ export const API_ENDPOINTS = {
   RESUME_PAYMENT: '/v1/checkout/resume_payment',
   ONE_CLICK: '/v1/checkout/one_click',
   CREATE_SIMPLE_CLIENT_SESSION: '/v1/checkout/create_simple_client_session',
+  RECALCULATE_TAX: '/v1/checkout/recalculate_tax',
 } as const;
 
 export const ERROR_CODES = {

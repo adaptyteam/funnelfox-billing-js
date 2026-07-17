@@ -13,6 +13,8 @@ import {
   MetadataType,
   OneClickRequest,
   PaymentProcessResult,
+  TaxRecalculationData,
+  TaxRecalculationResponse,
 } from './types';
 import { retry, withTimeout } from './utils/helpers';
 
@@ -99,7 +101,7 @@ class APIClient {
   ): Promise<CreateClientSessionResponse> {
     const payload: CreateClientSessionRequest = {
       region: params.region || 'default',
-      integration_type: 'primer',
+      integration_type: params.integration ?? 'primer',
       pp_ident: params.priceId,
       external_id: params.externalId,
       email_address: params.email,
@@ -138,6 +140,8 @@ class APIClient {
     email?: string;
     countryCode?: string;
     postalCode?: string;
+    subdivision?: string;
+    taxCalculationId?: string;
     clientMetadata?: MetadataType;
   }): Promise<CreatePaymentResponse> {
     const payload: CreatePaymentRequest = {
@@ -154,10 +158,50 @@ class APIClient {
     if (params.postalCode !== undefined) {
       payload.postal_code = params.postalCode;
     }
+    if (params.subdivision !== undefined) {
+      payload.subdivision = params.subdivision;
+    }
+    if (params.taxCalculationId !== undefined) {
+      payload.tax_calculation_id = params.taxCalculationId;
+    }
     return (await this.request(API_ENDPOINTS.CREATE_PAYMENT, {
       method: 'POST',
       body: JSON.stringify(payload),
     })) as CreatePaymentResponse;
+  }
+
+  async recalculateTax(params: {
+    orderId: string;
+    clientToken: string;
+    countryCode: string;
+    postalCode?: string;
+    subdivision?: string;
+  }): Promise<TaxRecalculationData> {
+    const payload: Record<string, string> = {
+      order_id: params.orderId,
+      client_token: params.clientToken,
+      country_code: params.countryCode,
+    };
+    if (params.postalCode) {
+      payload.postal_code = params.postalCode;
+    }
+    if (params.subdivision) {
+      payload.subdivision = params.subdivision;
+    }
+    const raw = (await this.request(API_ENDPOINTS.RECALCULATE_TAX, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })) as TaxRecalculationResponse;
+    if (raw.status === 'error' || !raw.data) {
+      const firstError = raw.error?.[0];
+      throw new APIError(firstError?.msg || 'Tax recalculation failed', null, {
+        errorCode: firstError?.code,
+        errorType: firstError?.type,
+        requestId: raw.req_id,
+        response: raw,
+      });
+    }
+    return raw.data;
   }
 
   async resumePayment(params: {

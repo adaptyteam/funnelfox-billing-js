@@ -8,6 +8,7 @@ import { CheckoutError } from './errors';
 import { isValidEmail, requireString } from './utils/validation';
 import { generateId, generateUUID, merge } from './utils/helpers';
 import APIClient from './api-client';
+import sessionService from './shared/services/session-service';
 import {
   APPLE_PAY_COLLECTING_EMAIL_OPTIONS,
   DEFAULT_PAYMENT_METHOD_ORDER,
@@ -40,6 +41,7 @@ import type {
   CreateClientSessionResponse,
   InitMethodCallbacks,
   MetadataType,
+  TaxInfo,
 } from './types';
 import { loadStripe } from '@stripe/stripe-js';
 import { renderError } from './assets/error/error';
@@ -67,7 +69,11 @@ interface CheckoutEventMap {
   [EVENTS.PURCHASE_COMPLETED]: void;
   [EVENTS.PURCHASE_CANCELLED]: void;
   [EVENTS.METHODS_AVAILABLE]: [PaymentMethod[]];
+  [EVENTS.TAX_CHANGE]: TaxInfo;
+  [EVENTS.TAX_PENDING]: void;
 }
+
+const TAX_RECALC_DEBOUNCE_MS = 600;
 
 class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   id: string;
@@ -89,17 +95,17 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   clientToken: string | null;
   primerWrapper: PrimerWrapper;
   isDestroyed: boolean;
-  apiClient!: APIClient;
+  apiClient: APIClient;
   private counter: number = 0;
-  private static sessionCache = new Map<
-    string,
-    Promise<CachedClientSessionResponse>
-  >();
   private cachedSessionResponse: CachedClientSessionResponse | null = null;
   isCollectingApplePayEmail: boolean;
   cardEmailAddress?: string;
   cardCountryCode?: string;
   cardPostalCode?: string;
+  private taxRecalcDebounce?: ReturnType<typeof setTimeout>;
+  private taxRecalcSeq = 0;
+  private lastTaxInfo?: TaxInfo;
+  private activePaymentMethodType?: PaymentMethod;
   private shouldApplySessionCardholderNameConfig: boolean;
   private cardSessionFieldConfig: CardSessionFieldConfig = {};
   private isTelemetryEnabled = false;
@@ -139,6 +145,12 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.cardEmailAddress = this.checkoutConfig.customer.email;
     this.shouldApplySessionCardholderNameConfig =
       this.checkoutConfig.card?.cardholderName?.required === undefined;
+    this.apiClient = new APIClient({
+      baseUrl: this.baseUrl || DEFAULTS.BASE_URL,
+      orgId: this.orgId,
+      timeout: DEFAULTS.REQUEST_TIMEOUT,
+      retryAttempts: DEFAULTS.RETRY_ATTEMPTS,
+    });
 
     this._setupCallbackBridges();
   }
@@ -170,6 +182,9 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       await this.createSession();
       await this._initializePrimerCheckout();
       this._setState('ready');
+      if (this.isTaxEnabled()) {
+        this.emitSessionTaxEstimate();
+      }
       this.startUnhandledTelemetry();
       this.checkoutConfig?.onInitialized?.();
       return this;
@@ -191,70 +206,44 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   };
 
   private async createSession() {
-    this.apiClient = new APIClient({
-      baseUrl: this.baseUrl || DEFAULTS.BASE_URL,
+    const response = await sessionService.createSession({
       orgId: this.orgId,
-      timeout: DEFAULTS.REQUEST_TIMEOUT,
-      retryAttempts: DEFAULTS.RETRY_ATTEMPTS,
-    });
-    const sessionParams = {
+      baseUrl: this.baseUrl,
       priceId: this.checkoutConfig.priceId,
       externalId: this.checkoutConfig.customer.externalId,
       email: this.checkoutConfig.customer.email,
-      region: this.region || DEFAULTS.REGION,
+      region: this.region,
       clientMetadata: this.checkoutConfig.clientMetadata,
       countryCode: this.checkoutConfig.customer.countryCode,
-    };
-    const cacheKey = [
-      this.orgId,
-      this.checkoutConfig.priceId,
-      this.checkoutConfig.customer.externalId,
-      this.checkoutConfig.customer.email,
-    ].join('-');
+      integration: 'primer',
+    });
 
-    let sessionResponse: CachedClientSessionResponse;
-
-    // Return cached response if payload hasn't changed
-    const cachedResponse = CheckoutInstance.sessionCache.get(cacheKey);
-    if (cachedResponse) {
-      sessionResponse = await cachedResponse;
-    } else {
-      const sessionRequest = this.apiClient
-        .createClientSession(sessionParams)
-        .then((response): CachedClientSessionResponse => {
-          const cachedResponse = response as CachedClientSessionResponse;
-          if (response.data?.stripe_public_key) {
-            const stripePublicKey = response.data.stripe_public_key;
-            cachedResponse.radarSessionId = loadStripe(stripePublicKey)
-              .then(stripe =>
-                stripe
-                  ? stripe
-                      .createRadarSession()
-                      .then(session => session?.radarSession?.id || '')
-                      .catch(() => '')
-                  : ''
-              )
-              .catch(() => '');
-          }
-          // Initialize Airwallex device fingerprinting if enabled by backend
-          if (response.data?.airwallex_risk_enabled) {
-            const isLivemode = response.data?.is_livemode;
-            const deviceId = generateUUID();
-            cachedResponse.airwallexDeviceId = loadAirwallexDeviceFingerprint(
-              deviceId,
-              isLivemode
-            )
-              .then(() => deviceId)
-              .catch(() => {
-                // Silently fail - return deviceId anyway
-                return deviceId;
-              });
-          }
-          return cachedResponse;
-        });
-      // Cache the successful response
-      CheckoutInstance.sessionCache.set(cacheKey, sessionRequest);
-      sessionResponse = await sessionRequest;
+    const sessionResponse = response as CachedClientSessionResponse;
+    if (response.data?.stripe_public_key && !sessionResponse.radarSessionId) {
+      const stripePublicKey = response.data.stripe_public_key;
+      sessionResponse.radarSessionId = loadStripe(stripePublicKey)
+        .then(stripe =>
+          stripe
+            ? stripe
+                .createRadarSession()
+                .then(session => session?.radarSession?.id || '')
+                .catch(() => '')
+            : ''
+        )
+        .catch(() => '');
+    }
+    if (
+      response.data?.airwallex_risk_enabled &&
+      !sessionResponse.airwallexDeviceId
+    ) {
+      const isLivemode = response.data?.is_livemode;
+      const deviceId = generateUUID();
+      sessionResponse.airwallexDeviceId = loadAirwallexDeviceFingerprint(
+        deviceId,
+        isLivemode
+      )
+        .then(() => deviceId)
+        .catch(() => deviceId);
     }
 
     this.cachedSessionResponse = sessionResponse;
@@ -409,10 +398,110 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       if (!this.isPostalCodeVisible()) {
         this.cardPostalCode = undefined;
       }
+    } else if (inputName === 'postalCode') {
+      this.cardPostalCode = value?.trim() || undefined;
+    }
+    if (this.isTaxEnabled()) {
+      this.scheduleTaxRecalc();
+    }
+  };
+
+  // Tax is driven by the tenant's tax_calculation_provider setting (surfaced as session.tax_enabled).
+  // enableTax stays as a legacy host override only when the backend doesn't report the flag.
+  private isTaxEnabled = (): boolean =>
+    this.cachedSessionResponse?.data?.tax_enabled ??
+    this.checkoutConfig.enableTax ??
+    false;
+
+  private getSessionTaxInfo = (): TaxInfo | undefined => {
+    const data = this.cachedSessionResponse?.data;
+    if (!data || data.amount_total == null) {
+      return undefined;
+    }
+    return {
+      amountTotal: data.amount_total,
+      taxAmount: data.tax_amount ?? 0,
+      currency: data.currency ?? '',
+    };
+  };
+
+  private emitTaxInfo = (info: TaxInfo) => {
+    this.lastTaxInfo = info;
+    this.checkoutConfig.onTaxChange?.(info);
+    this.emit(EVENTS.TAX_CHANGE, info);
+  };
+
+  private emitSessionTaxEstimate = () => {
+    const info = this.getSessionTaxInfo();
+    if (info) {
+      this.emitTaxInfo(info);
+    }
+  };
+
+  // Re-render the current tax figures to a skin that subscribed after the estimate was first
+  // emitted (the initMethod card path wires the skin only once the method mounts).
+  private renderTaxToSkin = () => {
+    const info = this.lastTaxInfo ?? this.getSessionTaxInfo();
+    if (info) {
+      this.emit(EVENTS.TAX_CHANGE, info);
+    }
+  };
+
+  private runTaxRecalc = async (): Promise<void> => {
+    const orderId = this.orderId;
+    const countryCode = this.getSelectedCountryCode();
+    if (!orderId || !countryCode) {
       return;
     }
-    if (inputName === 'postalCode') {
-      this.cardPostalCode = value?.trim() || undefined;
+    const seq = ++this.taxRecalcSeq;
+    try {
+      const tax = await this.apiClient.recalculateTax({
+        orderId,
+        clientToken: this.cachedSessionResponse?.data?.client_token ?? '',
+        countryCode,
+        postalCode: this.cardPostalCode,
+      });
+      if (seq !== this.taxRecalcSeq) {
+        return;
+      }
+      this.emitTaxInfo({
+        amountTotal: tax.amount_total,
+        taxAmount: tax.tax_amount,
+        currency: tax.currency,
+      });
+    } catch (err) {
+      if (seq !== this.taxRecalcSeq) {
+        return;
+      }
+      // Recalc failed for the new address; surface it instead of silently showing a stale total.
+      console.warn('[funnelfox-billing] tax recalculation failed', err);
+      if (this.lastTaxInfo) {
+        this.emit(EVENTS.TAX_CHANGE, this.lastTaxInfo);
+      }
+      this.checkoutConfig.onTaxError?.(err as Error);
+    }
+  };
+
+  private scheduleTaxRecalc = () => {
+    if (this.taxRecalcDebounce) {
+      clearTimeout(this.taxRecalcDebounce);
+    }
+    this.emit(EVENTS.TAX_PENDING);
+    this.taxRecalcDebounce = setTimeout(
+      this.runTaxRecalc,
+      TAX_RECALC_DEBOUNCE_MS
+    );
+  };
+
+  // Flush a pending recalc so a card charge reflects the final entered address (no estimate drift).
+  // Used for card payments only; wallets authorize their own amount and are left untouched.
+  private flushTaxRecalc = async (): Promise<void> => {
+    if (this.taxRecalcDebounce) {
+      clearTimeout(this.taxRecalcDebounce);
+      this.taxRecalcDebounce = undefined;
+    }
+    if (this.isTaxEnabled()) {
+      await this.runTaxRecalc();
     }
   };
 
@@ -549,6 +638,12 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.emit(EVENTS.METHOD_RENDER, method);
   };
 
+  private handleTaxMethodRender = (method: PaymentMethod) => {
+    if (method === PaymentMethod.PAYMENT_CARD && this.isTaxEnabled()) {
+      this.renderTaxToSkin();
+    }
+  };
+
   private handleMethodRenderError = (method: PaymentMethod) => {
     this.emit(EVENTS.METHOD_RENDER_ERROR, method);
   };
@@ -571,6 +666,11 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     try {
       this.onLoaderChangeWithRace(true);
       this._setState('processing');
+      // Card charge must reflect the final entered address; wallets authorize their own amount, so
+      // only flush the pending recalc for card payments.
+      if (this.activePaymentMethodType === PaymentMethod.PAYMENT_CARD) {
+        await this.flushTaxRecalc();
+      }
       const [radarSessionId, airwallexDeviceId] = await Promise.all([
         this.cachedSessionResponse?.radarSessionId,
         this.cachedSessionResponse?.airwallexDeviceId,
@@ -718,6 +818,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         wasPaymentProcessedStarted = true;
       },
       onTokenizeShouldStart: data => {
+        this.activePaymentMethodType = data.paymentMethodType as PaymentMethod;
         this.emit(EVENTS.ERROR, undefined);
         this.emit(
           EVENTS.START_PURCHASE,
@@ -753,8 +854,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     try {
       this.onLoaderChangeWithRace(true);
       this._setState('updating');
-      // Invalidate session cache
-      CheckoutInstance.sessionCache.clear();
+      sessionService.clearCache();
       await this.apiClient.updateClientSession({
         orderId: this.orderId,
         clientToken: this.clientToken,
@@ -765,6 +865,9 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       await this.primerWrapper.refreshClientSession();
       this.onLoaderChangeWithRace(false);
       this._setState('ready');
+      if (this.isTaxEnabled()) {
+        this.scheduleTaxRecalc();
+      }
     } catch (error) {
       this.onLoaderChangeWithRace(false);
       this._setState('error');
@@ -787,7 +890,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     if (this.isDestroyed) return;
     try {
       this.stopUnhandledTelemetry();
-      CheckoutInstance.sessionCache.clear();
+      sessionService.clearCache();
       await this.primerWrapper.destroy();
       this._setState('destroyed');
       this.orderId = null;
@@ -913,6 +1016,13 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
 
     this.on(EVENTS.INPUT_ERROR, skin.onInputError);
     this.on(EVENTS.STATUS_CHANGE, skin.onStatusChange);
+    if (skin.onTaxChange) {
+      this.on(EVENTS.TAX_CHANGE, skin.onTaxChange);
+    }
+    if (skin.onTaxPending) {
+      this.on(EVENTS.TAX_PENDING, skin.onTaxPending);
+    }
+    this.on(EVENTS.METHOD_RENDER, this.handleTaxMethodRender);
 
     this.on(EVENTS.ERROR, (error: Error) => skin.onError(error));
     this.on(EVENTS.LOADER_CHANGE, skin.onLoaderChange);
@@ -935,6 +1045,13 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     skin.init();
     this.on(EVENTS.INPUT_ERROR, skin.onInputError);
     this.on(EVENTS.METHOD_RENDER, skin.onMethodRender);
+    if (skin.onTaxChange) {
+      this.on(EVENTS.TAX_CHANGE, skin.onTaxChange);
+    }
+    if (skin.onTaxPending) {
+      this.on(EVENTS.TAX_PENDING, skin.onTaxPending);
+    }
+    this.on(EVENTS.METHOD_RENDER, this.handleTaxMethodRender);
     this.on(EVENTS.SUCCESS, skin.onDestroy);
     this.on(EVENTS.DESTROY, skin.onDestroy);
     return skin.getCheckoutOptions();

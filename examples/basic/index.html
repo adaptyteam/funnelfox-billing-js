@@ -7,7 +7,7 @@
     <link
       rel="icon"
       type="image/x-icon"
-      href="https://billing-dev.funnelfox.dev/favicon.ico"
+      href="https://billing.funnelfox.com/favicon.ico"
     />
     <link rel="stylesheet" href="styles.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -37,6 +37,7 @@
           <a href="#/init-method" class="nav-link" data-page="init-method">
             initMethod
           </a>
+          <a href="#/stripe" class="nav-link" data-page="stripe"> stripe </a>
         </div>
       </nav>
 
@@ -176,6 +177,103 @@
           <div class="logs-section">
             <h2 class="section-title">Events</h2>
             <div id="init-logs" class="logs-container">
+              <div class="log-placeholder">Events will appear here...</div>
+            </div>
+          </div>
+        </div>
+        <!-- Stripe Page -->
+        <div id="page-stripe" class="page hidden">
+          <div class="page-header">
+            <span class="page-tag">Method</span>
+            <h1 class="page-title">Billing.stripe</h1>
+            <p class="page-description">
+              Create card forms and trigger wallet payments (Apple Pay, Google
+              Pay) via Stripe.
+            </p>
+          </div>
+
+          <div class="config-section">
+            <h2 class="section-title">Configuration</h2>
+            <div class="input-grid">
+              <div class="input-group">
+                <label class="input-label" for="stripe-orgId"
+                  >Organization ID</label
+                >
+                <input
+                  class="input"
+                  type="text"
+                  id="stripe-orgId"
+                  value="ffsandbox"
+                  placeholder="Enter org ID"
+                />
+              </div>
+              <div class="input-group">
+                <label class="input-label" for="stripe-priceId">Price ID</label>
+                <input
+                  class="input"
+                  type="text"
+                  id="stripe-priceId"
+                  value="example_paid_intro_eur"
+                  placeholder="Enter price ID"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- createCardForm -->
+          <div class="result-section">
+            <div class="section-header">
+              <h2 class="section-title">createCardForm()</h2>
+              <div class="section-actions">
+                <button
+                  class="btn btn-sm btn-outline"
+                  id="stripe-card-destroy"
+                  disabled
+                >
+                  Destroy
+                </button>
+                <button class="btn btn-sm btn-primary" id="stripe-card-mount">
+                  Mount
+                </button>
+              </div>
+            </div>
+            <div id="stripe-card-container" class="card-container"></div>
+            <button
+              class="btn btn-primary btn-full card-submit-btn"
+              id="stripe-card-submit"
+              disabled
+            >
+              Submit Payment
+            </button>
+          </div>
+
+          <!-- purchaseWallet -->
+          <div class="config-section">
+            <h2 class="section-title">purchaseWallet()</h2>
+            <div class="input-group" style="margin-top: var(--space-4)">
+              <label class="input-label" for="stripe-wallet-label"
+                >Total Label</label
+              >
+              <input
+                class="input"
+                type="text"
+                id="stripe-wallet-label"
+                value="Total"
+                placeholder="Label shown in wallet sheet"
+              />
+            </div>
+            <button
+              class="btn btn-primary"
+              id="stripe-wallet-trigger"
+              style="margin-top: var(--space-4)"
+            >
+              Pay with Wallet
+            </button>
+          </div>
+
+          <div class="logs-section">
+            <h2 class="section-title">Events</h2>
+            <div id="stripe-logs" class="logs-container">
               <div class="log-placeholder">Events will appear here...</div>
             </div>
           </div>

@@ -13,6 +13,7 @@ import {
   CheckoutConfig,
   CheckoutState,
   PaymentButtonElements,
+  TaxInfo,
 } from '../../types';
 import CardSkin from '../card';
 import { DEFAULT_BUTTONS_OPTIONS } from '../../constants';
@@ -224,6 +225,12 @@ class DefaultSkin implements Skin {
   };
   onInputError = (event: { name: keyof CardInputSelectors; error: string }) => {
     this.cardInstance.onInputError(event);
+  };
+  onTaxChange = (info: TaxInfo) => {
+    this.cardInstance.onTaxChange(info);
+  };
+  onTaxPending = () => {
+    this.cardInstance.onTaxPending();
   };
   onMethodRender = (paymentMethod: PaymentMethod) => {
     const methodKey = paymentMethod.replace('_', '-').toLowerCase();
