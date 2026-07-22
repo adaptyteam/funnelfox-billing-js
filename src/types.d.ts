@@ -297,7 +297,7 @@ export interface CreateClientSessionOptions {
   apiConfig?: APIConfig;
   clientMetadata?: MetadataType;
   countryCode?: string;
-  integration?: 'primer' | 'stripe';
+  integration?: 'primer' | 'stripe' | 'adyen';
 }
 
 export type StripeClientSessionResponse = Omit<
@@ -331,6 +331,22 @@ export type StripeClientSessionResponse = Omit<
         recurringPaymentEndDate?: string;
       };
     } | null;
+  };
+};
+
+export type AdyenClientSessionResponse = Omit<
+  CreateClientSessionResponse,
+  'data'
+> & {
+  data: CreateClientSessionResponse['data'] & {
+    adyen_client_key: string;
+    // Adyen /paymentMethods response passed to AdyenCheckout as paymentMethodsResponse.
+    adyen_payment_methods: unknown;
+    // Google Pay & Wallet Console merchant id (required by Google for live web payments);
+    // overrides the merchantId from the /paymentMethods googlepay configuration.
+    adyen_google_pay_merchant_id?: string | null;
+    amount: number;
+    currency: string;
   };
 };
 
@@ -429,10 +445,38 @@ export interface StripeCardForm {
   submit: () => Promise<void>;
 }
 
+export interface AdyenCardFormOptions
+  extends
+    CreateClientSessionOptions,
+    Omit<InitMethodCallbacks, 'onPaymentSuccess'> {
+  onPaymentSuccess?: (orderId: string) => void;
+  // When true, collects the billing country/postal in the card form and recalculates tax live via
+  // /recalculate_tax, reporting the new total through onTaxChange.
+  enableTax?: boolean;
+  onTaxChange?: (info: {
+    amountTotal: number;
+    taxAmount: number;
+    currency: string;
+  }) => void;
+  onTaxError?: (error: Error) => void;
+}
+
+export interface AdyenWalletOptions
+  extends
+    CreateClientSessionOptions,
+    Omit<InitMethodCallbacks, 'onPaymentSuccess'> {
+  onPaymentSuccess?: (orderId: string) => void;
+}
+
 export declare function createStripeCardForm(
   element: HTMLElement,
   params: StripeCardFormOptions
 ): Promise<StripeCardForm>;
+
+export declare function createAdyenCardForm(
+  element: HTMLElement,
+  params: AdyenCardFormOptions
+): Promise<void>;
 
 export declare function purchaseStripeWallet(
   params: StripeWalletOptions
@@ -443,6 +487,18 @@ export declare function getAvailableStripeWallet(
 ): Promise<PaymentMethod.APPLE_PAY | PaymentMethod.GOOGLE_PAY | null>;
 
 export declare function getAvailableStripePaymentMethods(
+  params: CreateClientSessionOptions
+): Promise<PaymentMethod[]>;
+
+export declare function purchaseAdyenWallet(
+  params: AdyenWalletOptions
+): Promise<void>;
+
+export declare function getAvailableAdyenWallet(
+  params: CreateClientSessionOptions
+): Promise<PaymentMethod.APPLE_PAY | PaymentMethod.GOOGLE_PAY | null>;
+
+export declare function getAvailableAdyenPaymentMethods(
   params: CreateClientSessionOptions
 ): Promise<PaymentMethod[]>;
 
@@ -459,6 +515,12 @@ export declare const Billing: {
     purchaseWallet: typeof purchaseStripeWallet;
     getAvailableWallet: typeof getAvailableStripeWallet;
     getAvailablePaymentMethods: typeof getAvailableStripePaymentMethods;
+  };
+  adyen: {
+    createCardForm: typeof createAdyenCardForm;
+    purchaseWallet: typeof purchaseAdyenWallet;
+    getAvailableWallet: typeof getAvailableAdyenWallet;
+    getAvailablePaymentMethods: typeof getAvailableAdyenPaymentMethods;
   };
 };
 
