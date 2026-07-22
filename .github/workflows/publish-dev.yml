@@ -46,3 +46,5 @@ jobs:
 
       - name: Publish
         run: npm publish --tag ${{ steps.meta.outputs.tag }} --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
