@@ -438,15 +438,6 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     }
   };
 
-  // Re-render the current tax figures to a skin that subscribed after the estimate was first
-  // emitted (the initMethod card path wires the skin only once the method mounts).
-  private renderTaxToSkin = () => {
-    const info = this.lastTaxInfo ?? this.getSessionTaxInfo();
-    if (info) {
-      this.emit(EVENTS.TAX_CHANGE, info);
-    }
-  };
-
   private runTaxRecalc = async (): Promise<void> => {
     const orderId = this.orderId;
     const countryCode = this.getSelectedCountryCode();
@@ -636,12 +627,6 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
 
   private handleMethodRender = (method: PaymentMethod) => {
     this.emit(EVENTS.METHOD_RENDER, method);
-  };
-
-  private handleTaxMethodRender = (method: PaymentMethod) => {
-    if (method === PaymentMethod.PAYMENT_CARD && this.isTaxEnabled()) {
-      this.renderTaxToSkin();
-    }
   };
 
   private handleMethodRenderError = (method: PaymentMethod) => {
@@ -1016,14 +1001,6 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
 
     this.on(EVENTS.INPUT_ERROR, skin.onInputError);
     this.on(EVENTS.STATUS_CHANGE, skin.onStatusChange);
-    if (skin.onTaxChange) {
-      this.on(EVENTS.TAX_CHANGE, skin.onTaxChange);
-    }
-    if (skin.onTaxPending) {
-      this.on(EVENTS.TAX_PENDING, skin.onTaxPending);
-    }
-    this.on(EVENTS.METHOD_RENDER, this.handleTaxMethodRender);
-
     this.on(EVENTS.ERROR, (error: Error) => skin.onError(error));
     this.on(EVENTS.LOADER_CHANGE, skin.onLoaderChange);
     this.on(EVENTS.DESTROY, skin.onDestroy);
@@ -1045,13 +1022,6 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     skin.init();
     this.on(EVENTS.INPUT_ERROR, skin.onInputError);
     this.on(EVENTS.METHOD_RENDER, skin.onMethodRender);
-    if (skin.onTaxChange) {
-      this.on(EVENTS.TAX_CHANGE, skin.onTaxChange);
-    }
-    if (skin.onTaxPending) {
-      this.on(EVENTS.TAX_PENDING, skin.onTaxPending);
-    }
-    this.on(EVENTS.METHOD_RENDER, this.handleTaxMethodRender);
     this.on(EVENTS.SUCCESS, skin.onDestroy);
     this.on(EVENTS.DESTROY, skin.onDestroy);
     return skin.getCheckoutOptions();
