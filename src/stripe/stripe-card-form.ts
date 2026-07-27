@@ -73,21 +73,22 @@ export async function mountStripeCardForm(
     terms: { card: 'never' },
     fields: {
       billingDetails: {
-        // In tax mode collect only what the org configured (country and/or postal) and hide the rest
-        // of the address; otherwise use Stripe's default card billing (country + postal).
-        address: taxEnabled
-          ? {
-              line1: 'never',
-              line2: 'never',
-              city: 'never',
-              state: 'never',
-              country: showCountry ? 'auto' : 'never',
-              postalCode: collectLocation ? 'auto' : 'never',
-            }
-          : 'auto',
+        // Field visibility is owned by the org settings (Taxes → Settings) and is independent of
+        // whether tax is enabled: show the country selector and/or postal code only when configured,
+        // and always hide the rest of the address (supplied to createPaymentMethod below). Previously
+        // the untaxed path fell back to Stripe's default billing (country + postal), showing those
+        // fields even when the org had turned them off.
+        address: {
+          line1: 'never',
+          line2: 'never',
+          city: 'never',
+          state: 'never',
+          country: showCountry ? 'auto' : 'never',
+          postalCode: showPostal ? 'auto' : 'never',
+        },
       },
     },
-    ...(session.data.detected_country_code && (!taxEnabled || showCountry)
+    ...(session.data.detected_country_code && showCountry
       ? {
           defaultValues: {
             billingDetails: {
@@ -99,8 +100,7 @@ export async function mountStripeCardForm(
   });
 
   // Address fields we hid (fields=never) must still be supplied to createPaymentMethod. Only country +
-  // postal matter for tax; country is hidden only when the selector is off, postal only when we collect
-  // no location at all.
+  // postal matter for tax; country is supplied when its selector is off, postal when its field is off.
   const hiddenBillingAddress: {
     line1: string;
     line2: string;
@@ -111,7 +111,7 @@ export async function mountStripeCardForm(
   } = { line1: '', line2: '', city: '', state: '' };
   if (!showCountry)
     hiddenBillingAddress.country = session.data.detected_country_code ?? '';
-  if (!collectLocation) hiddenBillingAddress.postal_code = '';
+  if (!showPostal) hiddenBillingAddress.postal_code = '';
 
   // Tax needs only the country + postal code. When the org collects location on the form we read it
   // from the Payment Element's change events as the buyer types, recalculate tax live (reported via
@@ -228,10 +228,10 @@ export async function mountStripeCardForm(
         const { error, paymentMethod } = await stripe.createPaymentMethod({
           elements: stripeElements,
           // Supply the address fields we hid on the Payment Element (fields=never); Stripe requires
-          // them here. Country/postal collected by the element are filled by Stripe automatically.
-          ...(taxEnabled
-            ? { params: { billing_details: { address: hiddenBillingAddress } } }
-            : {}),
+          // them here. We always hide line1/line2/city/state (and country/postal per the org
+          // settings), so these must be supplied regardless of tax mode. Country/postal shown on the
+          // element are filled by Stripe automatically.
+          params: { billing_details: { address: hiddenBillingAddress } },
         });
         if (error) throw error;
 
