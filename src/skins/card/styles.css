@@ -88,32 +88,3 @@
     width: 26px;
     height: 26px;
   }
-
-.ff-tax-summary {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgb(0 0 0 / 10%);
-  font-size: 16px;
-  transition: opacity 0.2s ease;
-}
-
-.ff-tax-summary[hidden] {
-  display: none;
-}
-
-.ff-tax-summary--updating {
-  opacity: 0.55;
-}
-
-.ff-tax-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 6px;
-}
-
-.ff-tax-row.ff-tax-total {
-  margin-top: 8px;
-  margin-bottom: 0;
-  font-weight: 600;
-}

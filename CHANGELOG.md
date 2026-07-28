@@ -223,3 +223,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed the Apple Pay sheet not opening in Safari: `getAvailableWallet` now prewarms the payment sheet so `purchaseWallet` can open it directly in the click handler
 - Fixed `purchaseWallet` hanging forever when a 3DS challenge failed
 - Fixed tax recalculation races and stale tax calculations being attached to payments for a different address
+
+## [0.9.1] - 2026-07-28
+
+- Tax lines are no longer rendered by the SDK; the host re-renders its own prices from `onTaxChange`
+- Stripe card form honors the org's country selector and postal code visibility regardless of tax

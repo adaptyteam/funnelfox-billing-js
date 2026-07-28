@@ -1,89 +1,12 @@
 import { getStripe } from './stripe-loader';
-import { formatCurrencyAmount } from '../utils/helpers';
 import type APIClient from '../api-client';
 import type {
   StripeClientSessionResponse,
   StripeCardFormOptions,
   StripeCardForm,
-  TaxInfo,
 } from '../types';
 
-const TAX_STYLE_ID = 'ff-stripe-tax-styles';
 const TAX_RECALC_DEBOUNCE_MS = 600;
-
-// The Stripe card form renders Stripe Elements (not the card skin), so it owns its own subtotal/tax/
-// total summary here — mirroring the hosted card skin so every integration shows tax consistently
-// without the host page reimplementing it.
-function injectTaxStyles(): void {
-  if (typeof document === 'undefined') return;
-  if (document.getElementById(TAX_STYLE_ID)) return;
-  const style = document.createElement('style');
-  style.id = TAX_STYLE_ID;
-  style.textContent = [
-    '.ff-tax-summary{margin-top:12px;padding-top:12px;border-top:1px solid rgb(0 0 0 / 10%);font-size:16px;transition:opacity .2s ease}',
-    '.ff-tax-summary[hidden]{display:none}',
-    '.ff-tax-summary--updating{opacity:.55}',
-    '.ff-tax-row{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px}',
-    '.ff-tax-row.ff-tax-total{margin-top:8px;margin-bottom:0;font-weight:600}',
-  ].join('\n');
-  document.head.appendChild(style);
-}
-
-interface TaxSummary {
-  root: HTMLElement;
-  render(info: TaxInfo | null): void;
-  setPending(): void;
-  setIdle(): void;
-}
-
-function createTaxSummary(): TaxSummary {
-  const root = document.createElement('div');
-  root.className = 'ff-tax-summary';
-  root.hidden = true;
-
-  const makeRow = (label: string, isTotal = false): HTMLElement => {
-    const rowEl = document.createElement('div');
-    rowEl.className = isTotal ? 'ff-tax-row ff-tax-total' : 'ff-tax-row';
-    const labelEl = document.createElement('span');
-    labelEl.textContent = label;
-    const valueEl = document.createElement('span');
-    rowEl.append(labelEl, valueEl);
-    root.appendChild(rowEl);
-    return valueEl;
-  };
-  const subtotalEl = makeRow('Subtotal');
-  const taxEl = makeRow('Tax');
-  const totalEl = makeRow('Total', true);
-
-  return {
-    root,
-    // taxAmount is the tax added on top of the price; it is 0 for tax-inclusive pricing and for
-    // non-taxed locations — in both cases there is nothing to itemise, so the summary stays hidden.
-    render(info: TaxInfo | null) {
-      root.classList.remove('ff-tax-summary--updating');
-      if (!info || !(info.taxAmount > 0)) {
-        root.hidden = true;
-        return;
-      }
-      subtotalEl.textContent = formatCurrencyAmount(
-        info.amountTotal - info.taxAmount,
-        info.currency
-      );
-      taxEl.textContent = formatCurrencyAmount(info.taxAmount, info.currency);
-      totalEl.textContent = formatCurrencyAmount(
-        info.amountTotal,
-        info.currency
-      );
-      root.hidden = false;
-    },
-    setPending() {
-      if (!root.hidden) root.classList.add('ff-tax-summary--updating');
-    },
-    setIdle() {
-      root.classList.remove('ff-tax-summary--updating');
-    },
-  };
-}
 
 export async function mountStripeCardForm(
   element: HTMLElement,
@@ -125,9 +48,6 @@ export async function mountStripeCardForm(
 
   // Remounting (e.g. picking another price) must replace the form, not stack a second one.
   element.replaceChildren();
-
-  injectTaxStyles();
-  const taxSummary = createTaxSummary();
 
   const stripeElements = stripe.elements({
     mode: 'subscription',
@@ -193,9 +113,10 @@ export async function mountStripeCardForm(
     hiddenBillingAddress.country = session.data.detected_country_code ?? '';
   if (!collectLocation) hiddenBillingAddress.postal_code = '';
 
-  // Tax needs only the country + postal code. When the org collects location on the form we read it from
-  // the Payment Element's change events as the buyer types and recalculate tax live, then attach the
-  // calculation id to the charge. When it does not, tax follows the IP-derived session estimate.
+  // Tax needs only the country + postal code. When the org collects location on the form we read it
+  // from the Payment Element's change events as the buyer types, recalculate tax live (reported via
+  // onTaxChange), and attach the calculation id to the charge. When it does not, tax follows the
+  // IP-derived session estimate.
   let taxCalc: { id: string; country?: string; postal?: string } | undefined;
   let recalcSeq = 0;
   if (taxEnabled && session.data.tax_calculation_id) {
@@ -212,7 +133,6 @@ export async function mountStripeCardForm(
     const country = taxAddress.country;
     const postal = taxAddress.postalCode;
     if (!country) {
-      taxSummary.setIdle();
       return;
     }
     const seq = ++recalcSeq;
@@ -225,13 +145,11 @@ export async function mountStripeCardForm(
       });
       if (seq !== recalcSeq) return; // a newer recalc superseded this one
       taxCalc = { id: tax.tax_calculation_id, country, postal };
-      const info: TaxInfo = {
+      params.onTaxChange?.({
         amountTotal: tax.amount_total,
         taxAmount: tax.tax_amount,
         currency: tax.currency,
-      };
-      taxSummary.render(info);
-      params.onTaxChange?.(info);
+      });
     } catch (err) {
       if (seq !== recalcSeq) return;
       if (
@@ -240,7 +158,6 @@ export async function mountStripeCardForm(
         taxCalc = undefined;
         params.onTaxError?.(err as Error);
       }
-      taxSummary.setIdle();
     }
   };
 
@@ -273,21 +190,21 @@ export async function mountStripeCardForm(
         postalCode: address?.postalCode || undefined,
       };
       if (!taxAddress.country) return;
-      taxSummary.setPending();
       if (debounce) clearTimeout(debounce);
       debounce = setTimeout(runRecalc, TAX_RECALC_DEBOUNCE_MS);
     });
   }
 
-  // SDK-owned summary lives below the form and reflects the session's tax estimate immediately; when the
-  // org collects location, the Payment Element's fields then keep it in sync as the buyer edits them.
-  element.appendChild(taxSummary.root);
-  taxSummary.render(
-    amount_total != null
-      ? { amountTotal: amount_total, taxAmount: tax_amount ?? 0, currency }
-      : null
-  );
-  // Refine the initial estimate against the pre-filled country right away.
+  // The form renders no tax lines; the host re-renders its own prices off onTaxChange. Report the
+  // session estimate as the first calculation, then (when the org collects location) refine it
+  // against the pre-filled country right away — later address edits keep firing it via the recalc.
+  if (taxEnabled && amount_total != null) {
+    params.onTaxChange?.({
+      amountTotal: amount_total,
+      taxAmount: tax_amount ?? 0,
+      currency,
+    });
+  }
   if (taxEnabled && collectLocation) void runRecalc();
 
   await new Promise<void>((resolve, reject) => {
