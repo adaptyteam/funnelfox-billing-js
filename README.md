@@ -71,7 +71,7 @@ import { configure } from '@funnelfox/billing';
 
 configure({
   orgId: 'your-org-id', // Required
-  baseUrl: 'https://custom.api', // Optional, defaults to https://billing.funnelfox.com
+  baseUrl: 'https://custom.api', // Optional, defaults to https://payments.funnelfox.com
   region: 'us-east-1', // Optional, defaults to 'default'
 });
 ```
@@ -596,7 +596,7 @@ const paymentMethod = await Billing.initMethod(
     email: 'user@example.com',
 
     // Optional - API configuration
-    baseUrl: 'https://custom.api', // Optional, defaults to https://billing.funnelfox.com
+    baseUrl: 'https://custom.api', // Optional, defaults to https://payments.funnelfox.com
     meta: { source: 'web' }, // Optional metadata
 
     // Optional - Primer configuration (for customizing payment method behavior)
