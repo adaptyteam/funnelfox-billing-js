@@ -1,6 +1,6 @@
 {
   "name": "@funnelfox/billing",
-  "version": "0.8.0",
+  "version": "0.9.3",
   "license": "MIT",
   "author": "Funnelfox",
   "description": "JavaScript SDK for Funnelfox billing with Primer integration",
@@ -26,7 +26,7 @@
   "scripts": {
     "build": "rm -rf dist && rollup -c",
     "build:watch": "rollup -c -w",
-    "build:examples": "npm run build && npm pack && npm i ./funnelfox-billing-0.8.0.tgz --prefix examples/basic && npm run build --prefix examples/basic",
+    "build:examples": "npm run build && npm pack && npm i ./funnelfox-billing-0.9.3.tgz --prefix examples/basic && npm run build --prefix examples/basic",
     "version": "node scripts/sync-version.js",
     "release:patch": "npm version patch --no-git-tag-version",
     "release:minor": "npm version minor --no-git-tag-version",

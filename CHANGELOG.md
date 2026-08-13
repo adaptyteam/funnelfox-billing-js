@@ -228,3 +228,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Tax lines are no longer rendered by the SDK; the host re-renders its own prices from `onTaxChange`
 - Stripe card form honors the org's country selector and postal code visibility regardless of tax
+
+## [0.9.3] - Unreleased
+
+- Added support for all Apple Pay button types (`applePay.buttonType`), including `'continue'`, via the SDK's own `ApplePayButtonType` union. The legacy 7 values render through Primer as before; newer values cannot be rendered by WebKit through Primer v2's CSS approach, so the SDK overlays Apple's official `<apple-pay-button>` element over the hidden Primer button and forwards clicks — the payment flow stays fully Primer-driven. Falls back to Primer's own button if Apple's SDK script fails to load. (PRD-1426)
