@@ -30,6 +30,10 @@ import {
 } from './types';
 import { PaymentMethod } from './enums';
 import { generateId } from './utils/helpers';
+import {
+  isNativeOnlyApplePayButtonType,
+  overlayNativeApplePayButton,
+} from './utils/apple-pay-native-button';
 
 declare global {
   interface Window {
@@ -40,6 +44,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
   isInitialized: boolean = false;
   private destroyCallbacks: (() => void)[] = [];
   private currentHeadless: Promise<PrimerHeadlessCheckout> | null = null;
+  private applePayOptions?: CheckoutOptions['applePay'];
   private availableMethods: PaymentMethod[] = [];
   private paymentMethodsInterfaces?: PaymentMethodInterface[] = [];
   private static readonly headlessManager = new HeadlessManager();
@@ -78,13 +83,15 @@ class PrimerWrapper implements PrimerWrapperInterface {
 
   private async createHeadlessCheckout(
     clientToken: string,
-    options: Partial<HeadlessUniversalCheckoutOptions> & {
+    options: Omit<Partial<HeadlessUniversalCheckoutOptions>, 'applePay'> & {
+      applePay?: CheckoutOptions['applePay'];
       onTokenizeSuccess: OnTokenizeSuccess;
       onResumeSuccess: OnResumeSuccess;
     },
     method?: PaymentMethod
   ) {
     await this.ensurePrimerLoaded();
+    this.applePayOptions = options.applePay;
     this.currentHeadless = PrimerWrapper.headlessManager.getOrCreate(
       clientToken,
       options,
@@ -152,16 +159,58 @@ class PrimerWrapper implements PrimerWrapperInterface {
       }
       htmlNode.appendChild(wrapper);
       /* end hack */
+
+      /* PRD-1426: WebKit cannot render newer Apple Pay button types (e.g.
+       * 'continue') through the CSS approach Primer v2 uses. For those types
+       * we overlay Apple's official <apple-pay-button> element on top of the
+       * visually hidden Primer button and forward clicks, keeping Primer's
+       * payment flow untouched. The Primer button is hidden BEFORE it renders
+       * to avoid a flash of the plain button; if the Apple SDK fails to load,
+       * the rule is removed and Primer's own button stays visible (graceful
+       * fallback to 'plain'). */
+      const applePayConfig = this.applePayOptions;
+      const nativeButtonType =
+        allowedPaymentMethod === PaymentMethod.APPLE_PAY &&
+        applePayConfig?.buttonType &&
+        isNativeOnlyApplePayButtonType(applePayConfig.buttonType)
+          ? applePayConfig.buttonType
+          : null;
+      let hideRuleIndex: number | null = null;
+      if (nativeButtonType && sheet) {
+        hideRuleIndex = sheet.insertRule(`
+          .${wrapper.className} > button {
+            opacity: 0 !important;
+          }
+        `);
+      }
+
       button = pmManager.createButton();
       await button.render(wrapper, {});
+
+      let nativeOverlay: HTMLElement | null = null;
+      if (nativeButtonType) {
+        nativeOverlay = await overlayNativeApplePayButton(wrapper, {
+          buttonType: nativeButtonType,
+          buttonStyle: applePayConfig?.buttonStyle,
+        });
+        if (!nativeOverlay && sheet && hideRuleIndex !== null) {
+          sheet.deleteRule(hideRuleIndex);
+        }
+      }
+
       this.destroyCallbacks.push(() => button.clean());
       onMethodRender(allowedPaymentMethod);
       return {
         setDisabled: (disabled: boolean) => {
           button.setDisabled(disabled);
+          if (nativeOverlay) {
+            nativeOverlay.style.pointerEvents = disabled ? 'none' : '';
+            nativeOverlay.style.opacity = disabled ? '0.5' : '';
+          }
         },
         destroy: () => {
           styleEl.remove();
+          nativeOverlay?.remove();
           button.clean();
         },
       };

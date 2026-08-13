@@ -74,10 +74,40 @@ export interface BillingCardOptions extends CheckoutCardOptions {
   emailAddress?: BillingCardEmailAddressOptions;
 }
 
+/**
+ * Apple Pay button types (https://developer.apple.com/documentation/applepayontheweb/applepaybuttontype).
+ *
+ * The legacy 7 values (Primer's union) render through Primer's CSS approach.
+ * The newer values (e.g. 'continue') cannot be rendered by WebKit via CSS, so
+ * the SDK overlays Apple's official <apple-pay-button> element on top of the
+ * Primer button and forwards clicks (see utils/apple-pay-native-button.ts,
+ * PRD-1426). Payment flow stays fully Primer-driven either way.
+ */
+export type ApplePayButtonType =
+  | NonNullable<ApplePayOptions['buttonType']>
+  | 'add-money'
+  | 'continue'
+  | 'contribute'
+  | 'order'
+  | 'pay'
+  | 'reload'
+  | 'rent'
+  | 'support'
+  | 'tip'
+  | 'top-up';
+
+export type BillingApplePayOptions = Omit<
+  ApplePayOptions,
+  'container' | 'buttonType'
+> & {
+  buttonType?: ApplePayButtonType;
+};
+
 export interface PrimerCheckoutConfig extends Pick<
   Partial<HeadlessUniversalCheckoutOptions>,
-  'paypal' | 'applePay' | 'googlePay' | 'style'
+  'paypal' | 'googlePay' | 'style'
 > {
+  applePay?: BillingApplePayOptions;
   card?: BillingCardOptions;
   cardSelectors?: CardInputSelectors;
   paymentButtonSelectors?: PaymentButtonSelectors;
@@ -109,7 +139,11 @@ export interface PaymentButtonSelectors {
   applePay: string;
 }
 
-export interface CheckoutOptions extends Partial<HeadlessUniversalCheckoutOptions> {
+export interface CheckoutOptions extends Omit<
+  Partial<HeadlessUniversalCheckoutOptions>,
+  'applePay'
+> {
+  applePay?: BillingApplePayOptions;
   onTokenizeSuccess: OnTokenizeSuccess;
   onResumeSuccess: OnResumeSuccess;
   onAvailablePaymentMethodsLoad?: (items: PaymentMethod[]) => void;
@@ -350,12 +384,13 @@ export interface InitMethodOptions
       Partial<
         Pick<
           HeadlessUniversalCheckoutOptions,
-          'style' | 'card' | 'applePay' | 'paypal' | 'googlePay'
+          'style' | 'card' | 'paypal' | 'googlePay'
         >
       >,
       'card'
     >,
     InitMethodCallbacks {
+  applePay?: BillingApplePayOptions;
   card?: BillingCardOptions;
   orgId: string;
   baseUrl?: string;
