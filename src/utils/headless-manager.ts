@@ -6,9 +6,22 @@ import type {
   PrimerHeadlessCheckout,
   HeadlessUniversalCheckoutOptions,
 } from '@primer-io/checkout-web';
+import type { BillingApplePayOptions } from '../types';
 import { merge } from './helpers';
 import { PrimerError } from '../errors';
 import { PaymentMethod } from '../enums';
+
+/**
+ * Primer headless options with our widened Apple Pay typing
+ * (see ApplePayButtonType in types.d.ts). The value is handed to
+ * Primer as-is — the cast below is type-level only.
+ */
+type HeadlessOptions = Omit<
+  Partial<HeadlessUniversalCheckoutOptions>,
+  'applePay'
+> & {
+  applePay?: BillingApplePayOptions;
+};
 
 /**
  * Manages caching and sequential creation of Primer headless checkout instances.
@@ -24,7 +37,7 @@ export class HeadlessManager {
    */
   private generateKey(
     clientToken: string,
-    options: Partial<HeadlessUniversalCheckoutOptions>,
+    options: HeadlessOptions,
     method?: PaymentMethod
   ): string {
     const serializableOptions = {
@@ -45,7 +58,7 @@ export class HeadlessManager {
    */
   getOrCreate(
     clientToken: string,
-    options: Partial<HeadlessUniversalCheckoutOptions>,
+    options: HeadlessOptions,
     method?: PaymentMethod
   ): Promise<PrimerHeadlessCheckout> {
     const key = this.generateKey(clientToken, options, method);
@@ -64,7 +77,7 @@ export class HeadlessManager {
           paymentHandling: 'MANUAL',
           apiVersion: '2.4',
         },
-        options
+        options as Partial<HeadlessUniversalCheckoutOptions>
       );
 
       try {
