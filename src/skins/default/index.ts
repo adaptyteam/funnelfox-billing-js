@@ -24,10 +24,13 @@ const paymentMethodTemplates: Record<PaymentMethod, string> = {
   [PaymentMethod.APPLE_PAY]: applePayTemplate,
 };
 
-class DefaultSkin implements Skin {
+export class DefaultSkin implements Skin {
   private containerSelector: string;
   private containerEl: HTMLElement;
+  private rootEl: HTMLElement;
   private cardInputElements: CardInputElementsWithButton;
+  private isDestroyed = false;
+  private isAccordionInitialized = false;
   currentPurchaseMethod: PaymentMethod;
   cardInstance: CardSkin;
   paymentMethodOrder: PaymentMethod[];
@@ -57,10 +60,16 @@ class DefaultSkin implements Skin {
   }
 
   private initAccordion() {
-    const paymentMethodCards = this.containerEl.querySelectorAll(
+    if (this.isDestroyed || !this.rootEl?.isConnected) {
+      return;
+    }
+    if (this.isAccordionInitialized) {
+      return;
+    }
+    const paymentMethodCards = this.rootEl.querySelectorAll(
       '.ff-payment-method-card'
     );
-    const radioButtons = this.containerEl.querySelectorAll<HTMLInputElement>(
+    const radioButtons = this.rootEl.querySelectorAll<HTMLInputElement>(
       '.ff-payment-method-radio'
     );
 
@@ -82,11 +91,13 @@ class DefaultSkin implements Skin {
       this.availableMethods.includes(radio.value as PaymentMethod)
     );
     if (!checkedRadio) {
-      throw new Error(
-        'Default skin accordion initialization error: No radio button found'
-      );
+      return;
     }
+    this.isAccordionInitialized = true;
     setTimeout(() => {
+      if (this.isDestroyed || !this.rootEl?.isConnected) {
+        return;
+      }
       checkedRadio.checked = true;
       handleAccordion(checkedRadio);
     }, 0);
@@ -103,7 +114,7 @@ class DefaultSkin implements Skin {
   private wireCardInputs() {
     this.cardInstance.wireCardInputs();
     const button =
-      this.containerEl.querySelector<HTMLButtonElement>('#submitButton');
+      this.rootEl.querySelector<HTMLButtonElement>('#submitButton');
 
     if (!button) {
       throw new Error(
@@ -119,7 +130,13 @@ class DefaultSkin implements Skin {
 
   async init() {
     this.containerEl.insertAdjacentHTML('beforeend', template);
-    const paymentMethodContainers = this.containerEl.querySelector(
+    const rootEls =
+      this.containerEl.querySelectorAll<HTMLElement>('.ff-skin-default');
+    this.rootEl = rootEls[rootEls.length - 1];
+    if (!this.rootEl) {
+      throw new Error('Default skin root element not found');
+    }
+    const paymentMethodContainers = this.rootEl.querySelector(
       '#ff-payment-method-containers'
     );
     this.paymentMethodOrder.forEach(paymentMethod => {
@@ -129,7 +146,7 @@ class DefaultSkin implements Skin {
       );
     });
     this.cardInstance = new CardSkin(
-      document.querySelector('#cardForm'),
+      this.rootEl.querySelector('#cardForm'),
       this.checkoutConfig,
       this.cardSessionFieldConfig
     );
@@ -149,10 +166,9 @@ class DefaultSkin implements Skin {
   }
   getPaymentButtonElements(): PaymentButtonElements {
     return {
-      paypal: this.containerEl.querySelector<HTMLElement>('#paypalButton'),
-      googlePay:
-        this.containerEl.querySelector<HTMLElement>('#googlePayButton'),
-      applePay: this.containerEl.querySelector<HTMLElement>('#applePayButton'),
+      paypal: this.rootEl.querySelector<HTMLElement>('#paypalButton'),
+      googlePay: this.rootEl.querySelector<HTMLElement>('#googlePayButton'),
+      applePay: this.rootEl.querySelector<HTMLElement>('#applePayButton'),
     };
   }
 
@@ -168,17 +184,21 @@ class DefaultSkin implements Skin {
   }
 
   onLoaderChange = (isLoading: boolean) => {
-    document
-      .querySelectorAll<HTMLDivElement>(
-        `${this.containerSelector} .loader-container`
-      )
+    if (this.isDestroyed || !this.rootEl?.isConnected) {
+      return;
+    }
+    this.rootEl
+      .querySelectorAll<HTMLDivElement>('.loader-container')
       ?.forEach(loaderEl => {
         loaderEl.style.display = isLoading ? 'flex' : 'none';
       });
   };
   onError = (error?: Error, paymentMethod?: PaymentMethod) => {
+    if (this.isDestroyed || !this.rootEl?.isConnected) {
+      return;
+    }
     if (!error) {
-      this.containerEl
+      this.rootEl
         .querySelectorAll('.payment-errors-container')
         ?.forEach(container => {
           container.innerHTML = '';
@@ -188,7 +208,7 @@ class DefaultSkin implements Skin {
     let errorContainer: HTMLElement | null = null;
     if (paymentMethod) {
       const methodKey = paymentMethod.replace('_', '-').toLowerCase();
-      errorContainer = this.containerEl.querySelector(
+      errorContainer = this.rootEl.querySelector(
         `.ff-payment-method-${methodKey} .payment-errors-container`
       );
     }
@@ -209,25 +229,33 @@ class DefaultSkin implements Skin {
     }
   };
   onSuccess = () => {
+    if (this.isDestroyed || !this.rootEl?.isConnected) {
+      return;
+    }
     const successScreenString =
-      document.querySelector('#success-screen')?.innerHTML;
-    const containers = document.querySelectorAll('.ff-payment-container');
+      this.rootEl.querySelector('#success-screen')?.innerHTML;
+    const containers = this.rootEl.querySelectorAll('.ff-payment-container');
     containers.forEach(container => {
       container.innerHTML = successScreenString;
     });
     this.onLoaderChange(false);
   };
   onDestroy = () => {
-    if (this.containerEl.innerHTML) {
-      this.containerEl.innerHTML = '';
-    }
+    this.isDestroyed = true;
+    this.rootEl?.remove();
   };
   onInputError = (event: { name: keyof CardInputSelectors; error: string }) => {
+    if (this.isDestroyed || !this.rootEl?.isConnected) {
+      return;
+    }
     this.cardInstance.onInputError(event);
   };
   onMethodRender = (paymentMethod: PaymentMethod) => {
+    if (this.isDestroyed || !this.rootEl?.isConnected) {
+      return;
+    }
     const methodKey = paymentMethod.replace('_', '-').toLowerCase();
-    const methodContainer = this.containerEl.querySelector(
+    const methodContainer = this.rootEl.querySelector(
       `.ff-payment-method-${methodKey}`
     );
     if (paymentMethod === PaymentMethod.PAYMENT_CARD) {
@@ -238,6 +266,9 @@ class DefaultSkin implements Skin {
     }
   };
   onMethodsAvailable = (methods: PaymentMethod[]) => {
+    if (this.isDestroyed || !this.rootEl?.isConnected) {
+      return;
+    }
     this.availableMethods = methods;
     this.initAccordion();
     methods.forEach(this.onMethodRender);
