@@ -36,11 +36,19 @@ import type {
 import { PaymentMethod } from './enums';
 import type { CardSessionFieldConfig, Skin, SkinFactory } from './skins/types';
 import { renderLoader, hideLoader } from './assets/loader/loader';
+import {
+  isNativeOnlyApplePayButtonType,
+  renderPlaceholderApplePayButton,
+} from './utils/apple-pay-native-button';
+import { onSessionWarmup, type WarmupCleanup } from './utils/session-warmup';
+import { loadPrimerSDK } from './utils/primer-loader';
+import { setWarmupTag, type WarmupTrigger } from './utils/warmup-telemetry';
 import type {
   CheckoutRenderOptions,
   CreateClientSessionResponse,
   InitMethodCallbacks,
   MetadataType,
+  PaymentMethodInterface,
   TaxInfo,
 } from './types';
 import { loadStripe } from '@stripe/stripe-js';
@@ -1044,6 +1052,121 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     callbacks: InitMethodCallbacks
   ) {
     this._ensureNotDestroyed();
+
+    const deferred = await this.initMethodDeferred(method, element, callbacks);
+    if (deferred) {
+      return deferred;
+    }
+
+    return await this.initMethodNow(method, element, callbacks);
+  }
+
+  /**
+   * Renders Apple's native button immediately and postpones session creation
+   * until the visitor interacts. Returns null when deferral does not apply, so
+   * the caller falls back to creating the session on mount.
+   */
+  private async initMethodDeferred(
+    method: PaymentMethod,
+    element: HTMLElement,
+    callbacks: InitMethodCallbacks
+  ): Promise<PaymentMethodInterface | null> {
+    const applePay = this.checkoutConfig.applePay;
+    const buttonType = applePay?.buttonType;
+    if (
+      this.checkoutConfig.sessionCreation !== 'onInteraction' ||
+      method !== PaymentMethod.APPLE_PAY ||
+      this.isReady() ||
+      !buttonType ||
+      !isNativeOnlyApplePayButtonType(buttonType)
+    ) {
+      return null;
+    }
+
+    let started: Promise<PaymentMethodInterface> | null = null;
+    let real: PaymentMethodInterface | null = null;
+    let disabled = false;
+    let stopWaiting: WarmupCleanup = () => {};
+    let placeholder: HTMLElement | null = null;
+
+    const mountedAt = Date.now();
+    const start = (trigger: WarmupTrigger): Promise<PaymentMethodInterface> => {
+      const fromTap = trigger === 'tap';
+      if (!started) {
+        setWarmupTag(trigger, Date.now() - mountedAt);
+        started = (async () => {
+          stopWaiting();
+          if (fromTap) {
+            callbacks.onLoaderChange?.(true);
+          }
+          try {
+            placeholder?.remove();
+            placeholder = null;
+            const methodInterface = await this.initMethodNow(
+              method,
+              element,
+              callbacks
+            );
+            real = methodInterface;
+            if (disabled) {
+              methodInterface.setDisabled(true);
+            }
+            return methodInterface;
+          } finally {
+            if (fromTap) {
+              callbacks.onLoaderChange?.(false);
+            }
+          }
+        })();
+      }
+      return started;
+    };
+
+    placeholder = await renderPlaceholderApplePayButton(element, {
+      buttonType,
+      buttonStyle: applePay?.buttonStyle,
+      // Cold tap: the visitor's first interaction is the button itself, so the
+      // session cannot exist yet and ApplePaySession would lose the gesture.
+      // Start now and let the loader cover the (rare) second tap.
+      onActivate: () => void start('tap'),
+    });
+    if (!placeholder) {
+      return null;
+    }
+
+    // Free head start: Primer's SDK is a static asset on their CDN, so
+    // fetching it now costs no backend call and leaves only the session
+    // request to complete before the first tap.
+    void loadPrimerSDK().catch(() => {});
+
+    stopWaiting = onSessionWarmup(trigger => void start(trigger));
+
+    return {
+      setDisabled: (value: boolean) => {
+        disabled = value;
+        real?.setDisabled(value);
+        if (placeholder) {
+          placeholder.style.pointerEvents = value ? 'none' : '';
+          placeholder.style.opacity = value ? '0.5' : '';
+        }
+      },
+      destroy: async () => {
+        stopWaiting();
+        placeholder?.remove();
+        placeholder = null;
+        if (started) {
+          await (await started).destroy?.();
+        }
+        await this.destroy();
+      },
+    };
+  }
+
+  private async initMethodNow(
+    method: PaymentMethod,
+    element: HTMLElement,
+    callbacks: InitMethodCallbacks
+  ) {
     if (!this.isReady()) {
       await this.createSession();
     }

@@ -182,6 +182,7 @@ export async function initMethod(
           ...DEFAULT_BUTTONS_OPTIONS[PaymentMethod.GOOGLE_PAY],
           ...(options.googlePay || {}),
         },
+        sessionCreation: options.sessionCreation,
       },
     });
 

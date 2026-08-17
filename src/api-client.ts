@@ -17,6 +17,7 @@ import {
   TaxRecalculationResponse,
 } from './types';
 import { retry, withTimeout } from './utils/helpers';
+import { WARMUP_HEADER, takeWarmupTag } from './utils/warmup-telemetry';
 
 interface APIClientConfig {
   baseUrl: string;
@@ -45,6 +46,7 @@ class APIClient {
       headers: {
         'Content-Type': 'application/json',
         'X-SDK-Version': SDK_VERSION,
+        ...warmupHeader(),
         ...(options.headers || {}),
       },
       ...options,
@@ -312,6 +314,11 @@ class APIClient {
       }),
     })) as CreateClientSessionResponse;
   }
+}
+
+function warmupHeader(): Record<string, string> {
+  const tag = takeWarmupTag();
+  return tag ? { [WARMUP_HEADER]: tag } : {};
 }
 
 export default APIClient;

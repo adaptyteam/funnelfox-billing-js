@@ -74,6 +74,32 @@ export async function loadApplePayButtonElement(): Promise<boolean> {
   }
 }
 
+function createNativeApplePayElement(options: {
+  buttonType: string;
+  buttonStyle?: string;
+}): HTMLElement {
+  const native = document.createElement('apple-pay-button');
+  native.setAttribute('type', options.buttonType);
+  native.setAttribute('buttonstyle', options.buttonStyle || 'black');
+  native.setAttribute(
+    'locale',
+    (typeof navigator !== 'undefined' && navigator.language) || 'en-US'
+  );
+  native.style.cssText = [
+    'position:absolute',
+    'inset:0',
+    'width:100%',
+    'height:100%',
+    '--apple-pay-button-width:100%',
+    '--apple-pay-button-height:100%',
+    '--apple-pay-button-border-radius:28px',
+    'display:block',
+    'cursor:pointer',
+    'z-index:1',
+  ].join(';');
+  return native;
+}
+
 /**
  * Renders Apple's native <apple-pay-button> stretched over `wrapper` and
  * forwards clicks to the Primer-rendered <button> inside it. The synchronous
@@ -97,31 +123,41 @@ export async function overlayNativeApplePayButton(
     return null;
   }
 
-  const native = document.createElement('apple-pay-button');
-  native.setAttribute('type', options.buttonType);
-  native.setAttribute('buttonstyle', options.buttonStyle || 'black');
-  native.setAttribute(
-    'locale',
-    (typeof navigator !== 'undefined' && navigator.language) || 'en-US'
-  );
-  native.style.cssText = [
-    'position:absolute',
-    'inset:0',
-    'width:100%',
-    'height:100%',
-    '--apple-pay-button-width:100%',
-    '--apple-pay-button-height:100%',
-    '--apple-pay-button-border-radius:28px',
-    'display:block',
-    'cursor:pointer',
-    'z-index:1',
-  ].join(';');
-
+  const native = createNativeApplePayElement(options);
   wrapper.style.position = 'relative';
   native.addEventListener('click', () => {
     const primerButton = wrapper.querySelector('button');
     primerButton?.click();
   });
+  wrapper.appendChild(native);
+  return native;
+}
+
+/**
+ * Renders the native button with no Primer button behind it, for the deferred
+ * flow: the visitor sees the real Apple Pay button immediately while the
+ * client session is still un-created. `onActivate` fires on tap so the caller
+ * can start (or await) initialization.
+ *
+ * Returns null when Apple's SDK is unavailable — callers must fall back to
+ * creating the session eagerly so a button of some kind is always rendered.
+ */
+export async function renderPlaceholderApplePayButton(
+  wrapper: HTMLElement,
+  options: {
+    buttonType: string;
+    buttonStyle?: string;
+    onActivate: () => void;
+  }
+): Promise<HTMLElement | null> {
+  const available = await loadApplePayButtonElement();
+  if (!available) {
+    return null;
+  }
+
+  const native = createNativeApplePayElement(options);
+  wrapper.style.position = 'relative';
+  native.addEventListener('click', options.onActivate);
   wrapper.appendChild(native);
   return native;
 }
