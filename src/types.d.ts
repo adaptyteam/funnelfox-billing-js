@@ -123,6 +123,8 @@ export interface CheckoutConfig extends PrimerCheckoutConfig {
   enableTax?: boolean;
   onTaxChange?: (info: TaxInfo) => void;
   onTaxError?: (error: Error) => void;
+  /** See InitMethodOptions.sessionCreation. Wallet buttons only. */
+  sessionCreation?: SessionCreationMode;
 }
 
 export interface TaxInfo {
@@ -398,7 +400,18 @@ export interface InitMethodOptions
   externalId: string;
   email?: string;
   meta?: MetadataType;
+  /**
+   * When to create the client session for wallet buttons.
+   * 'onMount' (default) creates it immediately — one session per page render.
+   * 'onInteraction' renders Apple's native button first and creates the
+   * session on the visitor's first interaction, so bounced and prerendered
+   * views cost nothing. Requires a native-only Apple Pay buttonType; falls
+   * back to 'onMount' when Apple's SDK is unavailable.
+   */
+  sessionCreation?: SessionCreationMode;
 }
+
+export type SessionCreationMode = 'onMount' | 'onInteraction';
 
 export interface InitMethodCallbacks {
   onRenderSuccess?: () => void;
