@@ -228,3 +228,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Tax lines are no longer rendered by the SDK; the host re-renders its own prices from `onTaxChange`
 - Stripe card form honors the org's country selector and postal code visibility regardless of tax
+- `Billing.initMethod` now accepts `onTaxChange` / `onTaxError` / `onTaxPending`, reporting the session tax estimate on mount and every country/postal recalculation
+- `Billing.stripe.purchaseWallet` now accepts `onTaxChange`, reporting the tax the wallet sheet authorizes

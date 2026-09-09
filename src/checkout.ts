@@ -477,6 +477,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     if (this.taxRecalcDebounce) {
       clearTimeout(this.taxRecalcDebounce);
     }
+    this.checkoutConfig.onTaxPending?.();
     this.emit(EVENTS.TAX_PENDING);
     this.taxRecalcDebounce = setTimeout(
       this.runTaxRecalc,
@@ -1111,6 +1112,9 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       methodOptions
     );
     this.startUnhandledTelemetry(method);
+    if (this.isTaxEnabled() && !this.lastTaxInfo) {
+      this.emitSessionTaxEstimate();
+    }
     return {
       ...methodInterface,
       destroy: async () => {

@@ -93,6 +93,7 @@ export interface CheckoutConfig extends PrimerCheckoutConfig {
   enableTax?: boolean;
   onTaxChange?: (info: TaxInfo) => void;
   onTaxError?: (error: Error) => void;
+  onTaxPending?: () => void;
 }
 
 export interface TaxInfo {
@@ -375,6 +376,9 @@ export interface InitMethodCallbacks {
   onLoaderChange?: (state: boolean) => void;
   onPaymentStarted?: (method: PaymentMethod) => void;
   onMethodsAvailable?: (methods: PaymentMethod[]) => void;
+  onTaxChange?: (info: TaxInfo) => void;
+  onTaxError?: (error: Error) => void;
+  onTaxPending?: () => void;
 }
 
 export declare function initMethod(
@@ -400,7 +404,7 @@ export declare function getAvailablePaymentMethods(params: {
 export interface StripeCardFormOptions
   extends
     CreateClientSessionOptions,
-    Omit<InitMethodCallbacks, 'onPaymentSuccess'> {
+    Omit<InitMethodCallbacks, 'onPaymentSuccess' | 'onTaxPending'> {
   onPaymentSuccess?: (
     paymentMethod: import('@stripe/stripe-js').PaymentMethod,
     orderId: string
@@ -417,12 +421,16 @@ export interface StripeCardFormOptions
 export interface StripeWalletOptions
   extends
     CreateClientSessionOptions,
-    Omit<InitMethodCallbacks, 'onPaymentSuccess'> {
+    Omit<
+      InitMethodCallbacks,
+      'onPaymentSuccess' | 'onTaxPending' | 'onTaxError'
+    > {
   onPaymentSuccess?: (
     paymentMethod: import('@stripe/stripe-js').PaymentMethod,
     orderId: string
   ) => void;
   totalLabel?: string;
+  onTaxChange?: (info: TaxInfo) => void;
 }
 
 export interface StripeCardForm {

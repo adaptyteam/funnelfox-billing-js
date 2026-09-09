@@ -103,6 +103,7 @@ export async function purchaseWallet(
     | 'email'
     | 'countryCode'
     | 'clientMetadata'
+    | 'onTaxChange'
   > & {
     apiClient: APIClient;
     invalidateSession?: () => void;
@@ -139,6 +140,14 @@ export async function purchaseWallet(
     );
     const canPay = await paymentRequest.canMakePayment();
     if (!canPay) throw new Error('No wallet payment method available');
+  }
+
+  if (taxEnabled && session.data.amount_total != null) {
+    params.onTaxChange?.({
+      amountTotal: session.data.amount_total,
+      taxAmount: session.data.tax_amount ?? 0,
+      currency: session.data.currency,
+    });
   }
 
   return new Promise<void>((resolve, reject) => {
