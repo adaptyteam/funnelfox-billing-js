@@ -3,6 +3,25 @@
  * @fileoverview Helper utilities for Funnefox SDK
  */
 
+import type { TaxBehavior, TaxInfo } from '../types';
+
+export function resolveTaxDisplay(source: {
+  tax_behavior?: TaxBehavior;
+  tax_amount?: number;
+  inclusive_tax_amount?: number;
+}): Pick<TaxInfo, 'taxAmount' | 'taxBehavior'> {
+  const taxBehavior =
+    source.tax_behavior ??
+    ((source.tax_amount ?? 0) > 0 ? 'exclusive' : undefined);
+  if (taxBehavior === 'inclusive') {
+    return { taxBehavior, taxAmount: source.inclusive_tax_amount ?? 0 };
+  }
+  if (taxBehavior === 'exclusive') {
+    return { taxBehavior, taxAmount: source.tax_amount ?? 0 };
+  }
+  return { taxAmount: 0 };
+}
+
 export function formatCurrencyAmount(
   minorAmount: number,
   currency: string

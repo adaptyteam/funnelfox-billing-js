@@ -1,4 +1,5 @@
 import { getStripe } from './stripe-loader';
+import { resolveTaxDisplay } from '../utils/helpers';
 import type {
   Stripe,
   PaymentRequest,
@@ -103,6 +104,7 @@ export async function purchaseWallet(
     | 'email'
     | 'countryCode'
     | 'clientMetadata'
+    | 'onTaxChange'
   > & {
     apiClient: APIClient;
     invalidateSession?: () => void;
@@ -139,6 +141,14 @@ export async function purchaseWallet(
     );
     const canPay = await paymentRequest.canMakePayment();
     if (!canPay) throw new Error('No wallet payment method available');
+  }
+
+  if (taxEnabled && session.data.amount_total != null) {
+    params.onTaxChange?.({
+      amountTotal: session.data.amount_total,
+      currency: session.data.currency,
+      ...resolveTaxDisplay(session.data),
+    });
   }
 
   return new Promise<void>((resolve, reject) => {
