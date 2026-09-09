@@ -1,4 +1,5 @@
 import { getStripe } from './stripe-loader';
+import { resolveTaxDisplay } from '../utils/helpers';
 import type {
   Stripe,
   PaymentRequest,
@@ -145,8 +146,8 @@ export async function purchaseWallet(
   if (taxEnabled && session.data.amount_total != null) {
     params.onTaxChange?.({
       amountTotal: session.data.amount_total,
-      taxAmount: session.data.tax_amount ?? 0,
       currency: session.data.currency,
+      ...resolveTaxDisplay(session.data),
     });
   }
 

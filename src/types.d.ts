@@ -99,10 +99,13 @@ export interface CheckoutConfig extends PrimerCheckoutConfig {
 export interface TaxInfo {
   /** Minor units; the total the customer pays. */
   amountTotal: number;
-  /** Minor units; tax ADDED on top of the price — 0 for tax-inclusive pricing and non-taxed locations. */
+  /** Minor units; the tax to show the buyer — added on top when exclusive, already inside the price when inclusive, 0 when unknown. */
   taxAmount: number;
   currency: string;
+  taxBehavior?: TaxBehavior;
 }
+
+export type TaxBehavior = 'inclusive' | 'exclusive';
 
 export interface PaymentButtonSelectors {
   paypal: string;
@@ -544,6 +547,8 @@ export interface CreateClientSessionResponse {
     // Session tax estimate (detected-country) in minor units — for showing tax on mount and in the
     // wallet sheet, and (Stripe-direct) collecting it via the wallet.
     tax_amount?: number;
+    inclusive_tax_amount?: number;
+    tax_behavior?: TaxBehavior;
     amount_total?: number;
     currency?: string;
     tax_calculation_id?: string;
@@ -571,6 +576,8 @@ export interface TaxRecalculationData {
   tax_calculation_id: string;
   amount_total: number;
   tax_amount: number;
+  inclusive_tax_amount?: number;
+  tax_behavior?: TaxBehavior;
   currency: string;
 }
 

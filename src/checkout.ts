@@ -6,7 +6,12 @@ import EventEmitter from './utils/event-emitter';
 import PrimerWrapper from './primer-wrapper';
 import { CheckoutError } from './errors';
 import { isValidEmail, requireString } from './utils/validation';
-import { generateId, generateUUID, merge } from './utils/helpers';
+import {
+  generateId,
+  generateUUID,
+  merge,
+  resolveTaxDisplay,
+} from './utils/helpers';
 import APIClient from './api-client';
 import sessionService from './shared/services/session-service';
 import {
@@ -420,8 +425,8 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     }
     return {
       amountTotal: data.amount_total,
-      taxAmount: data.tax_amount ?? 0,
       currency: data.currency ?? '',
+      ...resolveTaxDisplay(data),
     };
   };
 
@@ -457,8 +462,8 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       }
       this.emitTaxInfo({
         amountTotal: tax.amount_total,
-        taxAmount: tax.tax_amount,
         currency: tax.currency,
+        ...resolveTaxDisplay(tax),
       });
     } catch (err) {
       if (seq !== this.taxRecalcSeq) {

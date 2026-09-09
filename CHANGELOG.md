@@ -230,3 +230,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stripe card form honors the org's country selector and postal code visibility regardless of tax
 - `Billing.initMethod` now accepts `onTaxChange` / `onTaxError` / `onTaxPending`, reporting the session tax estimate on mount and every country/postal recalculation
 - `Billing.stripe.purchaseWallet` now accepts `onTaxChange`, reporting the tax the wallet sheet authorizes
+- `TaxInfo` now carries `taxBehavior` (`'inclusive' | 'exclusive'`, `undefined` when unknown) from the session/recalculation `tax_behavior`, so hosts can pick the right disclaimer without comparing amounts themselves; `taxAmount` is now the tax to show the buyer and reports `inclusive_tax_amount` for inclusive pricing
