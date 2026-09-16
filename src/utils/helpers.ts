@@ -8,13 +8,13 @@ import type { TaxBehavior, TaxInfo } from '../types';
 export function resolveTaxDisplay(source: {
   tax_behavior?: TaxBehavior;
   tax_amount?: number;
-  inclusive_tax_amount?: number;
+  tax_inclusive_amount?: number;
 }): Pick<TaxInfo, 'taxAmount' | 'taxBehavior'> {
   const taxBehavior =
     source.tax_behavior ??
     ((source.tax_amount ?? 0) > 0 ? 'exclusive' : undefined);
   if (taxBehavior === 'inclusive') {
-    return { taxBehavior, taxAmount: source.inclusive_tax_amount ?? 0 };
+    return { taxBehavior, taxAmount: source.tax_inclusive_amount ?? 0 };
   }
   if (taxBehavior === 'exclusive') {
     return { taxBehavior, taxAmount: source.tax_amount ?? 0 };

@@ -547,7 +547,7 @@ export interface CreateClientSessionResponse {
     // Session tax estimate (detected-country) in minor units — for showing tax on mount and in the
     // wallet sheet, and (Stripe-direct) collecting it via the wallet.
     tax_amount?: number;
-    inclusive_tax_amount?: number;
+    tax_inclusive_amount?: number;
     tax_behavior?: TaxBehavior;
     amount_total?: number;
     currency?: string;
@@ -576,7 +576,7 @@ export interface TaxRecalculationData {
   tax_calculation_id: string;
   amount_total: number;
   tax_amount: number;
-  inclusive_tax_amount?: number;
+  tax_inclusive_amount?: number;
   tax_behavior?: TaxBehavior;
   currency: string;
 }
