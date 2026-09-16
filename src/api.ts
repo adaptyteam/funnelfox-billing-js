@@ -182,6 +182,9 @@ export async function initMethod(
           ...DEFAULT_BUTTONS_OPTIONS[PaymentMethod.GOOGLE_PAY],
           ...(options.googlePay || {}),
         },
+        onTaxChange: options.onTaxChange,
+        onTaxError: options.onTaxError,
+        onTaxPending: options.onTaxPending,
       },
     });
 

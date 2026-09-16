@@ -1,4 +1,5 @@
 import { getStripe } from './stripe-loader';
+import { resolveTaxDisplay } from '../utils/helpers';
 import type APIClient from '../api-client';
 import type {
   StripeClientSessionResponse,
@@ -37,7 +38,6 @@ export async function mountStripeCardForm(
     currency,
     order_id,
     is_link_enabled,
-    tax_amount,
     amount_total,
   } = session.data;
   // Tax flow is driven by the tenant setting (session.tax_enabled); enableTax is a legacy override.
@@ -147,8 +147,8 @@ export async function mountStripeCardForm(
       taxCalc = { id: tax.tax_calculation_id, country, postal };
       params.onTaxChange?.({
         amountTotal: tax.amount_total,
-        taxAmount: tax.tax_amount,
         currency: tax.currency,
+        ...resolveTaxDisplay(tax),
       });
     } catch (err) {
       if (seq !== recalcSeq) return;
@@ -201,8 +201,8 @@ export async function mountStripeCardForm(
   if (taxEnabled && amount_total != null) {
     params.onTaxChange?.({
       amountTotal: amount_total,
-      taxAmount: tax_amount ?? 0,
       currency,
+      ...resolveTaxDisplay(session.data),
     });
   }
   if (taxEnabled && collectLocation) void runRecalc();
