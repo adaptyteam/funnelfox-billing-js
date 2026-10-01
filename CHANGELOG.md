@@ -231,3 +231,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Billing.initMethod` now accepts `onTaxChange` / `onTaxError` / `onTaxPending`, reporting the session tax estimate on mount and every country/postal recalculation
 - `Billing.stripe.purchaseWallet` now accepts `onTaxChange`, reporting the tax the wallet sheet authorizes
 - `TaxInfo` now carries `taxBehavior` (`'inclusive' | 'exclusive'`, `undefined` when unknown) from the session/recalculation `tax_behavior`, so hosts can pick the right disclaimer without comparing amounts themselves; `taxAmount` is now the tax to show the buyer and reports `tax_inclusive_amount` for inclusive pricing
+
+## [Unreleased]
+
+- Primer card fields show their validation error as soon as the buyer leaves a field they typed into, instead of only after the first submit; untouched empty fields still wait for submit

@@ -3,7 +3,17 @@
  * @fileoverview Helper utilities for Funnefox SDK
  */
 
+import type { InputMetadata } from '@primer-io/checkout-web';
 import type { TaxBehavior, TaxInfo } from '../types';
+
+// Primer reports an error on every keystroke and even for fields the buyer has not reached yet
+// (an empty CVV is "required" while the card number is still being typed), so the error is shown
+// only once the buyer has typed into the field and left it, or has tried to submit.
+export function shouldShowHostedInputError(
+  input: Pick<InputMetadata, 'touched' | 'dirty' | 'submitted'>
+): boolean {
+  return input.submitted || (input.touched && input.dirty);
+}
 
 export function resolveTaxDisplay(source: {
   tax_behavior?: TaxBehavior;

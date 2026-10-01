@@ -29,7 +29,7 @@ import {
   CardInputElementsWithButton,
 } from './types';
 import { PaymentMethod } from './enums';
-import { generateId } from './utils/helpers';
+import { generateId, shouldShowHostedInputError } from './utils/helpers';
 
 declare global {
   interface Window {
@@ -285,7 +285,7 @@ class PrimerWrapper implements PrimerWrapperInterface {
       const onHostedInputChange =
         (name: keyof CardInputSelectors) => (event: Event) => {
           const input = event as unknown as InputMetadata;
-          if (input.submitted) {
+          if (shouldShowHostedInputError(input)) {
             dispatchError(name, input.error);
           }
         };
