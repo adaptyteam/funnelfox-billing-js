@@ -3,7 +3,50 @@
  * @fileoverview Helper utilities for Funnefox SDK
  */
 
+import type { InputMetadata } from '@primer-io/checkout-web';
 import type { TaxBehavior, TaxInfo } from '../types';
+
+// Mirrors Stripe Elements: a card number that can never become valid is reported while the buyer
+// types, an incomplete value only after they leave the field, and an empty one only after a submit
+// attempt. Primer reports every error on every keystroke, even for fields the buyer has not reached
+// yet, and its expiry codes cannot tell a typo from a half-typed date ("1" is already
+// expiryYearInvalid, "01/2" is cardExpired), so expiry errors wait for the buyer to leave the field.
+const HOSTED_INPUT_ERRORS_SHOWN_WHILE_TYPING = new Set(['cardInvalid']);
+const HOSTED_INPUT_ERRORS_FOR_EMPTY_FIELD = new Set([
+  'cardRequired',
+  'expiryRequired',
+  'cvvRequired',
+]);
+
+export function getVisibleHostedInputError(
+  input: Pick<
+    InputMetadata,
+    'error' | 'errorCode' | 'active' | 'touched' | 'submitted'
+  >
+): string | null {
+  if (!input.error) {
+    return null;
+  }
+  if (
+    input.errorCode &&
+    HOSTED_INPUT_ERRORS_SHOWN_WHILE_TYPING.has(input.errorCode)
+  ) {
+    return input.error;
+  }
+  if (input.active) {
+    return null;
+  }
+  if (input.submitted) {
+    return input.error;
+  }
+  if (
+    input.errorCode &&
+    HOSTED_INPUT_ERRORS_FOR_EMPTY_FIELD.has(input.errorCode)
+  ) {
+    return null;
+  }
+  return input.touched ? input.error : null;
+}
 
 export function resolveTaxDisplay(source: {
   tax_behavior?: TaxBehavior;

@@ -29,7 +29,7 @@ import {
   CardInputElementsWithButton,
 } from './types';
 import { PaymentMethod } from './enums';
-import { generateId } from './utils/helpers';
+import { generateId, getVisibleHostedInputError } from './utils/helpers';
 
 declare global {
   interface Window {
@@ -282,12 +282,22 @@ class PrimerWrapper implements PrimerWrapperInterface {
           : null;
       };
 
+      const focusedHostedInputs = new Set<keyof CardInputSelectors>();
       const onHostedInputChange =
         (name: keyof CardInputSelectors) => (event: Event) => {
           const input = event as unknown as InputMetadata;
-          if (input.submitted) {
-            dispatchError(name, input.error);
+          const justFocused = input.active && !focusedHostedInputs.has(name);
+          if (input.active) {
+            focusedHostedInputs.add(name);
+          } else {
+            focusedHostedInputs.delete(name);
           }
+          // Primer sends a change on focus before any keystroke; like Stripe, the error the buyer
+          // came back to fix stays visible until they start typing.
+          if (justFocused) {
+            return;
+          }
+          dispatchError(name, getVisibleHostedInputError(input));
         };
 
       const cardHolderOnChange = async (e: Event) => {
