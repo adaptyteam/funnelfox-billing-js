@@ -234,4 +234,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Primer card fields show their validation error as soon as the buyer leaves a field they typed into, instead of only after the first submit; untouched empty fields still wait for submit
+- Primer card fields report validation errors like Stripe Elements instead of only after the first submit: an incomplete value is shown once the buyer leaves the field and hidden again while they retype it, an impossible card number is shown while typing, and empty fields wait for submit
