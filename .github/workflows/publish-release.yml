@@ -51,4 +51,4 @@ jobs:
         run: npm run build
 
       - name: Publish
-        run: npm publish --access public --loglevel verbose
+        run: npm publish --access public
