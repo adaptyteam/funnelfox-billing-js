@@ -70,10 +70,10 @@
 }
   
   .errorContainer:not(:empty) {
-    color: #d10000;
-    font-size: 16px;
-    line-height: 1;
-    margin: 0 0 10px;
+    color: #df1b41;
+    font-size: 15px;
+    line-height: 1.15;
+    margin: 4px 0 10px;
   }
 
   #cvvInput {
