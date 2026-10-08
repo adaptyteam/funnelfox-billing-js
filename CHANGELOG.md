@@ -228,11 +228,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Tax lines are no longer rendered by the SDK; the host re-renders its own prices from `onTaxChange`
 - Stripe card form honors the org's country selector and postal code visibility regardless of tax
+
+## [0.9.2] - 2026-10-08
+
 - `Billing.initMethod` now accepts `onTaxChange` / `onTaxError` / `onTaxPending`, reporting the session tax estimate on mount and every country/postal recalculation
 - `Billing.stripe.purchaseWallet` now accepts `onTaxChange`, reporting the tax the wallet sheet authorizes
 - `TaxInfo` now carries `taxBehavior` (`'inclusive' | 'exclusive'`, `undefined` when unknown) from the session/recalculation `tax_behavior`, so hosts can pick the right disclaimer without comparing amounts themselves; `taxAmount` is now the tax to show the buyer and reports `tax_inclusive_amount` for inclusive pricing
-
-## [Unreleased]
-
 - Primer card fields report validation errors like Stripe Elements instead of only after the first submit: an incomplete value is shown once the buyer leaves the field and hidden again while they retype it, an impossible card number is shown while typing, and empty fields wait for submit
 - Card form error text is styled like Stripe Elements: `#df1b41`, 15px, 8px below the field
