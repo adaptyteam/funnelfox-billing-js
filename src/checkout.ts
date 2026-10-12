@@ -4,7 +4,7 @@
 
 import EventEmitter from './utils/event-emitter';
 import PrimerWrapper from './primer-wrapper';
-import { CheckoutError } from './errors';
+import { APIError, CheckoutError } from './errors';
 import { isValidEmail, requireString } from './utils/validation';
 import {
   generateId,
@@ -45,6 +45,7 @@ import type {
   CheckoutRenderOptions,
   CreateClientSessionResponse,
   InitMethodCallbacks,
+  PaymentFailure,
   MetadataType,
   TaxInfo,
 } from './types';
@@ -79,6 +80,17 @@ interface CheckoutEventMap {
 }
 
 const TAX_RECALC_DEBOUNCE_MS = 600;
+
+function toPaymentFailure(error: unknown): PaymentFailure {
+  const failure: PaymentFailure = new Error(
+    (error as Error)?.message || 'Payment processing failed'
+  );
+  if (error instanceof APIError && error.declineCode) {
+    failure.declineCode = error.declineCode;
+    failure.declineCodeSource = error.declineCodeSource;
+  }
+  return failure;
+}
 
 class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   id: string;
@@ -681,10 +693,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       await this._processPaymentResult(result, primerHandler);
     } catch (error: unknown) {
       this._setState('error');
-      this.emit(
-        EVENTS.PURCHASE_FAILURE,
-        new Error((error as Error).message || 'Payment processing failed')
-      );
+      this.emit(EVENTS.PURCHASE_FAILURE, toPaymentFailure(error));
       primerHandler.handleFailure(
         (error as Error).message || 'Payment processing failed'
       );
@@ -715,10 +724,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       await this._processPaymentResult(result, primerHandler);
     } catch (error: unknown) {
       this._setState('error');
-      this.emit(
-        EVENTS.PURCHASE_FAILURE,
-        new Error((error as Error).message || 'Payment processing failed')
-      );
+      this.emit(EVENTS.PURCHASE_FAILURE, toPaymentFailure(error));
       primerHandler.handleFailure(
         (error as Error).message || 'Payment processing failed'
       );
