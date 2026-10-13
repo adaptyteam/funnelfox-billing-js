@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Expose billing decline codes on payment failures: `onPaymentFail` errors now carry `declineCode` and `declineCodeSource` (`'primer' | 'stripe' | 'adyen'`) so funnels can tell "insufficient funds" apart from a generic failure. Stripe 3DS (`handleNextAction`) card declines are mapped client-side with the same uppercase vocabulary the backend uses (PAY-413/PAY-427).
+
 ## [0.1.0] - 2024-09-29
 
 ### Added

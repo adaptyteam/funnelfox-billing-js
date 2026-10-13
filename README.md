@@ -422,7 +422,7 @@ try {
     console.log('Error Type:', error.errorType); // e.g., 'api_exception'
     console.log('Request ID:', error.requestId); // For support
     console.log('Decline Code:', error.declineCode); // e.g., 'INSUFFICIENT_FUNDS', set on failed payments
-    console.log('Decline Source:', error.declineCodeSource); // 'primer' | 'stripe' | 'adyen'
+    console.log('Decline Source:', error.declineCodeSource); // 'primer' | 'stripe' | 'adyen', when the provider reports one
     console.log('Message:', error.message);
   } else if (error instanceof PrimerError) {
     // Primer SDK error

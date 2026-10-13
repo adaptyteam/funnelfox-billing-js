@@ -4,7 +4,7 @@
 
 import EventEmitter from './utils/event-emitter';
 import PrimerWrapper from './primer-wrapper';
-import { APIError, CheckoutError } from './errors';
+import { CheckoutError } from './errors';
 import { isValidEmail, requireString } from './utils/validation';
 import {
   generateId,
@@ -12,6 +12,7 @@ import {
   merge,
   resolveTaxDisplay,
 } from './utils/helpers';
+import { toPaymentFailure } from './utils/payment-failure';
 import APIClient from './api-client';
 import sessionService from './shared/services/session-service';
 import {
@@ -45,7 +46,6 @@ import type {
   CheckoutRenderOptions,
   CreateClientSessionResponse,
   InitMethodCallbacks,
-  PaymentFailure,
   MetadataType,
   TaxInfo,
 } from './types';
@@ -80,21 +80,6 @@ interface CheckoutEventMap {
 }
 
 const TAX_RECALC_DEBOUNCE_MS = 600;
-
-function toPaymentFailure(error: unknown): PaymentFailure {
-  const failure: PaymentFailure = new Error(
-    (error as Error)?.message || 'Payment processing failed'
-  );
-  if (error instanceof APIError) {
-    if (error.declineCode) {
-      failure.declineCode = error.declineCode;
-    }
-    if (error.declineCodeSource) {
-      failure.declineCodeSource = error.declineCodeSource;
-    }
-  }
-  return failure;
-}
 
 class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   id: string;

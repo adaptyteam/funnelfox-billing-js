@@ -1,5 +1,6 @@
 import { getStripe } from './stripe-loader';
 import { resolveTaxDisplay } from '../utils/helpers';
+import { toPaymentFailure } from '../utils/payment-failure';
 import type {
   Stripe,
   PaymentRequest,
@@ -206,7 +207,7 @@ export async function purchaseWallet(
         resolve();
       } catch (err) {
         completeOnce('fail');
-        params.onPaymentFail?.(err as Error);
+        params.onPaymentFail?.(toPaymentFailure(err));
         reject(err);
       } finally {
         params.onLoaderChange?.(false);

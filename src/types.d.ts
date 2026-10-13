@@ -371,7 +371,7 @@ export interface InitMethodOptions
   meta?: MetadataType;
 }
 
-export type DeclineCodeSource = 'primer' | 'stripe' | 'adyen';
+export type DeclineCodeSource = ('primer' | 'stripe' | 'adyen') | (string & {});
 
 export type PaymentFailure = Error & {
   declineCode?: string | null;
