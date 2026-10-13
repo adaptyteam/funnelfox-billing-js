@@ -85,9 +85,13 @@ function toPaymentFailure(error: unknown): PaymentFailure {
   const failure: PaymentFailure = new Error(
     (error as Error)?.message || 'Payment processing failed'
   );
-  if (error instanceof APIError && error.declineCode) {
-    failure.declineCode = error.declineCode;
-    failure.declineCodeSource = error.declineCodeSource;
+  if (error instanceof APIError) {
+    if (error.declineCode) {
+      failure.declineCode = error.declineCode;
+    }
+    if (error.declineCodeSource) {
+      failure.declineCodeSource = error.declineCodeSource;
+    }
   }
   return failure;
 }
@@ -695,7 +699,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       this._setState('error');
       this.emit(EVENTS.PURCHASE_FAILURE, toPaymentFailure(error));
       primerHandler.handleFailure(
-        (error as Error).message || 'Payment processing failed'
+        (error as Error)?.message || 'Payment processing failed'
       );
     } finally {
       this.onLoaderChangeWithRace(false);
@@ -726,7 +730,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       this._setState('error');
       this.emit(EVENTS.PURCHASE_FAILURE, toPaymentFailure(error));
       primerHandler.handleFailure(
-        (error as Error).message || 'Payment processing failed'
+        (error as Error)?.message || 'Payment processing failed'
       );
     } finally {
       this.emit(EVENTS.PURCHASE_COMPLETED);

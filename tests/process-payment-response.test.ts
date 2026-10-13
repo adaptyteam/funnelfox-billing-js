@@ -50,37 +50,66 @@ describe('processPaymentResponse', () => {
   });
 });
 
-test('purchase failure emits a plain Error with the decline code', async () => {
-  const checkout = new CheckoutInstance({
-    orgId: 'org',
-    checkoutConfig: {
-      customer: {},
-    } as unknown as CheckoutConfigWithCallbacks,
-  });
-  checkout.orderId = 'o1';
-  checkout.apiClient.resumePayment = jest.fn().mockResolvedValue({
-    status: 'success',
-    data: {
+describe('purchase failure', () => {
+  const buildCheckout = (
+    resumeData: Record<string, unknown>
+  ): CheckoutInstance => {
+    const checkout = new CheckoutInstance({
+      orgId: 'org',
+      checkoutConfig: {
+        customer: {},
+      } as unknown as CheckoutConfigWithCallbacks,
+    });
+    checkout.orderId = 'o1';
+    checkout.apiClient.resumePayment = jest.fn().mockResolvedValue({
+      status: 'success',
+      data: resumeData,
+    });
+    return checkout;
+  };
+
+  test('emits a plain Error with the decline code and source', async () => {
+    const checkout = buildCheckout({
       order_id: 'o1',
       checkout_status: 'failed',
       decline_code: 'INSUFFICIENT_FUNDS',
       decline_code_source: 'primer',
-    },
+    });
+    const onFail = jest.fn();
+    checkout.on(EVENTS.PURCHASE_FAILURE, onFail);
+
+    await (
+      checkout as unknown as {
+        handleResumeSuccess: (d: unknown, h: unknown) => Promise<void>;
+      }
+    ).handleResumeSuccess({ resumeToken: 't' }, { handleFailure: jest.fn() });
+
+    const error = onFail.mock.calls[0][0];
+    expect(error).not.toBeInstanceOf(APIError);
+    expect(error.name).toBe('Error');
+    expect(error.message).toBe('Payment failed');
+    expect(error.declineCode).toBe('INSUFFICIENT_FUNDS');
+    expect(error.declineCodeSource).toBe('primer');
+    expect(error).not.toHaveProperty('response');
   });
-  const onFail = jest.fn();
-  checkout.on(EVENTS.PURCHASE_FAILURE, onFail);
 
-  await (
-    checkout as unknown as {
-      handleResumeSuccess: (d: unknown, h: unknown) => Promise<void>;
-    }
-  ).handleResumeSuccess({ resumeToken: 't' }, { handleFailure: jest.fn() });
+  test('emits the decline source even when the code is missing', async () => {
+    const checkout = buildCheckout({
+      order_id: 'o1',
+      checkout_status: 'failed',
+      decline_code_source: 'stripe',
+    });
+    const onFail = jest.fn();
+    checkout.on(EVENTS.PURCHASE_FAILURE, onFail);
 
-  const error = onFail.mock.calls[0][0];
-  expect(error).not.toBeInstanceOf(APIError);
-  expect(error.name).toBe('Error');
-  expect(error.message).toBe('Payment failed');
-  expect(error.declineCode).toBe('INSUFFICIENT_FUNDS');
-  expect(error.declineCodeSource).toBe('primer');
-  expect(error).not.toHaveProperty('response');
+    await (
+      checkout as unknown as {
+        handleResumeSuccess: (d: unknown, h: unknown) => Promise<void>;
+      }
+    ).handleResumeSuccess({ resumeToken: 't' }, { handleFailure: jest.fn() });
+
+    const error = onFail.mock.calls[0][0];
+    expect(error.declineCode).toBeUndefined();
+    expect(error.declineCodeSource).toBe('stripe');
+  });
 });
