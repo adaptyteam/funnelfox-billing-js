@@ -272,7 +272,11 @@ class APIClient {
           throw new APIError(
             data.failed_message_for_user || 'Payment failed',
             null,
-            { response }
+            {
+              response,
+              declineCode: data.decline_code,
+              declineCodeSource: data.decline_code_source,
+            }
           );
         case 'cancelled':
           throw new APIError('Payment was cancelled by user', null, {

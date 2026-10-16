@@ -12,6 +12,7 @@ import {
   merge,
   resolveTaxDisplay,
 } from './utils/helpers';
+import { toPaymentFailure } from './utils/payment-failure';
 import APIClient from './api-client';
 import sessionService from './shared/services/session-service';
 import {
@@ -681,12 +682,9 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       await this._processPaymentResult(result, primerHandler);
     } catch (error: unknown) {
       this._setState('error');
-      this.emit(
-        EVENTS.PURCHASE_FAILURE,
-        new Error((error as Error).message || 'Payment processing failed')
-      );
+      this.emit(EVENTS.PURCHASE_FAILURE, toPaymentFailure(error));
       primerHandler.handleFailure(
-        (error as Error).message || 'Payment processing failed'
+        (error as Error)?.message || 'Payment processing failed'
       );
     } finally {
       this.onLoaderChangeWithRace(false);
@@ -715,12 +713,9 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       await this._processPaymentResult(result, primerHandler);
     } catch (error: unknown) {
       this._setState('error');
-      this.emit(
-        EVENTS.PURCHASE_FAILURE,
-        new Error((error as Error).message || 'Payment processing failed')
-      );
+      this.emit(EVENTS.PURCHASE_FAILURE, toPaymentFailure(error));
       primerHandler.handleFailure(
-        (error as Error).message || 'Payment processing failed'
+        (error as Error)?.message || 'Payment processing failed'
       );
     } finally {
       this.emit(EVENTS.PURCHASE_COMPLETED);

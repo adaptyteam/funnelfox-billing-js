@@ -268,6 +268,8 @@ export interface APIError extends FunnefoxSDKError {
   errorType: string | null;
   requestId: string | null;
   response: unknown;
+  declineCode: string | null;
+  declineCodeSource: DeclineCodeSource | null;
 }
 
 export interface PrimerError extends FunnefoxSDKError {
@@ -369,11 +371,18 @@ export interface InitMethodOptions
   meta?: MetadataType;
 }
 
+export type DeclineCodeSource = ('primer' | 'stripe' | 'adyen') | (string & {});
+
+export type PaymentFailure = Error & {
+  declineCode?: string | null;
+  declineCodeSource?: DeclineCodeSource | null;
+};
+
 export interface InitMethodCallbacks {
   onRenderSuccess?: () => void;
   onRenderError?: (err: PaymentMethod) => void;
   onPaymentSuccess?: () => void;
-  onPaymentFail?: (err: Error) => void;
+  onPaymentFail?: (err: PaymentFailure) => void;
   onPaymentCancel?: () => void;
   onErrorMessageChange?: (msg: string) => void;
   onLoaderChange?: (state: boolean) => void;
@@ -596,6 +605,8 @@ export interface PaymentResponseData {
   action_required_token: string;
   checkout_status: 'processing' | 'succeeded' | 'failed' | 'cancelled';
   failed_message_for_user: string;
+  decline_code?: string | null;
+  decline_code_source?: DeclineCodeSource | null;
   order_id: string;
 }
 

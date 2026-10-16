@@ -3,6 +3,7 @@
  */
 
 import { ERROR_CODES } from '.';
+import type { DeclineCodeSource } from './types';
 
 class FunnefoxSDKError extends Error {
   code: string;
@@ -39,6 +40,8 @@ class APIError extends FunnefoxSDKError {
   errorType: string | null;
   requestId: string | null;
   response: unknown;
+  declineCode: string | null;
+  declineCodeSource: DeclineCodeSource | null;
   constructor(
     message: string,
     statusCode: number | null = null,
@@ -47,6 +50,8 @@ class APIError extends FunnefoxSDKError {
       errorType?: string | null;
       requestId?: string | null;
       response?: unknown;
+      declineCode?: string | null;
+      declineCodeSource?: DeclineCodeSource | null;
     } = {}
   ) {
     super(message, options.errorCode || ERROR_CODES.API_ERROR);
@@ -56,6 +61,8 @@ class APIError extends FunnefoxSDKError {
     this.errorType = options.errorType || null;
     this.requestId = options.requestId || null;
     this.response = options.response || null;
+    this.declineCode = options.declineCode || null;
+    this.declineCodeSource = options.declineCodeSource || null;
   }
 }
 

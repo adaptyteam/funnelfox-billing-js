@@ -1,5 +1,6 @@
 import { getStripe } from './stripe-loader';
 import { resolveTaxDisplay } from '../utils/helpers';
+import { toPaymentFailure } from '../utils/payment-failure';
 import type APIClient from '../api-client';
 import type {
   StripeClientSessionResponse,
@@ -269,7 +270,7 @@ export async function mountStripeCardForm(
         params.invalidateSession?.();
         params.onPaymentSuccess?.(paymentMethod, order_id);
       } catch (err) {
-        params.onPaymentFail?.(err as Error);
+        params.onPaymentFail?.(toPaymentFailure(err));
         throw err;
       } finally {
         params.onLoaderChange?.(false);
