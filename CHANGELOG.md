@@ -240,3 +240,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.10.0] - 2026-10-16
 
 - Payment failures carry the billing decline code: errors passed to `onPaymentFail` (and `APIError` for a failed checkout) now have `declineCode` and `declineCodeSource` (`'primer' | 'stripe' | 'adyen'`), so funnels can tell "insufficient funds" apart from a generic failure. Stripe 3DS (`handleNextAction`) card declines are mapped client-side with the same uppercase codes the backend uses
+
+## [0.10.1] - 2026-10-16
+
+- `TaxInfo` now carries `taxRate` (the provider's percentage, e.g. `21` or `8.875`) and `taxBreakdown` (per-jurisdiction `amount`, `percentage`, `inclusive`, `taxType`, `country`, `subdivision`, `taxabilityReason`) from the session/recalculation `tax_breakdown`, so hosts can show the exact rate instead of deriving it from rounded minor units (21% NL VAT no longer shows as 20.94%). Both are omitted when the backend sends no breakdown

@@ -4,7 +4,7 @@
  */
 
 import type { InputMetadata } from '@primer-io/checkout-web';
-import type { TaxBehavior, TaxInfo } from '../types';
+import type { TaxBehavior, TaxBreakdownEntryResponse, TaxInfo } from '../types';
 
 // Mirrors Stripe Elements: a card number that can never become valid is reported while the buyer
 // types, an incomplete value only after they leave the field, and an empty one only after a submit
@@ -49,6 +49,43 @@ export function getVisibleHostedInputError(
 }
 
 export function resolveTaxDisplay(source: {
+  tax_behavior?: TaxBehavior;
+  tax_amount?: number;
+  tax_inclusive_amount?: number;
+  tax_breakdown?: TaxBreakdownEntryResponse[];
+}): Pick<TaxInfo, 'taxAmount' | 'taxBehavior' | 'taxRate' | 'taxBreakdown'> {
+  return {
+    ...resolveTaxAmount(source),
+    ...resolveTaxBreakdown(source.tax_breakdown),
+  };
+}
+
+function resolveTaxBreakdown(
+  breakdown?: TaxBreakdownEntryResponse[]
+): Pick<TaxInfo, 'taxRate' | 'taxBreakdown'> {
+  if (!Array.isArray(breakdown)) {
+    return {};
+  }
+  const taxBreakdown = breakdown.map(entry => ({
+    amount: entry.amount,
+    percentage: entry.percentage,
+    inclusive: entry.inclusive,
+    taxType: entry.tax_type,
+    country: entry.country,
+    subdivision: entry.subdivision,
+    taxabilityReason: entry.taxability_reason,
+  }));
+  const percentages = taxBreakdown.map(entry => Number(entry.percentage));
+  if (!percentages.length || !percentages.every(Number.isFinite)) {
+    return { taxBreakdown };
+  }
+  const taxRate = Number(
+    percentages.reduce((sum, percentage) => sum + percentage, 0).toFixed(6)
+  );
+  return { taxBreakdown, taxRate };
+}
+
+function resolveTaxAmount(source: {
   tax_behavior?: TaxBehavior;
   tax_amount?: number;
   tax_inclusive_amount?: number;
