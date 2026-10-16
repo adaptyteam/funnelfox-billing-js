@@ -5,12 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Added
-
-- Expose billing decline codes on payment failures: `onPaymentFail` errors now carry `declineCode` and `declineCodeSource` (`'primer' | 'stripe' | 'adyen'`) so funnels can tell "insufficient funds" apart from a generic failure. Stripe 3DS (`handleNextAction`) card declines are mapped client-side with the same uppercase vocabulary the backend uses (PAY-413/PAY-427).
-
 ## [0.1.0] - 2024-09-29
 
 ### Added
@@ -242,3 +236,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TaxInfo` now carries `taxBehavior` (`'inclusive' | 'exclusive'`, `undefined` when unknown) from the session/recalculation `tax_behavior`, so hosts can pick the right disclaimer without comparing amounts themselves; `taxAmount` is now the tax to show the buyer and reports `tax_inclusive_amount` for inclusive pricing
 - Primer card fields report validation errors like Stripe Elements instead of only after the first submit: an incomplete value is shown once the buyer leaves the field and hidden again while they retype it, an impossible card number is shown while typing, and empty fields wait for submit
 - Card form error text is styled like Stripe Elements: `#df1b41`, 15px, 8px below the field
+
+## [0.10.0] - 2026-10-16
+
+- Payment failures carry the billing decline code: errors passed to `onPaymentFail` (and `APIError` for a failed checkout) now have `declineCode` and `declineCodeSource` (`'primer' | 'stripe' | 'adyen'`), so funnels can tell "insufficient funds" apart from a generic failure. Stripe 3DS (`handleNextAction`) card declines are mapped client-side with the same uppercase codes the backend uses
