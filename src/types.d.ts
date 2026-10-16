@@ -103,9 +103,31 @@ export interface TaxInfo {
   taxAmount: number;
   currency: string;
   taxBehavior?: TaxBehavior;
+  taxRate?: number;
+  taxBreakdown?: TaxBreakdownEntry[];
 }
 
 export type TaxBehavior = 'inclusive' | 'exclusive';
+
+export interface TaxBreakdownEntry {
+  amount: string;
+  percentage: string;
+  inclusive: boolean;
+  taxType?: string | null;
+  country?: string | null;
+  subdivision?: string | null;
+  taxabilityReason?: string | null;
+}
+
+export interface TaxBreakdownEntryResponse {
+  amount: string;
+  percentage: string;
+  inclusive: boolean;
+  tax_type?: string | null;
+  country?: string | null;
+  subdivision?: string | null;
+  taxability_reason?: string | null;
+}
 
 export interface PaymentButtonSelectors {
   paypal: string;
@@ -558,6 +580,7 @@ export interface CreateClientSessionResponse {
     tax_amount?: number;
     tax_inclusive_amount?: number;
     tax_behavior?: TaxBehavior;
+    tax_breakdown?: TaxBreakdownEntryResponse[];
     amount_total?: number;
     currency?: string;
     tax_calculation_id?: string;
@@ -587,6 +610,7 @@ export interface TaxRecalculationData {
   tax_amount: number;
   tax_inclusive_amount?: number;
   tax_behavior?: TaxBehavior;
+  tax_breakdown?: TaxBreakdownEntryResponse[];
   currency: string;
 }
 
