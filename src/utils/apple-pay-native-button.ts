@@ -5,7 +5,7 @@
  * approach (-webkit-appearance: -apple-pay-button), and WebKit only accepts
  * the 7 legacy values for -apple-pay-button-type. Newer types such as
  * 'continue' are silently dropped and fall back to 'plain' (verified in
- * Safari 26 on macOS and iOS — see PRD-1426).
+ * Safari 26 on macOS and iOS, see PRD-1426).
  *
  * Apple's official custom element supports the full set of button types, so
  * for "native-only" types we overlay it on top of the (visually hidden)
@@ -60,7 +60,7 @@ export async function loadApplePayButtonElement(): Promise<boolean> {
       crossOrigin: 'anonymous',
       appendTo: 'head',
     });
-    // Never hang on a script that loaded but did not define the element —
+    // Never hang on a script that loaded but did not define the element;
     // fall back to Primer's own button instead.
     const defined = window.customElements
       .whenDefined('apple-pay-button')
@@ -91,7 +91,7 @@ export async function overlayNativeApplePayButton(
     return null;
   }
 
-  // The overlay is only safe when Primer's own clickable button is present —
+  // The overlay is only safe when Primer's own clickable button is present;
   // otherwise there is nothing to forward the click to.
   if (!wrapper.querySelector('button')) {
     return null;

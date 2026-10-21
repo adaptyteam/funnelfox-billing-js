@@ -14,7 +14,7 @@ import { PaymentMethod } from '../enums';
 /**
  * Primer headless options with our widened Apple Pay typing
  * (see ApplePayButtonType in types.d.ts). The value is handed to
- * Primer as-is — the cast below is type-level only.
+ * Primer as-is; the cast below is type-level only.
  */
 type HeadlessOptions = Omit<
   Partial<HeadlessUniversalCheckoutOptions>,

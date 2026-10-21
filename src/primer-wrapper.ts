@@ -198,7 +198,10 @@ class PrimerWrapper implements PrimerWrapperInterface {
         }
       }
 
-      this.destroyCallbacks.push(() => button.clean());
+      this.destroyCallbacks.push(() => {
+        nativeOverlay?.remove();
+        button.clean();
+      });
       onMethodRender(allowedPaymentMethod);
       return {
         setDisabled: (disabled: boolean) => {
