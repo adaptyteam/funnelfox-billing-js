@@ -245,6 +245,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `TaxInfo` now carries `taxRate` (the provider's percentage, e.g. `21` or `8.875`) and `taxBreakdown` (per-jurisdiction `amount`, `percentage`, `inclusive`, `taxType`, `country`, `subdivision`, `taxabilityReason`) from the session/recalculation `tax_breakdown`, so hosts can show the exact rate instead of deriving it from rounded minor units (21% NL VAT no longer shows as 20.94%). Both are omitted when the backend sends no breakdown
 
-## [Unreleased]
+## [0.11.0] - 2026-10-21
 
 - Added support for all Apple Pay button types (`applePay.buttonType`), including `'continue'`, via the SDK's own `ApplePayButtonType` union. The legacy 7 values render through Primer as before; newer values cannot be rendered by WebKit through Primer v2's CSS approach, so the SDK overlays Apple's official `<apple-pay-button>` element over the hidden Primer button and forwards clicks; the payment flow stays fully Primer-driven. Falls back to Primer's own button if Apple's SDK script fails to load. (PRD-1426)
