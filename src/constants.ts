@@ -9,6 +9,7 @@ import {
   type ApplePayOptions,
 } from '@primer-io/checkout-web';
 import { PaymentMethod } from './enums';
+import type { BillingApplePayOptions } from './types';
 
 export const SDK_VERSION = '0.9.0-beta.1';
 
@@ -164,12 +165,13 @@ export const DEFAULT_PAYMENT_METHOD_ORDER = [
 ];
 
 export const DEFAULT_BUTTONS_OPTIONS: {
-  [PaymentMethod.APPLE_PAY]: HeadlessUniversalCheckoutOptions['applePay'];
+  [PaymentMethod.APPLE_PAY]: BillingApplePayOptions;
   [PaymentMethod.PAYPAL]: HeadlessUniversalCheckoutOptions['paypal'];
   [PaymentMethod.GOOGLE_PAY]: HeadlessUniversalCheckoutOptions['googlePay'];
 } = {
   [PaymentMethod.APPLE_PAY]: {
     buttonStyle: 'black',
+    buttonType: 'continue',
   },
   [PaymentMethod.PAYPAL]: {
     buttonColor: 'gold',

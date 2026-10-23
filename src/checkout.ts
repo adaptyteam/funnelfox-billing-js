@@ -17,6 +17,7 @@ import APIClient from './api-client';
 import sessionService from './shared/services/session-service';
 import {
   APPLE_PAY_COLLECTING_EMAIL_OPTIONS,
+  DEFAULT_BUTTONS_OPTIONS,
   DEFAULT_PAYMENT_METHOD_ORDER,
   DEFAULTS,
   EVENTS,
@@ -778,8 +779,9 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       ...options,
       card: merge(this.getPrimerCardConfig() || {}, options.card || {}),
       applePay: merge(
-        this.checkoutConfig.applePay || {},
-        options.applePay || {}
+        DEFAULT_BUTTONS_OPTIONS[PaymentMethod.APPLE_PAY],
+        options.applePay || {},
+        this.checkoutConfig.applePay || {}
       ),
       onTokenizeSuccess: this.handleTokenizeSuccess,
       onResumeSuccess: this.handleResumeSuccess,
