@@ -248,3 +248,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.11.0] - 2026-10-21
 
 - Added support for all Apple Pay button types (`applePay.buttonType`), including `'continue'`, via the SDK's own `ApplePayButtonType` union. The legacy 7 values render through Primer as before; newer values cannot be rendered by WebKit through Primer v2's CSS approach, so the SDK overlays Apple's official `<apple-pay-button>` element over the hidden Primer button and forwards clicks; the payment flow stays fully Primer-driven. Falls back to Primer's own button if Apple's SDK script fails to load. (PRD-1426)
+
+## [Unreleased]
+
+- The Apple Pay button now defaults to `'continue'` ("Continue with Apple Pay") instead of Primer's `plain`, in both the default skin and custom skins. Pass `applePay.buttonType` to keep another type, e.g. `'plain'` for the previous look
+- `applePay` options passed to `createCheckout` now take priority over the default skin's, so `buttonStyle` and `buttonType` are no longer replaced by the skin defaults

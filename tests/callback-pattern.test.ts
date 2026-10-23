@@ -450,6 +450,76 @@ describe('Callback Pattern Tests', () => {
       ).toEqual(['name', 'emailAddress']);
     });
 
+    test('createCheckout renders the continue Apple Pay button by default', async () => {
+      configure({
+        baseUrl: 'https://api.example.com',
+        orgId: 'test-org',
+      });
+
+      await createCheckout({
+        priceId: 'price-123',
+        customer: {
+          externalId: 'user-apple-pay-default',
+          email: 'test@example.com',
+        },
+        container: '#test-container',
+      });
+
+      const primerWrapperInstances = (
+        PrimerWrapper as unknown as jest.Mock
+      ).mock.results
+        .map(result => result.value)
+        .filter(instance => instance?.renderCheckout);
+      const renderCheckout = primerWrapperInstances.find(
+        instance => (instance.renderCheckout as jest.Mock).mock.calls.length > 0
+      )?.renderCheckout as jest.Mock;
+      const checkoutOptions = renderCheckout.mock.calls[0][1];
+
+      expect(checkoutOptions.applePay).toEqual(
+        expect.objectContaining({
+          buttonType: 'continue',
+          buttonStyle: 'black',
+        })
+      );
+    });
+
+    test('createCheckout keeps user Apple Pay button options over the skin defaults', async () => {
+      configure({
+        baseUrl: 'https://api.example.com',
+        orgId: 'test-org',
+      });
+
+      await createCheckout({
+        priceId: 'price-123',
+        customer: {
+          externalId: 'user-apple-pay-explicit',
+          email: 'test@example.com',
+        },
+        container: '#test-container',
+        applePay: {
+          buttonType: 'subscribe',
+          buttonStyle: 'white-outline',
+        },
+      });
+
+      const primerWrapperInstances = (
+        PrimerWrapper as unknown as jest.Mock
+      ).mock.results
+        .map(result => result.value)
+        .filter(instance => instance?.renderCheckout);
+      const renderCheckout = primerWrapperInstances.find(
+        instance => (instance.renderCheckout as jest.Mock).mock.calls.length > 0
+      )?.renderCheckout as jest.Mock;
+      const checkoutOptions = renderCheckout.mock.calls[0][1];
+
+      expect(checkoutOptions.applePay).toEqual(
+        expect.objectContaining({
+          buttonType: 'subscribe',
+          buttonStyle: 'white-outline',
+        })
+      );
+    });
+
     test('createCheckout should call onSuccess callback', async () => {
       configure({
         baseUrl: 'https://api.example.com',
