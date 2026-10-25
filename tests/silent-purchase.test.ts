@@ -781,6 +781,26 @@ describe('detailed silentPurchase — 3DS rows', () => {
     expect(h.calls).toEqual(['start:order_1', 'end:abandoned']);
   });
 
+  test('row 12a (timeout): hung create_client_session + threeDSTimeoutMs -> error, not 3ds_abandoned', async () => {
+    installPrimer();
+    const h = hooks();
+    routeFetch({
+      [ENDPOINT.ONE_CLICK]: [actionResponse()],
+      [ENDPOINT.SESSION]: [() => new Promise<Response>(() => {})],
+    });
+    jest.useFakeTimers();
+    const promise = detailed(h, { threeDSTimeoutMs: 2000 });
+    await jest.advanceTimersByTimeAsync(2001);
+    const result = await promise;
+    expect(result.outcome).toBe('error');
+    expect(result.orderId).toBe('order_1');
+    expect(result.threeDSChallenged).toBe(true);
+    expect(result.failedRequest).toBe('create_client_session');
+    expect(result.error).toBeInstanceOf(NetworkError);
+    expect(h.calls).toEqual(['start:order_1', 'end:error']);
+    expect(callsTo(ENDPOINT.RESUME)).toHaveLength(0);
+  });
+
   test('row 11: non-Primer token -> error, Primer never touched, hooks start/error', async () => {
     const primer = installPrimer();
     const load = jest.spyOn(PrimerWrapper.prototype, 'ensurePrimerLoaded');

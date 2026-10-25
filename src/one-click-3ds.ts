@@ -19,7 +19,7 @@ import type {
   VaultedPaymentMethod,
 } from '@primer-io/checkout-web';
 import type APIClient from './api-client';
-import { PrimerError } from './errors';
+import { NetworkError, PrimerError } from './errors';
 import PrimerWrapper from './primer-wrapper';
 import type { CreatePaymentResponse, OneClickFailedRequest } from './types';
 import { PRIMER_DEFAULTS } from './constants';
@@ -145,6 +145,8 @@ export async function runOneClickThreeDS(
   return new Promise<ThreeDSRunResult>(resolve => {
     let settled = false;
     let tokenized = false;
+    // True only while create_client_session is in flight.
+    let sessionInFlight = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let headless: PrimerHeadlessCheckout | null = null;
 
@@ -163,9 +165,30 @@ export async function runOneClickThreeDS(
 
     timer = setTimeout(() => {
       timer = null;
-      settle({ kind: 'abandoned' });
-      // Close Primer's overlay; the close error it raises is ignored (already settled).
-      dismissPrimerOverlay();
+      if (tokenized) {
+        // The challenge was shown and the customer did not finish it.
+        settle({ kind: 'abandoned' });
+        // Close Primer's overlay; the close error it raises is ignored (already settled).
+        dismissPrimerOverlay();
+        return;
+      }
+      // No challenge was shown yet: this is a setup failure, not an abandoned challenge.
+      if (sessionInFlight) {
+        settle({
+          kind: 'error',
+          error: new NetworkError(
+            'create_client_session did not respond within threeDSTimeoutMs'
+          ),
+          failedRequest: 'create_client_session',
+        });
+        return;
+      }
+      settle({
+        kind: 'error',
+        error: new PrimerError(
+          'Timed out before the 3DS challenge was shown (threeDSTimeoutMs)'
+        ),
+      });
     }, timeoutMs);
 
     const onTokenizeSuccess = (
@@ -272,6 +295,7 @@ export async function runOneClickThreeDS(
       }
 
       let clientToken: string;
+      sessionInFlight = true;
       try {
         const session = await apiClient.createClientSession({
           priceId,
@@ -280,7 +304,9 @@ export async function runOneClickThreeDS(
           clientMetadata: {},
         });
         clientToken = apiClient.processSessionResponse(session).clientToken;
+        sessionInFlight = false;
       } catch (error) {
+        sessionInFlight = false;
         settle({
           kind: 'error',
           error: error as Error,

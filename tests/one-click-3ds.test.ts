@@ -6,7 +6,7 @@
 
 import APIClient from '../src/api-client';
 import PrimerWrapper from '../src/primer-wrapper';
-import { PrimerError } from '../src/errors';
+import { NetworkError, PrimerError } from '../src/errors';
 import {
   DEFAULT_THREE_DS_TIMEOUT_MS,
   getPrimerTokenIntent,
@@ -282,6 +282,52 @@ describe('runOneClickThreeDS', () => {
       })
     );
     await jest.advanceTimersByTimeAsync(1001);
-    await expect(promise).resolves.toEqual({ kind: 'abandoned' });
+    const run = await promise;
+    // No challenge was shown: a setup timeout is an error, not an abandoned challenge.
+    expect(run).toMatchObject({
+      kind: 'error',
+      failedRequest: 'create_client_session',
+    });
+    expect(run.kind === 'error' && run.error).toBeInstanceOf(NetworkError);
+    expect(callsTo(ENDPOINT.SESSION)).toHaveLength(1);
+  });
+
+  test('a timeout while Primer starts (before the challenge) -> error, PrimerError, no failedRequest', async () => {
+    const primer = installPrimer();
+    primer.createHeadless.mockImplementation(() => new Promise(() => {}));
+    routeFetch({ [ENDPOINT.SESSION]: [jsonResponse(200, SESSION_BODY)] });
+    const close = document.createElement('button');
+    close.setAttribute('data-testid', 'OverlayContent.closeButton');
+    const clicked = jest.fn();
+    close.addEventListener('click', clicked);
+    document.body.appendChild(close);
+    jest.useFakeTimers();
+    const promise = runOneClickThreeDS(params({ timeoutMs: 1000 }));
+    await jest.advanceTimersByTimeAsync(1001);
+    const run = await promise;
+    expect(run.kind).toBe('error');
+    expect(run.kind === 'error' && run.error).toBeInstanceOf(PrimerError);
+    expect(run).not.toHaveProperty('failedRequest');
+    expect(clicked).not.toHaveBeenCalled();
+  });
+
+  test('a late session response after a setup timeout is ignored', async () => {
+    const primer = installPrimer();
+    let release: (r: Response) => void = () => {};
+    routeFetch({
+      [ENDPOINT.SESSION]: [
+        () => new Promise<Response>(resolve => (release = resolve)),
+      ],
+    });
+    jest.useFakeTimers();
+    const promise = runOneClickThreeDS(params({ timeoutMs: 1000 }));
+    await jest.advanceTimersByTimeAsync(1001);
+    await expect(promise).resolves.toMatchObject({
+      kind: 'error',
+      failedRequest: 'create_client_session',
+    });
+    release(jsonResponse(200, SESSION_BODY));
+    await jest.advanceTimersByTimeAsync(10);
+    expect(primer.createHeadless).not.toHaveBeenCalled();
   });
 });
