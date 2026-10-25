@@ -170,7 +170,13 @@ describe('legacy silentPurchase (no handle3DS)', () => {
     jest.useFakeTimers();
     const promise = silentPurchase(base);
     const assertion = expect(promise).rejects.toBeInstanceOf(APIError);
+    const unchanged = expect(promise).rejects.toMatchObject({
+      statusCode: 400,
+      errorCode: null,
+      code: 'API_ERROR',
+    });
     await jest.advanceTimersByTimeAsync(5000);
+    await unchanged;
     await assertion;
   });
 
@@ -1038,9 +1044,10 @@ describe('single POST and error passthrough', () => {
       expect(result.error).toBe(thrown);
       expect(result.error).toBeInstanceOf(APIError);
       expect((result.error as APIError).statusCode).toBe(503);
-      // _makeRequest does not copy error[].code into errorCode (unchanged on purpose: legacy
-      // callers see the same APIError); the code stays readable from the response body.
-      expect((result.error as APIError).errorCode).toBeNull();
+      // requestOnce fills errorCode from the body on the same instance (_makeRequest leaves it
+      // empty; legacy request() is unchanged).
+      expect((result.error as APIError).errorCode).toBe('svc');
+      expect((result.error as APIError).code).toBe('API_ERROR');
       expect((result.error as APIError).response).toEqual(body);
       expect(result.error?.name).toBe('APIError');
       expect(result.failedRequest).toBe('one_click');

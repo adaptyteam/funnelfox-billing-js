@@ -86,7 +86,9 @@ class APIClient {
     try {
       return await this._makeRequest(url, requestOptions);
     } catch (error: unknown) {
-      if (error instanceof Error && error.name === 'APIError') {
+      if (error instanceof APIError) {
+        // Same instance, enriched: _makeRequest leaves errorCode empty; fill it from the body.
+        error.errorCode ??= getResponseErrorCodes(error.response)[0] ?? null;
         throw error;
       }
       if (error instanceof Error && error.name === 'NetworkError') {
