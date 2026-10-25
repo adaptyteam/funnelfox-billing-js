@@ -483,7 +483,12 @@ export interface SilentPurchaseDetailedOptions extends SilentPurchaseOptions {
   onThreeDSStart?: (info: { orderId: string }) => void;
   /** Fired exactly once per `onThreeDSStart`, after the 3DS step and before the promise resolves. */
   onThreeDSEnd?: (info: { result: ThreeDSResult }) => void;
-  /** Give up on the 3DS challenge and resolve `3ds_abandoned` after this many ms. Default 600000. */
+  /**
+   * Give up on the 3DS step after this many ms. Default 600000. Resolves `3ds_abandoned` if the
+   * challenge was shown; `error` if it ran out before the challenge was shown (with
+   * `failedRequest: 'create_client_session'` while that request was pending). Never aborts a
+   * request that is already sent.
+   */
   threeDSTimeoutMs?: number;
 }
 
