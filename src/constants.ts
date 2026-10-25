@@ -199,3 +199,11 @@ export const APPLE_PAY_COLLECTING_EMAIL_OPTIONS: Pick<
     requiredShippingContactFields: ['emailAddress'],
   },
 };
+
+/**
+ * Backend decline codes that mean "the 3DS check failed" (as opposed to "3DS passed, then the
+ * issuer declined"). `null`: the codes cannot tell the two apart, so any decline after a
+ * challenge is `3ds_failed` (FFB-704 spike: in production both cases share REFER_TO_CARD_ISSUER,
+ * DO_NOT_HONOR and AUTHENTICATION_REQUIRED; human decision 10).
+ */
+export const THREE_DS_AUTH_DECLINE_CODES: string[] | null = null;
