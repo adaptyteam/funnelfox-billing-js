@@ -66,6 +66,38 @@ class APIClient {
     }
   }
 
+  /**
+   * Sends the request exactly once: no retry and no client timeout (FFB-704, decision 9).
+   * Same URL, headers and error classes as `request()`. Used only by `silentPurchase`'s
+   * `handle3DS` mode for `one_click` and `resume_payment`, which must not be POSTed twice.
+   */
+  async requestOnce(endpoint: string, options: RequestInit = {}) {
+    const url = `${this.baseUrl}/${this.orgId}${endpoint}`;
+    const requestOptions: RequestInit = {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-SDK-Version': SDK_VERSION,
+        ...(options.headers || {}),
+      },
+      ...options,
+    };
+
+    try {
+      return await this._makeRequest(url, requestOptions);
+    } catch (error: unknown) {
+      if (error instanceof APIError) {
+        // Same instance, enriched: _makeRequest leaves errorCode empty; fill it from the body.
+        error.errorCode ??= getResponseErrorCodes(error.response)[0] ?? null;
+        throw error;
+      }
+      if (error instanceof Error && error.name === 'NetworkError') {
+        throw error;
+      }
+      throw new NetworkError('Network request failed', error);
+    }
+  }
+
   async _makeRequest(url: string, options: RequestInit) {
     let response: Response;
     try {
@@ -306,6 +338,28 @@ class APIClient {
     })) as CreatePaymentResponse;
   }
 
+  /** `one_click`, POSTed exactly once (see `requestOnce`). */
+  async oneClickOnce(payload: OneClickRequest) {
+    return (await this.requestOnce(API_ENDPOINTS.ONE_CLICK, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })) as CreatePaymentResponse;
+  }
+
+  /** `resume_payment`, POSTed exactly once (see `requestOnce`). */
+  async resumePaymentOnce(params: {
+    orderId: string;
+    resumeToken: string;
+  }): Promise<CreatePaymentResponse> {
+    return (await this.requestOnce(API_ENDPOINTS.RESUME_PAYMENT, {
+      method: 'POST',
+      body: JSON.stringify({
+        order_id: params.orderId,
+        resume_token: params.resumeToken,
+      }),
+    })) as CreatePaymentResponse;
+  }
+
   async createSimpleClientSession(payload: { countryCode?: string }) {
     return (await this.request(API_ENDPOINTS.CREATE_SIMPLE_CLIENT_SESSION, {
       method: 'POST',
@@ -316,6 +370,20 @@ class APIClient {
       }),
     })) as CreateClientSessionResponse;
   }
+}
+
+/**
+ * Returns the `error[].code` values of a backend error envelope
+ * (`{status: 'error', error: [{msg, code, type}]}`), e.g. from `APIError.response`.
+ */
+export function getResponseErrorCodes(response: unknown): string[] {
+  const errors = (response as { error?: unknown } | null | undefined)?.error;
+  if (!Array.isArray(errors)) {
+    return [];
+  }
+  return errors
+    .map(item => (item as { code?: unknown } | null)?.code)
+    .filter((code): code is string => typeof code === 'string');
 }
 
 export default APIClient;

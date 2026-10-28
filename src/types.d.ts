@@ -456,13 +456,90 @@ export declare function initMethod(
   options: InitMethodOptions
 ): Promise<PaymentMethodInterface>;
 
-export declare function silentPurchase(options: {
+export interface SilentPurchaseOptions {
   priceId: string;
   externalId: string;
   clientMetadata: Record<string, string | number | boolean>;
   orgId: string;
   baseUrl: string;
-}): Promise<boolean>;
+  /** CIT pass-through (sent only when set). Omitted = funnel/org setting. */
+  initiationType?: 'cit' | 'mit';
+  /** CIT card networks (sent only when set). `[]` = all networks. */
+  citCardNetworks?: string[];
+  /** Allow CIT for PAN_ONLY Google Pay (sent only when set). */
+  citGooglePayPanOnly?: boolean;
+}
+
+/** Result of the 3DS step of a one-click purchase, passed to `onThreeDSEnd`. */
+export type ThreeDSResult = 'passed' | 'failed' | 'abandoned' | 'error';
+
+export interface SilentPurchaseDetailedOptions extends SilentPurchaseOptions {
+  /** Opt-in: run 3DS when the bank asks for it and resolve with a detailed result. */
+  handle3DS: true;
+  /**
+   * Fired once when the one-click response carries a non-empty `action_required_token`,
+   * before the challenge (keep the upsell button disabled until the promise resolves).
+   */
+  onThreeDSStart?: (info: { orderId: string }) => void;
+  /** Fired exactly once per `onThreeDSStart`, after the 3DS step and before the promise resolves. */
+  onThreeDSEnd?: (info: { result: ThreeDSResult }) => void;
+  /**
+   * Give up on the 3DS step after this many ms. Default 600000. Resolves `3ds_abandoned` if the
+   * challenge was shown; `error` if it ran out before the challenge was shown (with
+   * `failedRequest: 'create_client_session'` while that request was pending). Never aborts a
+   * request that is already sent.
+   */
+  threeDSTimeoutMs?: number;
+}
+
+export type OneClickOutcome =
+  | 'succeeded'
+  | 'declined'
+  | '3ds_failed'
+  | '3ds_abandoned'
+  | 'error'
+  | 'processing'
+  | 'already_purchased';
+
+/** The request that failed, set only on request failures. */
+export type OneClickFailedRequest =
+  | 'one_click'
+  | 'create_client_session'
+  | 'resume_payment';
+
+export interface OneClickResult {
+  outcome: OneClickOutcome;
+  /** `null` only when no order was created (error before/at one_click). */
+  orderId: string | null;
+  /** The backend returned a non-empty `action_required_token`. */
+  threeDSChallenged: boolean;
+  failedMessageForUser?: string | null;
+  declineCode?: string | null;
+  declineCodeSource?: DeclineCodeSource | null;
+  /**
+   * Request failures: the original `APIError` (`statusCode`, `errorCode`, `response`) or
+   * `NetworkError` instance, unwrapped. `PrimerError` for Primer-side failures;
+   * `FunnefoxSDKError` for the in-flight guard and unsupported responses.
+   */
+  error?: Error;
+  failedRequest?: OneClickFailedRequest;
+}
+
+/**
+ * One-click purchase with the customer's saved payment method.
+ * Legacy mode (no `handle3DS`): resolves `true` for any 2xx `status: 'success'` response
+ * (including declines), `false` otherwise; rejects on HTTP errors. Does not run 3DS.
+ */
+export declare function silentPurchase(
+  options: SilentPurchaseOptions & { handle3DS?: false }
+): Promise<boolean>;
+/**
+ * Detailed mode (`handle3DS: true`): runs the Primer 3DS challenge when the bank asks for it
+ * and resolves with a `OneClickResult`. Rejects only with `ValidationError` on invalid options.
+ */
+export declare function silentPurchase(
+  options: SilentPurchaseDetailedOptions
+): Promise<OneClickResult>;
 
 export declare function getAvailablePaymentMethods(params: {
   countryCode?: string;
@@ -732,4 +809,7 @@ export interface OneClickRequest {
   pp_ident: string;
   external_id: string;
   client_metadata: Record<string, string | number | boolean>;
+  initiation_type?: 'cit' | 'mit';
+  cit_card_networks?: string[];
+  cit_google_pay_pan_only?: boolean;
 }
