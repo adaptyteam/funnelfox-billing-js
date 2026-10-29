@@ -263,6 +263,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Legacy `silentPurchase()` (no `handle3DS`) is unchanged: same request body, same `true`/`false` results, same retries and errors, and it never runs 3DS. With `initiationType: 'cit'` it logs a warning, because CIT can trigger a 3DS challenge that only detailed mode handles
 - To show the challenge, detailed mode opens one extra checkout session for the customer and price point (`create_client_session`). Each challenged one-click therefore creates one additional order in `session_created` status, which counts as a checkout session in session-based conversion metrics. Purchases without a challenge are not affected
 
-## [Unreleased]
+## [0.13.1] - 2026-10-29
 
 - Card form: the Expiration date and Security code columns share grid rows and are always the same width, so their inputs stay on one line when one label wraps on a narrow checkout, and an error under one input no longer shrinks the other column. Before, the columns were sized by their content, and a wrapped "Expiration date" label or a CVV error pushed the expiry input down. (FFB-586)
