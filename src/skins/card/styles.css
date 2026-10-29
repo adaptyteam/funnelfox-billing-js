@@ -7,9 +7,17 @@
   }
   
   .card-form-row {
-    display: flex;
-    flex-direction: row;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(3, auto);
+    grid-auto-flow: column;
+    column-gap: 10px;
+  }
+
+  /* Label, input and error of both columns share grid rows, so a label that wraps in one column
+     moves both inputs down together, and an error under one input does not move the other. */
+  .card-form-row > div {
+    display: contents;
   }
   
   .ff-card-form-text-input {
