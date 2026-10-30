@@ -1170,11 +1170,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       onMethodRenderError: this.handleMethodRenderError,
     };
 
-    // Primer Checkout renders its own card form; the hosted-input skin is for the legacy wrapper only.
-    if (
-      method === PaymentMethod.PAYMENT_CARD &&
-      !(this.primerWrapper instanceof PrimerCheckoutWrapper)
-    ) {
+    if (method === PaymentMethod.PAYMENT_CARD) {
       const cardDefaultOptions =
         await this.getCardDefaultSkinCheckoutOptions(element);
       checkoutOptions = this.getCheckoutOptions({
