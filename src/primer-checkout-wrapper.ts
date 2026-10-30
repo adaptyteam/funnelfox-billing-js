@@ -251,13 +251,22 @@ function releaseCheckout(clientToken: string) {
   }
 }
 
-/** Safari and iOS. checkout-web v2 offered Apple Pay only there; Primer Checkout also offers it elsewhere via a QR code. */
+/**
+ * Safari and iOS. checkout-web v2 offered Apple Pay only there. Primer Checkout loads Apple's JS SDK, which defines
+ * its own ApplePaySession in other browsers to offer Apple Pay through a QR code, so only the browser's own class counts.
+ */
 function hasNativeApplePay() {
   const session = (
     window as unknown as { ApplePaySession?: { canMakePayments(): boolean } }
   ).ApplePaySession;
+  if (!session) {
+    return false;
+  }
   try {
-    return Boolean(session?.canMakePayments());
+    return (
+      Function.prototype.toString.call(session).includes('[native code]') &&
+      session.canMakePayments()
+    );
   } catch {
     return false;
   }
