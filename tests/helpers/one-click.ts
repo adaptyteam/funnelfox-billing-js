@@ -2,7 +2,12 @@
  * Test helpers for silentPurchase / one-click 3DS (FFB-704).
  */
 
+import { THREE_DS_OVERLAY_REVEAL_DELAY_MS } from '../../src/one-click-3ds';
+
 type Json = Record<string, unknown>;
+
+/** A challenge answered after the overlay became visible. */
+export const CHALLENGE_ANSWER_MS = THREE_DS_OVERLAY_REVEAL_DELAY_MS + 100;
 
 export const BASE_URL = 'https://api.example.com';
 export const ORG_ID = 'org_1';
@@ -118,7 +123,7 @@ export const CLOSE_ERROR = Object.assign(new Error("Can't fetch resume key"), {
 
 /** After continueWithNewClientToken, Primer reports a resume token. */
 export const resumeWith =
-  (resumeToken = 'resume_1'): PrimerScenario =>
+  (resumeToken = 'resume_1', afterMs = CHALLENGE_ANSWER_MS): PrimerScenario =>
   (cb, log) => {
     cb.onTokenizeSuccess(
       { token: 'vaulted_tok' },
@@ -135,7 +140,7 @@ export const resumeWith =
                   log.continueWith.push(t2),
               }
             );
-          }, 0);
+          }, afterMs);
         },
       }
     );
@@ -143,7 +148,7 @@ export const resumeWith =
 
 /** After continueWithNewClientToken, Primer raises the given resume error. */
 export const resumeErrorWith =
-  (error: unknown): PrimerScenario =>
+  (error: unknown, afterMs = CHALLENGE_ANSWER_MS): PrimerScenario =>
   (cb, log) => {
     cb.onTokenizeSuccess(
       { token: 'vaulted_tok' },
@@ -151,7 +156,7 @@ export const resumeErrorWith =
         ...log.tokenizeHandler,
         continueWithNewClientToken: (t: string) => {
           log.continueWith.push(t);
-          setTimeout(() => cb.onResumeError(error), 0);
+          setTimeout(() => cb.onResumeError(error), afterMs);
         },
       }
     );

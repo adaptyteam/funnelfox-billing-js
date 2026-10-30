@@ -67,11 +67,17 @@ class APIClient {
   }
 
   /**
-   * Sends the request exactly once: no retry and no client timeout (FFB-704, decision 9).
+   * Sends the request exactly once: no retry and, without `timeoutMs`, no client timeout
+   * (FFB-704, decision 9).
    * Same URL, headers and error classes as `request()`. Used only by `silentPurchase`'s
-   * `handle3DS` mode for `one_click` and `resume_payment`, which must not be POSTed twice.
+   * `handle3DS` mode for `one_click` and `resume_payment`, which must not be POSTed twice;
+   * `one_click` is re-sent by the caller only with the same idempotency key.
    */
-  async requestOnce(endpoint: string, options: RequestInit = {}) {
+  async requestOnce(
+    endpoint: string,
+    options: RequestInit = {},
+    timeoutMs?: number
+  ) {
     const url = `${this.baseUrl}/${this.orgId}${endpoint}`;
     const requestOptions: RequestInit = {
       method: 'GET',
@@ -84,7 +90,10 @@ class APIClient {
     };
 
     try {
-      return await this._makeRequest(url, requestOptions);
+      const request = this._makeRequest(url, requestOptions);
+      return await (timeoutMs
+        ? withTimeout(request, timeoutMs, 'Request timed out')
+        : request);
     } catch (error: unknown) {
       if (error instanceof APIError) {
         // Same instance, enriched: _makeRequest leaves errorCode empty; fill it from the body.
@@ -339,11 +348,15 @@ class APIClient {
   }
 
   /** `one_click`, POSTed exactly once (see `requestOnce`). */
-  async oneClickOnce(payload: OneClickRequest) {
-    return (await this.requestOnce(API_ENDPOINTS.ONE_CLICK, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    })) as CreatePaymentResponse;
+  async oneClickOnce(payload: OneClickRequest, timeoutMs?: number) {
+    return (await this.requestOnce(
+      API_ENDPOINTS.ONE_CLICK,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+      timeoutMs
+    )) as CreatePaymentResponse;
   }
 
   /** `resume_payment`, POSTed exactly once (see `requestOnce`). */

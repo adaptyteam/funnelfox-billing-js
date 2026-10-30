@@ -24,14 +24,21 @@ import type {
   CreatePaymentResponse,
   PaymentResponseData,
 } from './types';
-import { APIError, FunnefoxSDKError, ValidationError } from './errors';
+import {
+  APIError,
+  FunnefoxSDKError,
+  NetworkError,
+  ValidationError,
+} from './errors';
 import {
   DEFAULT_THREE_DS_TIMEOUT_MS,
+  THREE_DS_OVERLAY_REVEAL_DELAY_MS,
   runOneClickThreeDS,
   type ThreeDSRunResult,
 } from './one-click-3ds';
 import { PaymentMethod } from './enums';
 import { getErrorImage } from './utils/error-image';
+import { sleep } from './utils/helpers';
 import sessionService from './shared/services/session-service';
 
 let defaultConfig: SDKConfig | null = null;
@@ -201,7 +208,91 @@ async function silentPurchaseLegacy(options: SilentPurchaseOptions) {
 
 const ONE_CLICK_IN_PROGRESS = 'one_click_in_progress';
 const DOUBLE_PURCHASE = 'double_purchase';
+const IDEMPOTENCY_KEY_IN_PROGRESS = 'idempotency_key_in_progress';
+const ONE_CLICK_RETRY_DELAYS_MS = [1000, 2000, 4000];
+/** Longer than the backend's wait for the user's lock (~12.6 s). */
+const ONE_CLICK_TIMEOUT_MS = 25000;
 const oneClickInFlight = new Set<string>();
+
+/** A random UUID v4, or `null` when the browser has no crypto (then one_click is not retried). */
+export function createIdempotencyKey(): string | null {
+  const cryptoApi = typeof crypto === 'undefined' ? undefined : crypto;
+  if (typeof cryptoApi?.randomUUID === 'function') {
+    return cryptoApi.randomUUID();
+  }
+  if (typeof cryptoApi?.getRandomValues !== 'function') {
+    return null;
+  }
+  const bytes = cryptoApi.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0'));
+  return [
+    hex.slice(0, 4).join(''),
+    hex.slice(4, 6).join(''),
+    hex.slice(6, 8).join(''),
+    hex.slice(8, 10).join(''),
+    hex.slice(10, 16).join(''),
+  ].join('-');
+}
+
+/**
+ * Failures after which the backend may or may not have processed the request. Retrying them
+ * with the same idempotency key is safe: the backend never charges a key twice (FFB-757).
+ * A 2xx APIError means the body could not be parsed.
+ */
+function isRetryableOneClickError(error: unknown): boolean {
+  if (error instanceof NetworkError) {
+    return true;
+  }
+  if (!(error instanceof APIError) || error.statusCode === null) {
+    return false;
+  }
+  if (error.statusCode >= 500) {
+    return true;
+  }
+  if (error.statusCode >= 200 && error.statusCode < 300) {
+    return true;
+  }
+  return (
+    error.statusCode === 400 && error.errorCode === IDEMPOTENCY_KEY_IN_PROGRESS
+  );
+}
+
+function isEmptyResponse(response: CreatePaymentResponse): boolean {
+  return !response || typeof response !== 'object' || !('status' in response);
+}
+
+/** `one_click`, retried with the same idempotency key; sent once when there is no key. */
+async function postOneClick(
+  apiClient: APIClient,
+  payload: OneClickRequest
+): Promise<CreatePaymentResponse> {
+  if (!payload.idempotency_key) {
+    return apiClient.oneClickOnce(payload);
+  }
+  for (const delay of ONE_CLICK_RETRY_DELAYS_MS) {
+    try {
+      const response = await apiClient.oneClickOnce(
+        payload,
+        ONE_CLICK_TIMEOUT_MS
+      );
+      if (!isEmptyResponse(response)) {
+        return response;
+      }
+    } catch (error) {
+      if (!isRetryableOneClickError(error)) {
+        throw error;
+      }
+    }
+    await sleep(delay);
+  }
+  const response = await apiClient.oneClickOnce(payload, ONE_CLICK_TIMEOUT_MS);
+  if (isEmptyResponse(response)) {
+    throw new NetworkError('one_click returned an empty response');
+  }
+  return response;
+}
 
 type OneClickStep =
   | { kind: 'result'; result: OneClickResult }
@@ -315,6 +406,7 @@ export function mapOneClickResponse(
 export function mapResumeResponse(
   response: CreatePaymentResponse,
   orderId: string,
+  threeDSChallenged: boolean,
   threeDSAuthDeclineCodes:
     | string[]
     | null = constants.THREE_DS_AUTH_DECLINE_CODES
@@ -326,7 +418,7 @@ export function mapResumeResponse(
       result: {
         outcome: 'error',
         orderId,
-        threeDSChallenged: true,
+        threeDSChallenged,
         error: envelopeError(response, 'Resume payment failed'),
         failedRequest: 'resume_payment',
       },
@@ -339,7 +431,7 @@ export function mapResumeResponse(
       result: {
         outcome: 'error',
         orderId,
-        threeDSChallenged: true,
+        threeDSChallenged,
         error: new FunnefoxSDKError(
           'resume_payment returned another action token; chained 3DS is not supported',
           'one_click_chained_action'
@@ -351,23 +443,25 @@ export function mapResumeResponse(
     case 'succeeded':
       return {
         threeDS: 'passed',
-        result: { outcome: 'succeeded', orderId, threeDSChallenged: true },
+        result: { outcome: 'succeeded', orderId, threeDSChallenged },
       };
     case 'processing':
       return {
         threeDS: 'passed',
-        result: { outcome: 'processing', orderId, threeDSChallenged: true },
+        result: { outcome: 'processing', orderId, threeDSChallenged },
       };
     case 'failed': {
+      // Without a shown challenge the customer saw no 3DS step: a decline is a plain decline.
       const authFailed =
-        threeDSAuthDeclineCodes === null ||
-        threeDSAuthDeclineCodes.includes(data.decline_code ?? '');
+        threeDSChallenged &&
+        (threeDSAuthDeclineCodes === null ||
+          threeDSAuthDeclineCodes.includes(data.decline_code ?? ''));
       return {
         threeDS: authFailed ? 'failed' : 'passed',
         result: {
           outcome: authFailed ? '3ds_failed' : 'declined',
           orderId,
-          threeDSChallenged: true,
+          threeDSChallenged,
           ...declineFields(data),
         },
       };
@@ -378,7 +472,7 @@ export function mapResumeResponse(
         result: {
           outcome: 'error',
           orderId,
-          threeDSChallenged: true,
+          threeDSChallenged,
           error: new APIError(
             data.checkout_status === 'cancelled'
               ? 'Payment was cancelled'
@@ -393,31 +487,32 @@ export function mapResumeResponse(
 
 function mapThreeDSRun(
   run: ThreeDSRunResult,
-  orderId: string
+  orderId: string,
+  threeDSChallenged: boolean
 ): { result: OneClickResult; threeDS: ThreeDSResult } {
   switch (run.kind) {
     case 'resumed':
-      return mapResumeResponse(run.response, orderId);
+      return mapResumeResponse(run.response, orderId, threeDSChallenged);
     case 'failed':
       return {
         threeDS: 'failed',
         result: {
           outcome: '3ds_failed',
           orderId,
-          threeDSChallenged: true,
+          threeDSChallenged,
           error: run.error,
         },
       };
     case 'abandoned':
       return {
         threeDS: 'abandoned',
-        result: { outcome: '3ds_abandoned', orderId, threeDSChallenged: true },
+        result: { outcome: '3ds_abandoned', orderId, threeDSChallenged },
       };
     default: {
       const result: OneClickResult = {
         outcome: 'error',
         orderId,
-        threeDSChallenged: true,
+        threeDSChallenged,
         error: run.error,
       };
       if (run.failedRequest) {
@@ -498,9 +593,15 @@ async function runSilentPurchaseDetailed(
     retryAttempts: DEFAULTS.RETRY_ATTEMPTS,
   });
 
+  const payload = buildOneClickRequest(options);
+  const idempotencyKey = createIdempotencyKey();
+  if (idempotencyKey) {
+    payload.idempotency_key = idempotencyKey;
+  }
+
   let response: CreatePaymentResponse;
   try {
-    response = await apiClient.oneClickOnce(buildOneClickRequest(options));
+    response = await postOneClick(apiClient, payload);
   } catch (error) {
     if (
       error instanceof APIError &&
@@ -510,6 +611,16 @@ async function runSilentPurchaseDetailed(
         outcome: 'already_purchased',
         orderId: null,
         threeDSChallenged: false,
+      };
+    }
+    if (idempotencyKey && isRetryableOneClickError(error)) {
+      // The charge may have gone through: the caller must not start a new payment.
+      return {
+        outcome: 'processing',
+        orderId: null,
+        threeDSChallenged: false,
+        error: error as Error,
+        failedRequest: 'one_click',
       };
     }
     return {
@@ -527,16 +638,16 @@ async function runSilentPurchaseDetailed(
   }
 
   const { orderId, actionToken } = step;
+  let challenged = false;
   let ended = false;
   const end = (result: ThreeDSResult) => {
-    if (ended) {
+    if (!challenged || ended) {
       return;
     }
     ended = true;
     callHook('onThreeDSEnd', options.onThreeDSEnd, { result });
   };
 
-  callHook('onThreeDSStart', options.onThreeDSStart, { orderId });
   try {
     const run = await runOneClickThreeDS({
       apiClient,
@@ -546,8 +657,13 @@ async function runSilentPurchaseDetailed(
       orderId,
       actionToken,
       timeoutMs: options.threeDSTimeoutMs ?? DEFAULT_THREE_DS_TIMEOUT_MS,
+      revealDelayMs: THREE_DS_OVERLAY_REVEAL_DELAY_MS,
+      onChallengeShown: () => {
+        challenged = true;
+        callHook('onThreeDSStart', options.onThreeDSStart, { orderId });
+      },
     });
-    const mapped = mapThreeDSRun(run, orderId);
+    const mapped = mapThreeDSRun(run, orderId, challenged);
     end(mapped.threeDS);
     return mapped.result;
   } catch (error) {
@@ -555,7 +671,7 @@ async function runSilentPurchaseDetailed(
     return {
       outcome: 'error',
       orderId,
-      threeDSChallenged: true,
+      threeDSChallenged: challenged,
       error:
         error instanceof Error
           ? error

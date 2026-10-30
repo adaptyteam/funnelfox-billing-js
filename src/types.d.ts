@@ -308,17 +308,19 @@ export interface PrimerHandler {
 }
 
 // Error types
-export interface FunnefoxSDKError extends Error {
+export declare class FunnefoxSDKError extends Error {
   code: string;
   details: unknown;
+  constructor(message: string, code?: string, details?: unknown);
 }
 
-export interface ValidationError extends FunnefoxSDKError {
+export declare class ValidationError extends FunnefoxSDKError {
   field: string;
   value: unknown;
+  constructor(field: string, message: string, value?: unknown);
 }
 
-export interface APIError extends FunnefoxSDKError {
+export declare class APIError extends FunnefoxSDKError {
   statusCode: number | null;
   errorCode: string | null;
   errorType: string | null;
@@ -326,21 +328,37 @@ export interface APIError extends FunnefoxSDKError {
   response: unknown;
   declineCode: string | null;
   declineCodeSource: DeclineCodeSource | null;
+  constructor(
+    message: string,
+    statusCode?: number | null,
+    options?: {
+      errorCode?: string | null;
+      errorType?: string | null;
+      requestId?: string | null;
+      response?: unknown;
+      declineCode?: string | null;
+      declineCodeSource?: DeclineCodeSource | null;
+    }
+  );
 }
 
-export interface PrimerError extends FunnefoxSDKError {
+export declare class PrimerError extends FunnefoxSDKError {
   primerError: unknown;
+  constructor(message: string, primerError?: unknown);
 }
 
-export interface CheckoutError extends FunnefoxSDKError {
+export declare class CheckoutError extends FunnefoxSDKError {
   phase: string | null;
+  constructor(message: string, phase?: string | null);
 }
 
-//eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface ConfigurationError extends FunnefoxSDKError {}
+export declare class ConfigurationError extends FunnefoxSDKError {
+  constructor(message: string);
+}
 
-export interface NetworkError extends FunnefoxSDKError {
+export declare class NetworkError extends FunnefoxSDKError {
   originalError: unknown;
+  constructor(message: string, originalError?: unknown);
 }
 
 // Function signatures
@@ -477,17 +495,19 @@ export interface SilentPurchaseDetailedOptions extends SilentPurchaseOptions {
   /** Opt-in: run 3DS when the bank asks for it and resolve with a detailed result. */
   handle3DS: true;
   /**
-   * Fired once when the one-click response carries a non-empty `action_required_token`,
-   * before the challenge (keep the upsell button disabled until the promise resolves).
+   * Fired once when the 3DS window becomes visible to the customer (keep the upsell button
+   * disabled until the promise resolves). Primer cannot tell a frictionless check from a
+   * challenge, so the window stays hidden for the first 6 s of the 3DS step; a check that
+   * finishes within that time fires no hooks.
    */
   onThreeDSStart?: (info: { orderId: string }) => void;
   /** Fired exactly once per `onThreeDSStart`, after the 3DS step and before the promise resolves. */
   onThreeDSEnd?: (info: { result: ThreeDSResult }) => void;
   /**
-   * Give up on the 3DS step after this many ms. Default 600000. Resolves `3ds_abandoned` if the
-   * challenge was shown; `error` if it ran out before the challenge was shown (with
-   * `failedRequest: 'create_client_session'` while that request was pending). Never aborts a
-   * request that is already sent.
+   * Give up on the 3DS step after this many ms. Default 600000. Once the 3DS window is due, the
+   * count restarts when it is shown and ends in `3ds_abandoned`. Runs out before that as `error`
+   * (with `failedRequest: 'create_client_session'` while that request was pending). Never aborts
+   * a request that is already sent.
    */
   threeDSTimeoutMs?: number;
 }
@@ -509,9 +529,12 @@ export type OneClickFailedRequest =
 
 export interface OneClickResult {
   outcome: OneClickOutcome;
-  /** `null` only when no order was created (error before/at one_click). */
+  /**
+   * `null` when no order is known: an error before or at one_click, or `processing` after
+   * `one_click` retries ran out (`error` and `failedRequest` are set then).
+   */
   orderId: string | null;
-  /** The backend returned a non-empty `action_required_token`. */
+  /** The 3DS window was shown to the customer (`onThreeDSStart` fired). */
   threeDSChallenged: boolean;
   failedMessageForUser?: string | null;
   declineCode?: string | null;
@@ -744,6 +767,8 @@ export interface PaymentResponseData {
   decline_code?: string | null;
   decline_code_source?: DeclineCodeSource | null;
   order_id: string;
+  /** `one_click` only: the idempotency key was seen before, nothing new was charged. */
+  idempotent_replay?: boolean;
 }
 
 export interface CreatePaymentResponse {
@@ -812,4 +837,5 @@ export interface OneClickRequest {
   initiation_type?: 'cit' | 'mit';
   cit_card_networks?: string[];
   cit_google_pay_pan_only?: boolean;
+  idempotency_key?: string;
 }
