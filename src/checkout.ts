@@ -4,6 +4,9 @@
 
 import EventEmitter from './utils/event-emitter';
 import PrimerWrapper from './primer-wrapper';
+import PrimerCheckoutWrapper, {
+  type PrimerCheckoutHooks,
+} from './primer-checkout-wrapper';
 import { CheckoutError } from './errors';
 import { isValidEmail, requireString } from './utils/validation';
 import {
@@ -100,7 +103,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   state: CheckoutState;
   orderId: string | null;
   clientToken: string | null;
-  primerWrapper: PrimerWrapper;
+  primerWrapper: PrimerWrapper | PrimerCheckoutWrapper;
   isDestroyed: boolean;
   apiClient: APIClient;
   private counter: number = 0;
@@ -262,6 +265,88 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     const sessionData = this.apiClient.processSessionResponse(sessionResponse);
     this.orderId = sessionData.orderId;
     this.clientToken = sessionData.clientToken;
+
+    if (
+      sessionResponse.data?.primer_sdk === 'checkout' &&
+      !(this.primerWrapper instanceof PrimerCheckoutWrapper)
+    ) {
+      this.primerWrapper = new PrimerCheckoutWrapper(
+        this.primerCheckoutHooks()
+      );
+    }
+  }
+
+  private primerCheckoutHooks(): PrimerCheckoutHooks {
+    const finish = () => {
+      this.onLoaderChangeWithRace(false);
+      this._setState('ready');
+    };
+    return {
+      beforePayment: async method => {
+        this.activePaymentMethodType = method;
+        this.emit(EVENTS.ERROR, undefined);
+        this.emit(EVENTS.START_PURCHASE, method);
+        this.onLoaderChangeWithRace(true);
+        this._setState('processing');
+        // The amount is final once Primer opens the attempt: an approve after a change gets a conflict.
+        // Wallets authorize their own amount, as in the legacy flow.
+        if (method === PaymentMethod.PAYMENT_CARD) {
+          await this.flushTaxRecalc();
+        }
+      },
+      approve: async paymentAttemptId => {
+        const [radarSessionId, airwallexDeviceId] = await Promise.all([
+          this.cachedSessionResponse?.radarSessionId,
+          this.cachedSessionResponse?.airwallexDeviceId,
+        ]);
+        const response = await this.apiClient.approvePayment({
+          orderId: this.orderId as string,
+          paymentAttemptId,
+          clientToken: this.clientToken as string,
+          email: this.getPaymentEmailAddress(),
+          countryCode: this.getPaymentCountryCode(),
+          postalCode: this.getPaymentPostalCode(),
+          clientMetadata: { radarSessionId, airwallexDeviceId },
+        });
+        // A retry after a decline pays a new order.
+        if (response.data?.order_id) {
+          this.orderId = response.data.order_id;
+        }
+        this.apiClient.processPaymentResponse(response);
+      },
+      onSuccess: () => {
+        void this.syncOrderStatus().finally(() => {
+          this.onLoaderChangeWithRace(false);
+          this._setState('completed');
+          this.emit(EVENTS.SUCCESS, {
+            orderId: this.orderId as string,
+            status: 'succeeded',
+          });
+        });
+      },
+      onFailure: async approvalError => {
+        let failure = approvalError;
+        if (!failure) {
+          try {
+            // Primer tells the browser only a generic failure; the decline reason is on our order.
+            this.apiClient.processPaymentResponse(await this.syncOrderStatus());
+          } catch (error) {
+            failure = error;
+          }
+        }
+        this.emit(EVENTS.PURCHASE_FAILURE, toPaymentFailure(failure));
+        finish();
+      },
+      onCancel: () => {
+        this.emit(EVENTS.PURCHASE_CANCELLED);
+        finish();
+      },
+    };
+  }
+
+  /** Syncs the order from Primer, so the purchase exists before the host reacts and does not wait for the webhook. */
+  private syncOrderStatus() {
+    return this.apiClient.orderStatus({ orderId: this.orderId as string });
   }
 
   private applySessionCardFieldConfig(
@@ -1085,7 +1170,11 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       onMethodRenderError: this.handleMethodRenderError,
     };
 
-    if (method === PaymentMethod.PAYMENT_CARD) {
+    // Primer Checkout renders its own card form; the hosted-input skin is for the legacy wrapper only.
+    if (
+      method === PaymentMethod.PAYMENT_CARD &&
+      !(this.primerWrapper instanceof PrimerCheckoutWrapper)
+    ) {
       const cardDefaultOptions =
         await this.getCardDefaultSkinCheckoutOptions(element);
       checkoutOptions = this.getCheckoutOptions({
