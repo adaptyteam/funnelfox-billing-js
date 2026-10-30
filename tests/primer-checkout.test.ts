@@ -121,13 +121,16 @@ const renderCard = (options: Parameters<typeof renderMethod>[0] = {}) =>
   renderMethod(options);
 
 /** What Primer Checkout does after the customer submits: payment start, then the approval request. */
-async function pay(target: EventTarget = lastCheckout()) {
+async function pay(
+  target: EventTarget = lastCheckout(),
+  paymentMethodType = 'PAYMENT_CARD'
+) {
   const continuePaymentCreation = jest.fn();
   const abortPaymentCreation = jest.fn();
   const start = dispatch(
     'primer:payment-start',
     {
-      paymentMethodType: 'PAYMENT_CARD',
+      paymentMethodType,
       continuePaymentCreation,
       abortPaymentCreation,
     },
@@ -373,6 +376,39 @@ test('a wallet sheet closed before any payment start leaves the loader alone', a
   expect(onLoaderChange).toHaveBeenLastCalledWith(true);
   dispatch('primer:payment-cancel', { paymentMethodType: 'PAYMENT_CARD' });
   expect(onLoaderChange).toHaveBeenLastCalledWith(false);
+});
+
+test('a wallet takes the loader only once its sheet is approved, and success is reported before the loader is released', async () => {
+  const calls: string[] = [];
+  const onLoaderChange = jest.fn((state: boolean) =>
+    calls.push(`loader:${state}`)
+  );
+  const onPaymentSuccess = jest.fn(() => calls.push('success'));
+  const onPaymentCancel = jest.fn(() => calls.push('cancel'));
+  await renderMethod(
+    { onLoaderChange, onPaymentSuccess, onPaymentCancel },
+    PaymentMethod.GOOGLE_PAY
+  );
+
+  const abortPaymentCreation = jest.fn();
+  dispatch(
+    'primer:payment-start',
+    {
+      paymentMethodType: 'GOOGLE_PAY',
+      continuePaymentCreation: jest.fn(),
+      abortPaymentCreation,
+    },
+    true
+  );
+  await flush();
+  dispatch('primer:payment-cancel', { paymentMethodType: 'GOOGLE_PAY' });
+  expect(calls).toEqual(['cancel']);
+
+  await pay(lastCheckout(), 'GOOGLE_PAY');
+  expect(calls).toEqual(['cancel', 'loader:true']);
+  dispatch('primer:payment-success', { paymentMethodType: 'GOOGLE_PAY' });
+  await until(() => onPaymentSuccess.mock.calls.length > 0);
+  expect(calls).toEqual(['cancel', 'loader:true', 'success', 'loader:false']);
 });
 
 test('a method Primer does not offer is reported as a render error, as in the legacy flow', async () => {
