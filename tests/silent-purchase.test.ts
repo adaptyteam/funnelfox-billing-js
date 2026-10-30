@@ -432,18 +432,18 @@ describe('detailed silentPurchase (handle3DS: true) — rows without 3DS', () =>
     }
   );
 
-  test('row 15 / S1: one_click network failure on every attempt -> error after 4 fetches', async () => {
+  test('row 15 / S1: one_click network failure on every attempt -> processing after 4 fetches', async () => {
     const h = hooks();
     routeFetch({ [ENDPOINT.ONE_CLICK]: [new TypeError('Failed to fetch')] });
     const result = await withRetryTimers(detailed(h));
-    expect(result.outcome).toBe('error');
+    expect(result.outcome).toBe('processing');
     expect(result.orderId).toBeNull();
     expect(result.error).toBeInstanceOf(NetworkError);
     expect(callsTo(ENDPOINT.ONE_CLICK)).toHaveLength(4);
     expect(h.calls).toEqual([]);
   });
 
-  test('row 15: invalid JSON -> error (APIError)', async () => {
+  test('row 15: invalid JSON on every attempt -> processing (APIError)', async () => {
     const fetchMock = routeFetch({
       [ENDPOINT.ONE_CLICK]: [
         {
@@ -456,7 +456,7 @@ describe('detailed silentPurchase (handle3DS: true) — rows without 3DS', () =>
     const result = await withRetryTimers(
       silentPurchase({ ...base, handle3DS: true })
     );
-    expect(result.outcome).toBe('error');
+    expect(result.outcome).toBe('processing');
     expect(result.error).toBeInstanceOf(APIError);
     expect((result.error as APIError).statusCode).toBe(200);
     expect(fetchMock).toHaveBeenCalledTimes(4);
@@ -790,7 +790,7 @@ describe('detailed silentPurchase — 3DS rows', () => {
     });
     jest.useFakeTimers();
     const promise = detailed(h, { threeDSTimeoutMs: 5000 });
-    await jest.advanceTimersByTimeAsync(5001);
+    await jest.advanceTimersByTimeAsync(11001);
     await expect(promise).resolves.toEqual({
       outcome: '3ds_abandoned',
       orderId: 'order_1',
@@ -1073,7 +1073,7 @@ describe('hooks', () => {
 // ---------------------------------------------------------------------------
 
 describe('single POST and error passthrough', () => {
-  test('S4: no client timeout on one_click; threeDSTimeoutMs does not abort it', async () => {
+  test('S4: threeDSTimeoutMs does not abort one_click', async () => {
     routeFetch({
       [ENDPOINT.ONE_CLICK]: [() => new Promise<Response>(() => {})],
     });
@@ -1085,7 +1085,7 @@ describe('single POST and error passthrough', () => {
       handle3DS: true,
       threeDSTimeoutMs: 1000,
     }).then(() => (settled = true));
-    await jest.advanceTimersByTimeAsync(120000);
+    await jest.advanceTimersByTimeAsync(24000);
     expect(settled).toBe(false);
     expect(callsTo(ENDPOINT.ONE_CLICK)).toHaveLength(1);
   });
@@ -1309,7 +1309,7 @@ describe('one_click idempotency key and retry (FFB-758)', () => {
     expect(keys[1]).toBe(keys[0]);
   });
 
-  test('retries wait 1 s, 2 s and 4 s, then the last error is returned', async () => {
+  test('retries wait 1 s, 2 s and 4 s, then the result is unknown, not an error', async () => {
     routeFetch({ [ENDPOINT.ONE_CLICK]: [new TypeError('Failed to fetch')] });
     jest.useFakeTimers();
     let settled = false;
@@ -1331,9 +1331,48 @@ describe('one_click idempotency key and retry (FFB-758)', () => {
     await jest.advanceTimersByTimeAsync(4000);
     expect(callsTo(ENDPOINT.ONE_CLICK)).toHaveLength(4);
     const result = await promise;
-    expect(result.outcome).toBe('error');
+    expect(result.outcome).toBe('processing');
+    expect(result.orderId).toBeNull();
+    expect(result.threeDSChallenged).toBe(false);
     expect(result.error).toBeInstanceOf(NetworkError);
     expect(result.failedRequest).toBe('one_click');
+    expect(new Set(keysSent()).size).toBe(1);
+  });
+
+  test.each([
+    ['5xx', () => jsonResponse(502, errorBody('bad_gateway'))],
+    ['empty 2xx object', () => jsonResponse(200, {})],
+    [
+      '400 idempotency_key_in_progress',
+      () => jsonResponse(400, errorBody('idempotency_key_in_progress')),
+    ],
+  ])('%s on every attempt ends as processing', async (_name, failure) => {
+    routeFetch({
+      [ENDPOINT.ONE_CLICK]: [failure(), failure(), failure(), failure()],
+    });
+    const result = await withRetryTimers(
+      silentPurchase({ ...base, handle3DS: true })
+    );
+    expect(result.outcome).toBe('processing');
+    expect(result.orderId).toBeNull();
+    expect(result.failedRequest).toBe('one_click');
+    expect(callsTo(ENDPOINT.ONE_CLICK)).toHaveLength(4);
+  });
+
+  test('a hung one_click is given up after 25 s and retried with the same key', async () => {
+    routeFetch({
+      [ENDPOINT.ONE_CLICK]: [
+        () => new Promise<Response>(() => {}),
+        jsonResponse(200, paymentBody({})),
+      ],
+    });
+    jest.useFakeTimers();
+    const promise = silentPurchase({ ...base, handle3DS: true });
+    await jest.advanceTimersByTimeAsync(24999);
+    expect(callsTo(ENDPOINT.ONE_CLICK)).toHaveLength(1);
+    await jest.advanceTimersByTimeAsync(1001);
+    expect(callsTo(ENDPOINT.ONE_CLICK)).toHaveLength(2);
+    await expect(promise).resolves.toMatchObject({ outcome: 'succeeded' });
     expect(new Set(keysSent()).size).toBe(1);
   });
 

@@ -140,7 +140,7 @@ describe('runOneClickThreeDS', () => {
 
     jest.useFakeTimers();
     const promise = runOneClickThreeDS(params({ timeoutMs: 3000 }));
-    await jest.advanceTimersByTimeAsync(2999);
+    await jest.advanceTimersByTimeAsync(3019);
     expect(clicked).not.toHaveBeenCalled();
     await jest.advanceTimersByTimeAsync(2);
     await expect(promise).resolves.toEqual({ kind: 'abandoned' });
@@ -155,7 +155,7 @@ describe('runOneClickThreeDS', () => {
     void runOneClickThreeDS(params({ timeoutMs: -1 })).then(
       () => (settled = true)
     );
-    await jest.advanceTimersByTimeAsync(DEFAULT_THREE_DS_TIMEOUT_MS - 10);
+    await jest.advanceTimersByTimeAsync(DEFAULT_THREE_DS_TIMEOUT_MS + 10);
     expect(settled).toBe(false);
     await jest.advanceTimersByTimeAsync(20);
     expect(settled).toBe(true);
@@ -285,7 +285,7 @@ describe('runOneClickThreeDS', () => {
       expect(overlayHidden()).toBe(false);
     });
 
-    test('a timeout before the reveal is an error and closes the hidden overlay', async () => {
+    test('a timeout shorter than the reveal still shows the challenge, then abandons it', async () => {
       installPrimer({ scenario: challengeNeverEnds });
       routeFetch({ [ENDPOINT.SESSION]: [jsonResponse(200, SESSION_BODY)] });
       const close = document.createElement('button');
@@ -295,15 +295,40 @@ describe('runOneClickThreeDS', () => {
       document.body.appendChild(close);
       const onChallengeShown = jest.fn();
       jest.useFakeTimers();
+      let settled = false;
       const promise = runOneClickThreeDS(
         params({ revealDelayMs: 6000, timeoutMs: 3000, onChallengeShown })
-      );
-      await jest.advanceTimersByTimeAsync(3001);
-      const run = await promise;
-      expect(run.kind).toBe('error');
-      expect(clicked).toHaveBeenCalledTimes(1);
+      ).then(run => {
+        settled = true;
+        return run;
+      });
+      await jest.advanceTimersByTimeAsync(5999);
+      expect(settled).toBe(false);
       expect(onChallengeShown).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(1);
+      expect(onChallengeShown).toHaveBeenCalledTimes(1);
+      await jest.advanceTimersByTimeAsync(2999);
+      expect(settled).toBe(false);
+      await jest.advanceTimersByTimeAsync(1);
+      const run = await promise;
+      expect(run.kind).toBe('abandoned');
+      expect(clicked).toHaveBeenCalledTimes(1);
       expect(overlayHidden()).toBe(false);
+    });
+
+    test('warns when the overlay is not in the page at the reveal', async () => {
+      installPrimer({ scenario: challengeNeverEnds });
+      routeFetch({ [ENDPOINT.SESSION]: [jsonResponse(200, SESSION_BODY)] });
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      jest.useFakeTimers();
+      void runOneClickThreeDS(
+        params({ revealDelayMs: 6000, timeoutMs: 60000 })
+      );
+      await jest.advanceTimersByTimeAsync(6000);
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('#primer-overlay')
+      );
+      warn.mockRestore();
     });
   });
 

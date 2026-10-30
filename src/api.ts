@@ -210,6 +210,8 @@ const ONE_CLICK_IN_PROGRESS = 'one_click_in_progress';
 const DOUBLE_PURCHASE = 'double_purchase';
 const IDEMPOTENCY_KEY_IN_PROGRESS = 'idempotency_key_in_progress';
 const ONE_CLICK_RETRY_DELAYS_MS = [1000, 2000, 4000];
+/** Longer than the backend's wait for the user's lock (~12.6 s). */
+const ONE_CLICK_TIMEOUT_MS = 25000;
 const oneClickInFlight = new Set<string>();
 
 /** A random UUID v4, or `null` when the browser has no crypto (then one_click is not retried). */
@@ -266,10 +268,15 @@ async function postOneClick(
   apiClient: APIClient,
   payload: OneClickRequest
 ): Promise<CreatePaymentResponse> {
-  const retryDelays = payload.idempotency_key ? ONE_CLICK_RETRY_DELAYS_MS : [];
-  for (const delay of retryDelays) {
+  if (!payload.idempotency_key) {
+    return apiClient.oneClickOnce(payload);
+  }
+  for (const delay of ONE_CLICK_RETRY_DELAYS_MS) {
     try {
-      const response = await apiClient.oneClickOnce(payload);
+      const response = await apiClient.oneClickOnce(
+        payload,
+        ONE_CLICK_TIMEOUT_MS
+      );
       if (!isEmptyResponse(response)) {
         return response;
       }
@@ -280,7 +287,11 @@ async function postOneClick(
     }
     await sleep(delay);
   }
-  return apiClient.oneClickOnce(payload);
+  const response = await apiClient.oneClickOnce(payload, ONE_CLICK_TIMEOUT_MS);
+  if (isEmptyResponse(response)) {
+    throw new NetworkError('one_click returned an empty response');
+  }
+  return response;
 }
 
 type OneClickStep =
@@ -600,6 +611,16 @@ async function runSilentPurchaseDetailed(
         outcome: 'already_purchased',
         orderId: null,
         threeDSChallenged: false,
+      };
+    }
+    if (idempotencyKey && isRetryableOneClickError(error)) {
+      // The charge may have gone through: the caller must not start a new payment.
+      return {
+        outcome: 'processing',
+        orderId: null,
+        threeDSChallenged: false,
+        error: error as Error,
+        failedRequest: 'one_click',
       };
     }
     return {

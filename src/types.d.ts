@@ -504,10 +504,10 @@ export interface SilentPurchaseDetailedOptions extends SilentPurchaseOptions {
   /** Fired exactly once per `onThreeDSStart`, after the 3DS step and before the promise resolves. */
   onThreeDSEnd?: (info: { result: ThreeDSResult }) => void;
   /**
-   * Give up on the 3DS step after this many ms. Default 600000. Resolves `3ds_abandoned` if the
-   * challenge was shown; `error` if it ran out before the challenge was shown (with
-   * `failedRequest: 'create_client_session'` while that request was pending). Never aborts a
-   * request that is already sent.
+   * Give up on the 3DS step after this many ms. Default 600000. Once the 3DS window is due, the
+   * count restarts when it is shown and ends in `3ds_abandoned`. Runs out before that as `error`
+   * (with `failedRequest: 'create_client_session'` while that request was pending). Never aborts
+   * a request that is already sent.
    */
   threeDSTimeoutMs?: number;
 }
@@ -529,7 +529,10 @@ export type OneClickFailedRequest =
 
 export interface OneClickResult {
   outcome: OneClickOutcome;
-  /** `null` only when no order was created (error before/at one_click). */
+  /**
+   * `null` when no order is known: an error before or at one_click, or `processing` after
+   * `one_click` retries ran out (`error` and `failedRequest` are set then).
+   */
   orderId: string | null;
   /** The 3DS window was shown to the customer (`onThreeDSStart` fired). */
   threeDSChallenged: boolean;
@@ -764,6 +767,8 @@ export interface PaymentResponseData {
   decline_code?: string | null;
   decline_code_source?: DeclineCodeSource | null;
   order_id: string;
+  /** `one_click` only: the idempotency key was seen before, nothing new was charged. */
+  idempotent_replay?: boolean;
 }
 
 export interface CreatePaymentResponse {

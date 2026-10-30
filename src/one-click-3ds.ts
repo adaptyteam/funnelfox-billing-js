@@ -133,6 +133,21 @@ function hidePrimerOverlay(): () => void {
   return () => style.remove();
 }
 
+/**
+ * A Primer update that renames the overlay would leave it visible during the hidden phase, while
+ * `threeDSChallenged` stays false for a check that finishes in that time.
+ */
+function warnIfOverlayNotFound(): void {
+  if (
+    typeof document !== 'undefined' &&
+    !document.querySelector(PRIMER_OVERLAY_SELECTOR)
+  ) {
+    console.warn(
+      `[FunnelfoxSDK] Primer 3DS overlay ${PRIMER_OVERLAY_SELECTOR} not found`
+    );
+  }
+}
+
 function toPrimerError(message: string, error: unknown): PrimerError {
   return error instanceof PrimerError ? error : new PrimerError(message, error);
 }
@@ -200,7 +215,7 @@ export async function runOneClickThreeDS(
       resolve(result);
     };
 
-    timer = setTimeout(() => {
+    const onTimeout = () => {
       timer = null;
       if (revealed) {
         // The challenge was shown and the customer did not finish it.
@@ -221,8 +236,8 @@ export async function runOneClickThreeDS(
         return;
       }
       if (tokenized) {
-        // Close the still hidden overlay before settle() unhides it.
-        dismissPrimerOverlay();
+        // The overlay is about to be shown: the reveal restarts the timer.
+        return;
       }
       settle({
         kind: 'error',
@@ -230,7 +245,8 @@ export async function runOneClickThreeDS(
           'Timed out before the 3DS challenge was shown (threeDSTimeoutMs)'
         ),
       });
-    }, timeoutMs);
+    };
+    timer = setTimeout(onTimeout, timeoutMs);
 
     const onTokenizeSuccess = (
       _data: unknown,
@@ -246,7 +262,13 @@ export async function runOneClickThreeDS(
         revealTimer = null;
         revealed = true;
         showOverlay();
+        warnIfOverlayNotFound();
         callSafely(params.onChallengeShown);
+        // The whole timeout belongs to the challenge the customer can see.
+        if (timer) {
+          clearTimeout(timer);
+        }
+        timer = setTimeout(onTimeout, timeoutMs);
       }, params.revealDelayMs);
       // Ignore the stand-in vaulted token: run the one-click 3DS action instead.
       handler.continueWithNewClientToken(actionToken);
