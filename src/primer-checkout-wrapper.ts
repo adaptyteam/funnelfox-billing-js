@@ -10,6 +10,10 @@ import { PaymentMethod } from './enums';
 import { PrimerError } from './errors';
 import { generateId } from './utils/helpers';
 import { loadPrimerCheckout } from './utils/primer-checkout-loader';
+import {
+  ensureTokens,
+  renderPrimerCardForm,
+} from './primer-checkout-card-form';
 import type {
   CheckoutOptions,
   CheckoutRenderOptions,
@@ -28,6 +32,7 @@ export interface PrimerCheckoutHooks {
 
 interface PrimerCheckoutApi {
   refreshSession(): Promise<void>;
+  setCardholderName(cardholderName: string): void;
 }
 
 interface PaymentStartDetail {
@@ -121,6 +126,10 @@ class SharedCheckout {
     return this.api?.refreshSession();
   }
 
+  setCardholderName(cardholderName: string) {
+    this.api?.setCardholderName(cardholderName);
+  }
+
   remove() {
     for (const [type, listener] of this.listeners) {
       document.removeEventListener(type, listener);
@@ -206,21 +215,38 @@ function toAllowedMethods(types: string[]): PaymentMethod[] {
   return methods;
 }
 
+// The legacy wrapper forced these on the rendered buttons with CSS (FFB-169, FFB-242); Primer Checkout draws
+// its buttons in shadow DOM, so they go through its options and the wallet tokens in primer-checkout-card-form.
+const WALLET_BUTTON_HEIGHT = 54;
+const WALLET_BUTTON_RADIUS = 28;
+
 function toPrimerOptions(options: CheckoutOptions) {
-  const cardholderRequired = !!options.card?.cardholderName?.required;
   return {
     submitButton: { useBuiltInButton: false },
-    card: {
-      cardholderName: {
-        visible: cardholderRequired,
-        required: cardholderRequired,
-      },
-    },
+    // Our skin renders its own cardholder input and validates it; Primer only receives the value.
+    card: { cardholderName: { visible: false, required: false } },
     applePay: {
       buttonOptions: {
         type: options.applePay?.buttonType,
         buttonStyle: options.applePay?.buttonStyle,
       },
+    },
+    googlePay: {
+      buttonType: options.googlePay?.buttonType,
+      buttonColor: options.googlePay?.buttonColor,
+      buttonSizeMode: options.googlePay?.buttonSizeMode,
+      buttonRadius: WALLET_BUTTON_RADIUS,
+    },
+    paypal: {
+      style: {
+        color: options.paypal?.buttonColor,
+        shape: options.paypal?.buttonShape,
+        label: options.paypal?.buttonLabel,
+        height: options.paypal?.buttonHeight ?? WALLET_BUTTON_HEIGHT,
+        borderRadius: WALLET_BUTTON_RADIUS,
+      },
+      // The card is paid through our own card form; Primer would add PayPal's card button under the PayPal one.
+      disableFunding: ['card'],
     },
   };
 }
@@ -267,42 +293,62 @@ class PrimerCheckoutWrapper {
 
     const provider = document.createElement('primer-provider');
     provider.setAttribute('checkout-id', checkout.id);
-    const component = document.createElement(
-      method === PaymentMethod.PAYMENT_CARD
-        ? 'primer-card-form'
-        : 'primer-payment-method'
-    );
-    if (method !== PaymentMethod.PAYMENT_CARD) {
-      component.setAttribute('type', method);
-    }
-    provider.appendChild(component);
-    htmlNode.appendChild(provider);
-    options.onMethodRender?.(method);
-
-    const methodInterface: PaymentMethodInterface = {
-      setDisabled: (disabled: boolean) => {
-        component.toggleAttribute('disabled', disabled);
-      },
-      submit: async () => {
-        if (method === PaymentMethod.PAYMENT_CARD) {
-          // The card form listens on itself: a submit dispatched on the document does not reach a form inside
-          // a provider.
-          component.dispatchEvent(
-            new CustomEvent('primer:card-submit', {
-              bubbles: true,
-              composed: true,
-            })
-          );
-        }
-      },
-      destroy: () => {
-        checkout.unregister(method);
-        provider.remove();
-        this.methodInterfaces = this.methodInterfaces.filter(
-          item => item !== methodInterface
-        );
-      },
+    let methodInterface: PaymentMethodInterface;
+    const removeMethod = () => {
+      checkout.unregister(method);
+      provider.remove();
+      this.methodInterfaces = this.methodInterfaces.filter(
+        item => item !== methodInterface
+      );
     };
+
+    if (method === PaymentMethod.PAYMENT_CARD && options.cardElements) {
+      const cardForm = renderPrimerCardForm(
+        provider,
+        htmlNode,
+        options.cardElements,
+        options,
+        cardholderName => checkout.setCardholderName(cardholderName)
+      );
+      methodInterface = {
+        setDisabled: cardForm.setDisabled,
+        submit: cardForm.submit,
+        destroy: () => {
+          cardForm.destroy();
+          removeMethod();
+        },
+      };
+    } else {
+      const component = document.createElement(
+        method === PaymentMethod.PAYMENT_CARD
+          ? 'primer-card-form'
+          : 'primer-payment-method'
+      );
+      if (method !== PaymentMethod.PAYMENT_CARD) {
+        component.setAttribute('type', method);
+        ensureTokens();
+        provider.classList.add('ff-primer-wallet');
+      }
+      provider.appendChild(component);
+      htmlNode.appendChild(provider);
+      methodInterface = {
+        setDisabled: (disabled: boolean) => {
+          component.toggleAttribute('disabled', disabled);
+        },
+        submit: async () => {
+          if (method === PaymentMethod.PAYMENT_CARD) {
+            component.dispatchEvent(
+              new CustomEvent('primer:card-submit', {
+                bubbles: true,
+                composed: true,
+              })
+            );
+          }
+        },
+        destroy: removeMethod,
+      };
+    }
+    options.onMethodRender?.(method);
     this.methodInterfaces.push(methodInterface);
     return methodInterface;
   }
