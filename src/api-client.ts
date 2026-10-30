@@ -202,6 +202,48 @@ class APIClient {
     })) as CreatePaymentResponse;
   }
 
+  /** Primer Checkout: approve the payment attempt Primer opened after tokenizing. */
+  async approvePayment(params: {
+    orderId: string;
+    paymentAttemptId: string;
+    clientToken: string;
+    email?: string;
+    countryCode?: string;
+    postalCode?: string;
+    clientMetadata?: MetadataType;
+  }): Promise<CreatePaymentResponse> {
+    const payload: Record<string, unknown> = {
+      order_id: params.orderId,
+      payment_attempt_id: params.paymentAttemptId,
+      client_token: params.clientToken,
+      client_metadata: params.clientMetadata || {},
+    };
+    if (params.email !== undefined) {
+      payload.email_address = params.email;
+    }
+    if (params.countryCode !== undefined) {
+      payload.country_code = params.countryCode;
+    }
+    if (params.postalCode !== undefined) {
+      payload.postal_code = params.postalCode;
+    }
+    // Once: a refusal (double purchase, attempt expired) is final, and a resend only aborts the attempt again.
+    return (await this.requestOnce(API_ENDPOINTS.APPROVE_PAYMENT, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })) as CreatePaymentResponse;
+  }
+
+  /** Primer Checkout: the order's payment outcome and decline reason, which the browser SDK does not get. */
+  async orderStatus(params: {
+    orderId: string;
+  }): Promise<CreatePaymentResponse> {
+    return (await this.request(API_ENDPOINTS.ORDER_STATUS, {
+      method: 'POST',
+      body: JSON.stringify({ order_id: params.orderId }),
+    })) as CreatePaymentResponse;
+  }
+
   async recalculateTax(params: {
     orderId: string;
     clientToken: string;

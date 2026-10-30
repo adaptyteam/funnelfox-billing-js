@@ -685,6 +685,8 @@ export interface CreateClientSessionResponse {
     country_field_overrides?: Record<string, CountryFieldOverride>;
     airwallex_risk_enabled?: boolean;
     sdk_telemetry_enabled?: boolean;
+    // Which Primer web SDK pays this session; `checkout` sessions are in manual approval mode.
+    primer_sdk?: 'legacy' | 'checkout';
     // The tenant's tax setting is on (provider != none); the SDK renders the tax flow off this.
     tax_enabled?: boolean;
     // Session tax estimate (detected-country) in minor units — for showing tax on mount and in the

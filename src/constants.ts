@@ -59,7 +59,14 @@ export const API_ENDPOINTS = {
   ONE_CLICK: '/v1/checkout/one_click',
   CREATE_SIMPLE_CLIENT_SESSION: '/v1/checkout/create_simple_client_session',
   RECALCULATE_TAX: '/v1/checkout/recalculate_tax',
+  APPROVE_PAYMENT: '/v1/checkout/approve_payment',
+  ORDER_STATUS: '/v1/checkout/order_status',
 } as const;
+
+// Primer Checkout ships as an ESM package only. Loaded at runtime, so its ~200 KB gzip never lands in our bundle
+// and the legacy flow does not pay for it.
+export const PRIMER_CHECKOUT_MODULE_URL =
+  'https://cdn.jsdelivr.net/npm/@primer-io/primer-js@1.13.2/+esm';
 
 export const ERROR_CODES = {
   SDK_ERROR: 'SDK_ERROR',
