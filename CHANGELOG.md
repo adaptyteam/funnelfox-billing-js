@@ -276,3 +276,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - The card skin keeps its markup and own fields; number, expiry and CVV are Primer Checkout inputs styled by CSS tokens. Wallet buttons keep 54 px height and 28 px radius; PayPal's card button is turned off
 - `createCheckout` no longer loads checkout-web v2 before the session: each Primer SDK is loaded once the session tells which one is used
 - One-click 3DS (`silentPurchase({ handle3DS: true })`) keeps running on checkout-web v2 for every org (FFB-768)
+- `getAvailablePaymentMethods` on a Primer Checkout org reads the methods from Primer Checkout and no longer loads checkout-web v2
