@@ -6,7 +6,17 @@
  */
 
 import * as constants from '../src/constants';
-import { silentPurchase } from '../src/api';
+
+jest.mock('../src/one-click-3ds', () => {
+  const actual = jest.requireActual('../src/one-click-3ds');
+  return {
+    ...actual,
+    THREE_DS_OVERLAY_REVEAL_DELAY_MS: 20,
+    runOneClickThreeDS: jest.fn(actual.runOneClickThreeDS),
+  };
+});
+
+import { createIdempotencyKey, silentPurchase } from '../src/api';
 import Billing, * as entry from '../src';
 import {
   APIError,
@@ -23,6 +33,7 @@ import type { OneClickResult, ThreeDSResult } from '../src/types';
 import {
   ACTION_TOKEN,
   BASE_URL,
+  CHALLENGE_ANSWER_MS,
   CLOSE_ERROR,
   ENDPOINT,
   ORG_ID,
@@ -79,6 +90,12 @@ const actionResponse = (orderId = 'order_1') =>
       order_id: orderId,
     })
   );
+
+async function withRetryTimers<T>(promise: Promise<T>): Promise<T> {
+  jest.useFakeTimers();
+  await jest.advanceTimersByTimeAsync(7000);
+  return promise;
+}
 
 beforeEach(() => {
   installPrimer();
@@ -223,6 +240,7 @@ describe('legacy silentPurchase (no handle3DS)', () => {
       initiation_type: 'cit',
       cit_card_networks: ['VISA'],
       cit_google_pay_pan_only: true,
+      idempotency_key: expect.any(String),
     });
   });
 
@@ -397,11 +415,6 @@ describe('detailed silentPurchase (handle3DS: true) — rows without 3DS', () =>
       jsonResponse(429, { status: 'error', error: [{ msg: 'limit' }] }),
       429,
     ],
-    [
-      '500',
-      jsonResponse(500, { status: 'error', error: [{ msg: 'boom' }] }),
-      500,
-    ],
   ])(
     'row 15 / S2: one_click %s -> error after exactly one POST',
     async (_name, response, statusCode) => {
@@ -419,14 +432,14 @@ describe('detailed silentPurchase (handle3DS: true) — rows without 3DS', () =>
     }
   );
 
-  test('row 15 / S1: one_click network failure -> error after exactly one fetch', async () => {
+  test('row 15 / S1: one_click network failure on every attempt -> error after 4 fetches', async () => {
     const h = hooks();
     routeFetch({ [ENDPOINT.ONE_CLICK]: [new TypeError('Failed to fetch')] });
-    const result = await detailed(h);
+    const result = await withRetryTimers(detailed(h));
     expect(result.outcome).toBe('error');
     expect(result.orderId).toBeNull();
     expect(result.error).toBeInstanceOf(NetworkError);
-    expect(callsTo(ENDPOINT.ONE_CLICK)).toHaveLength(1);
+    expect(callsTo(ENDPOINT.ONE_CLICK)).toHaveLength(4);
     expect(h.calls).toEqual([]);
   });
 
@@ -440,11 +453,13 @@ describe('detailed silentPurchase (handle3DS: true) — rows without 3DS', () =>
         } as Response,
       ],
     });
-    const result = await silentPurchase({ ...base, handle3DS: true });
+    const result = await withRetryTimers(
+      silentPurchase({ ...base, handle3DS: true })
+    );
     expect(result.outcome).toBe('error');
     expect(result.error).toBeInstanceOf(APIError);
     expect((result.error as APIError).statusCode).toBe(200);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   test('row 16: in-flight guard -> error without a request', async () => {
@@ -540,7 +555,7 @@ describe('detailed silentPurchase — 3DS rows', () => {
     });
   });
 
-  test('H2: onThreeDSStart fires before create_client_session and the Primer headless', async () => {
+  test('H2: onThreeDSStart fires only once the 3DS overlay is visible', async () => {
     const order: string[] = [];
     const primer = installPrimer();
     const impl = primer.createHeadless.getMockImplementation()!;
@@ -563,7 +578,7 @@ describe('detailed silentPurchase — 3DS rows', () => {
       handle3DS: true,
       onThreeDSStart: () => order.push('start'),
     });
-    expect(order).toEqual(['start', 'create_client_session', 'createHeadless']);
+    expect(order).toEqual(['create_client_session', 'createHeadless', 'start']);
   });
 
   test('row 6: non-null list, code not in it -> declined, hook passed', async () => {
@@ -732,7 +747,10 @@ describe('detailed silentPurchase — 3DS rows', () => {
           {
             ...log.tokenizeHandler,
             continueWithNewClientToken: () =>
-              setTimeout(() => cb.onCheckoutFail(new Error('fail')), 0),
+              setTimeout(
+                () => cb.onCheckoutFail(new Error('fail')),
+                CHALLENGE_ANSWER_MS
+              ),
           }
         ),
     });
@@ -794,14 +812,14 @@ describe('detailed silentPurchase — 3DS rows', () => {
     const result = await promise;
     expect(result.outcome).toBe('error');
     expect(result.orderId).toBe('order_1');
-    expect(result.threeDSChallenged).toBe(true);
+    expect(result.threeDSChallenged).toBe(false);
     expect(result.failedRequest).toBe('create_client_session');
     expect(result.error).toBeInstanceOf(NetworkError);
-    expect(h.calls).toEqual(['start:order_1', 'end:error']);
+    expect(h.calls).toEqual([]);
     expect(callsTo(ENDPOINT.RESUME)).toHaveLength(0);
   });
 
-  test('row 11: non-Primer token -> error, Primer never touched, hooks start/error', async () => {
+  test('row 11: non-Primer token -> error, Primer never touched, no hooks', async () => {
     const primer = installPrimer();
     const load = jest.spyOn(PrimerWrapper.prototype, 'ensurePrimerLoaded');
     const h = hooks();
@@ -818,11 +836,11 @@ describe('detailed silentPurchase — 3DS rows', () => {
     });
     const result = await detailed(h);
     expect(result.outcome).toBe('error');
-    expect(result.threeDSChallenged).toBe(true);
+    expect(result.threeDSChallenged).toBe(false);
     expect(result.orderId).toBe('order_1');
     expect(result.error).toBeInstanceOf(PrimerError);
     expect(result.failedRequest).toBeUndefined();
-    expect(h.calls).toEqual(['start:order_1', 'end:error']);
+    expect(h.calls).toEqual([]);
     expect(load).not.toHaveBeenCalled();
     expect(primer.createHeadless).not.toHaveBeenCalled();
     expect(callsTo(ENDPOINT.SESSION)).toHaveLength(0);
@@ -842,12 +860,12 @@ describe('detailed silentPurchase — 3DS rows', () => {
     await jest.advanceTimersByTimeAsync(10000);
     const result = await promise;
     expect(result.outcome).toBe('error');
-    expect(result.threeDSChallenged).toBe(true);
+    expect(result.threeDSChallenged).toBe(false);
     expect(result.error).toBeInstanceOf(APIError);
     expect((result.error as APIError).statusCode).toBe(500);
     expect(result.failedRequest).toBe('create_client_session');
     expect(callsTo(ENDPOINT.SESSION)).toHaveLength(3);
-    expect(h.calls).toEqual(['start:order_1', 'end:error']);
+    expect(h.calls).toEqual([]);
   });
 
   test('row 12b: Primer createHeadless rejects -> error, PrimerError, no failedRequest', async () => {
@@ -861,7 +879,7 @@ describe('detailed silentPurchase — 3DS rows', () => {
     expect(result.outcome).toBe('error');
     expect(result.error).toBeInstanceOf(PrimerError);
     expect(result.failedRequest).toBeUndefined();
-    expect(h.calls).toEqual(['start:order_1', 'end:error']);
+    expect(h.calls).toEqual([]);
     expect(callsTo(ENDPOINT.RESUME)).toHaveLength(0);
   });
 
@@ -876,7 +894,7 @@ describe('detailed silentPurchase — 3DS rows', () => {
     expect(result.outcome).toBe('error');
     expect(result.error).toBeInstanceOf(PrimerError);
     expect(result.error?.message).toContain('No saved payment method');
-    expect(h.calls).toEqual(['start:order_1', 'end:error']);
+    expect(h.calls).toEqual([]);
   });
 
   test.each([
@@ -940,6 +958,56 @@ describe('detailed silentPurchase — 3DS rows', () => {
 // Hooks (AC8)
 // ---------------------------------------------------------------------------
 
+describe('frictionless 3DS (FFB-758)', () => {
+  test('3DS that finishes before the overlay is shown -> no hooks, not challenged', async () => {
+    installPrimer({ scenario: resumeWith('resume_ok', 0) });
+    const h = hooks();
+    routeFetch({
+      [ENDPOINT.ONE_CLICK]: [actionResponse()],
+      [ENDPOINT.SESSION]: [jsonResponse(200, SESSION_BODY)],
+      [ENDPOINT.RESUME]: [jsonResponse(200, paymentBody({}))],
+    });
+    const result = await detailed(h);
+    expect(result).toEqual({
+      outcome: 'succeeded',
+      orderId: 'order_1',
+      threeDSChallenged: false,
+    });
+    expect(h.calls).toEqual([]);
+    expect(callsTo(ENDPOINT.RESUME)).toHaveLength(1);
+  });
+
+  test('a decline after frictionless 3DS is a plain decline', async () => {
+    installPrimer({ scenario: resumeWith('resume_ok', 0) });
+    const h = hooks();
+    routeFetch({
+      [ENDPOINT.ONE_CLICK]: [actionResponse()],
+      [ENDPOINT.SESSION]: [jsonResponse(200, SESSION_BODY)],
+      [ENDPOINT.RESUME]: [
+        jsonResponse(
+          200,
+          paymentBody({
+            checkout_status: 'failed',
+            failed_message_for_user: 'Declined.',
+            decline_code: 'DO_NOT_HONOR',
+            decline_code_source: 'primer',
+          })
+        ),
+      ],
+    });
+    const result = await detailed(h);
+    expect(result).toEqual({
+      outcome: 'declined',
+      orderId: 'order_1',
+      threeDSChallenged: false,
+      failedMessageForUser: 'Declined.',
+      declineCode: 'DO_NOT_HONOR',
+      declineCodeSource: 'primer',
+    });
+    expect(h.calls).toEqual([]);
+  });
+});
+
 describe('hooks', () => {
   test('H5: throwing hooks change nothing; onThreeDSEnd still fires once', async () => {
     installPrimer();
@@ -966,21 +1034,21 @@ describe('hooks', () => {
     expect(errorLog).toHaveBeenCalledTimes(2);
   });
 
-  test('H6: an unexpected exception in the 3DS step resolves error with one end(error)', async () => {
+  test('H6: an unexpected exception before the challenge resolves error without hooks', async () => {
     const runner = jest
-      .spyOn(threeDS, 'runOneClickThreeDS')
-      .mockRejectedValue(new Error('unexpected'));
+      .mocked(threeDS.runOneClickThreeDS)
+      .mockRejectedValueOnce(new Error('unexpected'));
     const h = hooks();
     routeFetch({ [ENDPOINT.ONE_CLICK]: [actionResponse()] });
     const result = await detailed(h);
     expect(runner).toHaveBeenCalled();
     expect(result.outcome).toBe('error');
     expect(result.error?.message).toBe('unexpected');
-    expect(h.calls).toEqual(['start:order_1', 'end:error']);
+    expect(h.calls).toEqual([]);
   });
 
   test('H6b: a non-Error rejection is wrapped', async () => {
-    jest.spyOn(threeDS, 'runOneClickThreeDS').mockRejectedValue('weird');
+    jest.mocked(threeDS.runOneClickThreeDS).mockRejectedValueOnce('weird');
     routeFetch({ [ENDPOINT.ONE_CLICK]: [actionResponse()] });
     const result = await silentPurchase({ ...base, handle3DS: true });
     expect(result.outcome).toBe('error');
@@ -1059,8 +1127,10 @@ describe('single POST and error passthrough', () => {
       const body = { status: 'error', error: [{ msg: 'down', code: 'svc' }] };
       routeFetch({ [ENDPOINT.ONE_CLICK]: [jsonResponse(503, body)] });
       const spy = jest.spyOn(APIClient.prototype, 'oneClickOnce');
-      const result = await silentPurchase({ ...base, handle3DS: true });
-      const thrown = await spy.mock.results[0].value.catch((e: unknown) => e);
+      const result = await withRetryTimers(
+        silentPurchase({ ...base, handle3DS: true })
+      );
+      const thrown = await spy.mock.results[3].value.catch((e: unknown) => e);
       expect(result.error).toBe(thrown);
       expect(result.error).toBeInstanceOf(APIError);
       expect((result.error as APIError).statusCode).toBe(503);
@@ -1077,9 +1147,11 @@ describe('single POST and error passthrough', () => {
       const rejection = new TypeError('Failed to fetch');
       routeFetch({ [ENDPOINT.ONE_CLICK]: [rejection] });
       const spy = jest.spyOn(APIClient.prototype, 'oneClickOnce');
-      const result = await silentPurchase({ ...base, handle3DS: true });
+      const result = await withRetryTimers(
+        silentPurchase({ ...base, handle3DS: true })
+      );
       expect(result.error).toBe(
-        await spy.mock.results[0].value.catch((e: unknown) => e)
+        await spy.mock.results[3].value.catch((e: unknown) => e)
       );
       expect(result.error).toBeInstanceOf(NetworkError);
       expect(result.error?.name).toBe('NetworkError');
@@ -1173,6 +1245,216 @@ describe('single POST and error passthrough', () => {
       expect(result).not.toHaveProperty('failedRequest');
       expect(result).not.toHaveProperty('error');
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FFB-758: idempotency key and safe one_click retry
+// ---------------------------------------------------------------------------
+
+describe('one_click idempotency key and retry (FFB-758)', () => {
+  const UUID_V4 =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  const keysSent = () =>
+    callsTo(ENDPOINT.ONE_CLICK).map(call => bodyOf(call).idempotency_key);
+  const errorBody = (code: string) => ({
+    status: 'error',
+    error: [{ msg: code, code }],
+  });
+
+  test('every call sends a fresh UUID v4; legacy mode sends none', async () => {
+    routeFetch({ [ENDPOINT.ONE_CLICK]: [jsonResponse(200, paymentBody({}))] });
+    await silentPurchase({ ...base, handle3DS: true });
+    await silentPurchase({ ...base, handle3DS: true });
+    await silentPurchase(base);
+    const [first, second, legacy] = keysSent();
+    expect(first).toMatch(UUID_V4);
+    expect(second).toMatch(UUID_V4);
+    expect(second).not.toBe(first);
+    expect(legacy).toBeUndefined();
+  });
+
+  test.each([
+    ['network error', new TypeError('Load failed')],
+    ['5xx', jsonResponse(502, errorBody('bad_gateway'))],
+    [
+      'unparseable 2xx',
+      {
+        ok: true,
+        status: 200,
+        json: () => Promise.reject(new SyntaxError('Unexpected end of JSON')),
+      } as Response,
+    ],
+    ['empty 2xx body', jsonResponse(200, null)],
+    ['empty 2xx object', jsonResponse(200, {})],
+    [
+      '400 idempotency_key_in_progress',
+      jsonResponse(400, errorBody('idempotency_key_in_progress')),
+    ],
+  ])('%s is retried with the same key', async (_name, failure) => {
+    routeFetch({
+      [ENDPOINT.ONE_CLICK]: [failure, jsonResponse(200, paymentBody({}))],
+    });
+    const result = await withRetryTimers(
+      silentPurchase({ ...base, handle3DS: true })
+    );
+    expect(result).toEqual({
+      outcome: 'succeeded',
+      orderId: 'order_1',
+      threeDSChallenged: false,
+    });
+    const keys = keysSent();
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toMatch(UUID_V4);
+    expect(keys[1]).toBe(keys[0]);
+  });
+
+  test('retries wait 1 s, 2 s and 4 s, then the last error is returned', async () => {
+    routeFetch({ [ENDPOINT.ONE_CLICK]: [new TypeError('Failed to fetch')] });
+    jest.useFakeTimers();
+    let settled = false;
+    const promise = silentPurchase({ ...base, handle3DS: true }).then(
+      result => {
+        settled = true;
+        return result;
+      }
+    );
+    await jest.advanceTimersByTimeAsync(0);
+    expect(callsTo(ENDPOINT.ONE_CLICK)).toHaveLength(1);
+    await jest.advanceTimersByTimeAsync(999);
+    expect(callsTo(ENDPOINT.ONE_CLICK)).toHaveLength(1);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(callsTo(ENDPOINT.ONE_CLICK)).toHaveLength(2);
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(callsTo(ENDPOINT.ONE_CLICK)).toHaveLength(3);
+    expect(settled).toBe(false);
+    await jest.advanceTimersByTimeAsync(4000);
+    expect(callsTo(ENDPOINT.ONE_CLICK)).toHaveLength(4);
+    const result = await promise;
+    expect(result.outcome).toBe('error');
+    expect(result.error).toBeInstanceOf(NetworkError);
+    expect(result.failedRequest).toBe('one_click');
+    expect(new Set(keysSent()).size).toBe(1);
+  });
+
+  test('a replay that is still processing resolves processing, never a new key', async () => {
+    routeFetch({
+      [ENDPOINT.ONE_CLICK]: [
+        new TypeError('Failed to fetch'),
+        jsonResponse(
+          200,
+          paymentBody({
+            checkout_status: 'processing',
+            idempotent_replay: true,
+          })
+        ),
+      ],
+    });
+    const result = await withRetryTimers(
+      silentPurchase({ ...base, handle3DS: true })
+    );
+    expect(result).toEqual({
+      outcome: 'processing',
+      orderId: 'order_1',
+      threeDSChallenged: false,
+    });
+    expect(new Set(keysSent()).size).toBe(1);
+  });
+
+  test('a replay waiting for 3DS runs the challenge with the replayed token', async () => {
+    installPrimer();
+    routeFetch({
+      [ENDPOINT.ONE_CLICK]: [
+        jsonResponse(503, errorBody('unavailable')),
+        actionResponse(),
+      ],
+      [ENDPOINT.SESSION]: [jsonResponse(200, SESSION_BODY)],
+      [ENDPOINT.RESUME]: [jsonResponse(200, paymentBody({}))],
+    });
+    const result = await withRetryTimers(
+      silentPurchase({ ...base, handle3DS: true })
+    );
+    expect(result.outcome).toBe('succeeded');
+    expect(callsTo(ENDPOINT.ONE_CLICK)).toHaveLength(2);
+    expect(callsTo(ENDPOINT.RESUME)).toHaveLength(1);
+  });
+
+  test.each([
+    [
+      'idempotency_key_reused',
+      jsonResponse(400, errorBody('idempotency_key_reused')),
+    ],
+    [
+      'key validation error',
+      jsonResponse(400, {
+        status: 'error',
+        error: [
+          {
+            msg: 'too long',
+            type: 'string_too_long',
+            loc: ['idempotency_key'],
+          },
+        ],
+      }),
+    ],
+    ['429 one-click limit', jsonResponse(429, errorBody('rate_limit'))],
+  ])('%s is not retried', async (_name, response) => {
+    routeFetch({ [ENDPOINT.ONE_CLICK]: [response] });
+    const result = await withRetryTimers(
+      silentPurchase({ ...base, handle3DS: true })
+    );
+    expect(result.outcome).toBe('error');
+    expect(result.failedRequest).toBe('one_click');
+    expect(callsTo(ENDPOINT.ONE_CLICK)).toHaveLength(1);
+  });
+
+  test('double_purchase is not retried', async () => {
+    routeFetch({
+      [ENDPOINT.ONE_CLICK]: [jsonResponse(400, errorBody('double_purchase'))],
+    });
+    const result = await withRetryTimers(
+      silentPurchase({ ...base, handle3DS: true })
+    );
+    expect(result.outcome).toBe('already_purchased');
+    expect(callsTo(ENDPOINT.ONE_CLICK)).toHaveLength(1);
+  });
+
+  test('without crypto there is no key and no retry', async () => {
+    const original = globalThis.crypto;
+    Object.defineProperty(globalThis, 'crypto', {
+      value: undefined,
+      configurable: true,
+    });
+    try {
+      routeFetch({ [ENDPOINT.ONE_CLICK]: [new TypeError('Failed to fetch')] });
+      const result = await withRetryTimers(
+        silentPurchase({ ...base, handle3DS: true })
+      );
+      expect(result.outcome).toBe('error');
+      expect(callsTo(ENDPOINT.ONE_CLICK)).toHaveLength(1);
+      expect(keysSent()).toEqual([undefined]);
+    } finally {
+      Object.defineProperty(globalThis, 'crypto', {
+        value: original,
+        configurable: true,
+      });
+    }
+  });
+
+  test('getRandomValues fallback still produces a UUID v4', () => {
+    const original = globalThis.crypto;
+    Object.defineProperty(globalThis, 'crypto', {
+      value: { getRandomValues: original.getRandomValues.bind(original) },
+      configurable: true,
+    });
+    try {
+      expect(createIdempotencyKey()).toMatch(UUID_V4);
+    } finally {
+      Object.defineProperty(globalThis, 'crypto', {
+        value: original,
+        configurable: true,
+      });
+    }
   });
 });
 

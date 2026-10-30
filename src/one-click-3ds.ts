@@ -8,6 +8,11 @@
  * checkout, tokenize a vaulted instrument through the vault manager as a stand-in, and in
  * `onTokenizeSuccess` continue with the one-click `action_required_token` instead. Primer then
  * shows its 3DS overlay; `onResumeSuccess` yields the resume token for `resume_payment`.
+ *
+ * With processor 3DS (`PROCESSOR_3DS`) Primer frames the processor's hosted 3DS page and cannot
+ * tell a frictionless check from a challenge, and nothing reaches the page from the cross-origin
+ * frame (FFB-758 spike). A frictionless check finishes within ~5 s, so the overlay stays
+ * invisible for `THREE_DS_OVERLAY_REVEAL_DELAY_MS` and only then counts as a shown challenge.
  */
 
 import type {
@@ -30,6 +35,15 @@ export const PRIMER_3DS_INTENTS = ['3DS_AUTHENTICATION', 'PROCESSOR_3DS'];
 /** Default `threeDSTimeoutMs`. */
 export const DEFAULT_THREE_DS_TIMEOUT_MS = 600000;
 
+/**
+ * How long Primer's 3DS overlay stays invisible. Frictionless checks on billing-dev took
+ * 4.2-5.0 s from overlay to resume; a real challenge is shown this much later.
+ */
+export const THREE_DS_OVERLAY_REVEAL_DELAY_MS = 6000;
+
+/** Primer's 3DS overlay (Primer Web SDK 2.57.3, verified in the FFB-758 spike). */
+const PRIMER_OVERLAY_SELECTOR = '#primer-overlay';
+
 /** Close button of Primer's 3DS overlay (Primer Web SDK 2.57.3, verified in the spike). */
 const PRIMER_OVERLAY_CLOSE_SELECTOR =
   '[data-testid="OverlayContent.closeButton"]';
@@ -48,6 +62,10 @@ export interface RunOneClickThreeDSParams {
   orderId: string;
   actionToken: string;
   timeoutMs: number;
+  /** How long the overlay stays invisible (`THREE_DS_OVERLAY_REVEAL_DELAY_MS`). */
+  revealDelayMs: number;
+  /** Called once when the overlay becomes visible, i.e. the customer may see a challenge. */
+  onChallengeShown: () => void;
 }
 
 /** Decodes the `intent` of a Primer client token (a JWT); `null` if it is not one. */
@@ -104,6 +122,17 @@ function dismissPrimerOverlay(): void {
   button?.click();
 }
 
+/** Hides Primer's overlay until the returned function is called. */
+function hidePrimerOverlay(): () => void {
+  if (typeof document === 'undefined') {
+    return () => {};
+  }
+  const style = document.createElement('style');
+  style.textContent = `${PRIMER_OVERLAY_SELECTOR}{opacity:0!important;pointer-events:none!important}`;
+  document.head.appendChild(style);
+  return () => style.remove();
+}
+
 function toPrimerError(message: string, error: unknown): PrimerError {
   return error instanceof PrimerError ? error : new PrimerError(message, error);
 }
@@ -145,6 +174,9 @@ export async function runOneClickThreeDS(
   return new Promise<ThreeDSRunResult>(resolve => {
     let settled = false;
     let tokenized = false;
+    let revealed = false;
+    let revealTimer: ReturnType<typeof setTimeout> | null = null;
+    let showOverlay: () => void = () => {};
     // True only while create_client_session is in flight.
     let sessionInFlight = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -159,13 +191,18 @@ export async function runOneClickThreeDS(
         clearTimeout(timer);
         timer = null;
       }
+      if (revealTimer) {
+        clearTimeout(revealTimer);
+        revealTimer = null;
+      }
+      showOverlay();
       headless = null;
       resolve(result);
     };
 
     timer = setTimeout(() => {
       timer = null;
-      if (tokenized) {
+      if (revealed) {
         // The challenge was shown and the customer did not finish it.
         settle({ kind: 'abandoned' });
         // Close Primer's overlay; the close error it raises is ignored (already settled).
@@ -182,6 +219,10 @@ export async function runOneClickThreeDS(
           failedRequest: 'create_client_session',
         });
         return;
+      }
+      if (tokenized) {
+        // Close the still hidden overlay before settle() unhides it.
+        dismissPrimerOverlay();
       }
       settle({
         kind: 'error',
@@ -200,6 +241,13 @@ export async function runOneClickThreeDS(
         return;
       }
       tokenized = true;
+      showOverlay = hidePrimerOverlay();
+      revealTimer = setTimeout(() => {
+        revealTimer = null;
+        revealed = true;
+        showOverlay();
+        callSafely(params.onChallengeShown);
+      }, params.revealDelayMs);
       // Ignore the stand-in vaulted token: run the one-click 3DS action instead.
       handler.continueWithNewClientToken(actionToken);
     };
@@ -216,6 +264,10 @@ export async function runOneClickThreeDS(
       if (timer) {
         clearTimeout(timer);
         timer = null;
+      }
+      if (revealTimer) {
+        clearTimeout(revealTimer);
+        revealTimer = null;
       }
       let response: CreatePaymentResponse;
       try {

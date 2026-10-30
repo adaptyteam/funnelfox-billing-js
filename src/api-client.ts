@@ -69,7 +69,8 @@ class APIClient {
   /**
    * Sends the request exactly once: no retry and no client timeout (FFB-704, decision 9).
    * Same URL, headers and error classes as `request()`. Used only by `silentPurchase`'s
-   * `handle3DS` mode for `one_click` and `resume_payment`, which must not be POSTed twice.
+   * `handle3DS` mode for `one_click` and `resume_payment`, which must not be POSTed twice;
+   * `one_click` is re-sent by the caller only with the same idempotency key.
    */
   async requestOnce(endpoint: string, options: RequestInit = {}) {
     const url = `${this.baseUrl}/${this.orgId}${endpoint}`;
