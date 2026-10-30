@@ -70,11 +70,7 @@ export async function createCheckout(
 ): Promise<CheckoutInstance> {
   try {
     const { ...checkoutConfig } = options;
-
-    // Ensure Primer SDK is loaded before creating checkout
-    const primerWrapper = new PrimerWrapper();
-    await primerWrapper.ensurePrimerLoaded();
-
+    // Which Primer SDK to load is known only from the session; each wrapper loads its own when it starts.
     const config = resolveConfig(options, 'createCheckout');
 
     const checkout = new CheckoutInstance({

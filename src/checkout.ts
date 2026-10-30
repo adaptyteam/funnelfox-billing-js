@@ -277,8 +277,17 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   }
 
   private primerCheckoutHooks(): PrimerCheckoutHooks {
+    // A wallet sheet closed before tokenization ends without a payment start, so the loader is released only by
+    // the payment that took it.
+    let paymentInFlight = false;
+    const releaseLoader = () => {
+      if (paymentInFlight) {
+        paymentInFlight = false;
+        this.onLoaderChangeWithRace(false);
+      }
+    };
     const finish = () => {
-      this.onLoaderChangeWithRace(false);
+      releaseLoader();
       this._setState('ready');
     };
     return {
@@ -286,6 +295,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         this.activePaymentMethodType = method;
         this.emit(EVENTS.ERROR, undefined);
         this.emit(EVENTS.START_PURCHASE, method);
+        paymentInFlight = true;
         this.onLoaderChangeWithRace(true);
         this._setState('processing');
         // The amount is final once Primer opens the attempt: an approve after a change gets a conflict.
@@ -315,14 +325,17 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         this.apiClient.processPaymentResponse(response);
       },
       onSuccess: () => {
-        void this.syncOrderStatus().finally(() => {
-          this.onLoaderChangeWithRace(false);
-          this._setState('completed');
-          this.emit(EVENTS.SUCCESS, {
-            orderId: this.orderId as string,
-            status: 'succeeded',
+        // The payment succeeded at Primer either way; a failed sync only leaves the order to the webhook.
+        void this.syncOrderStatus()
+          .catch(() => undefined)
+          .then(() => {
+            releaseLoader();
+            this._setState('completed');
+            this.emit(EVENTS.SUCCESS, {
+              orderId: this.orderId as string,
+              status: 'succeeded',
+            });
           });
-        });
       },
       onFailure: async approvalError => {
         let failure = approvalError;

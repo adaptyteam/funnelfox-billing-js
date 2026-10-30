@@ -65,6 +65,8 @@ export const API_ENDPOINTS = {
 
 // Primer Checkout ships as an ESM package only. Loaded at runtime, so its ~200 KB gzip never lands in our bundle
 // and the legacy flow does not pay for it.
+export const APPROVE_PAYMENT_TIMEOUT_MS = 60000;
+
 export const PRIMER_CHECKOUT_MODULE_URL =
   'https://cdn.jsdelivr.net/npm/@primer-io/primer-js@1.13.2/+esm';
 
