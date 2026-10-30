@@ -6,6 +6,18 @@ import { Billing } from '../src';
 import { PaymentMethod } from '../src/enums';
 import type { PaymentFailure } from '../src/types';
 
+jest.mock('../src/skins/card/template.html', () => ({
+  __esModule: true,
+  default: jest
+    .requireActual('fs')
+    .readFileSync(
+      jest
+        .requireActual('path')
+        .join(__dirname, '../src/skins/card/template.html'),
+      'utf8'
+    ),
+}));
+
 jest.mock('../src/utils/primer-checkout-loader', () => ({
   loadPrimerCheckout: jest.fn().mockResolvedValue(undefined),
 }));
@@ -42,10 +54,13 @@ function dispatch(type: string, detail?: unknown, cancelable = false) {
   return event;
 }
 
+const primerApi = { refreshSession: jest.fn(), setCardholderName: jest.fn() };
+
 async function renderCard(callbacks: {
   onPaymentSuccess?: jest.Mock;
   onPaymentFail?: jest.Mock;
   onPaymentCancel?: jest.Mock;
+  card?: { cardholderName?: { required: boolean } };
 }) {
   const node = document.createElement('div');
   document.body.appendChild(node);
@@ -60,7 +75,7 @@ async function renderCard(callbacks: {
   while (!document.querySelector('primer-checkout')) {
     await flush();
   }
-  dispatch('primer:ready', { refreshSession: jest.fn() });
+  dispatch('primer:ready', primerApi);
   dispatch('primer:methods-update', [
     { type: 'PAYMENT_CARD' },
     { type: 'GOOGLE_PAY' },
@@ -157,6 +172,18 @@ test('a Primer Checkout session renders the card form through a provider and pay
   const provider = node.querySelector('primer-provider') as HTMLElement;
   expect(provider.getAttribute('checkout-id')).toBe(checkout.id);
   const cardForm = provider.querySelector('primer-card-form') as HTMLElement;
+  // The SDK card skin sits in the form's slot, with Primer's secure inputs in its containers.
+  expect(cardForm.hasAttribute('hide-labels')).toBe(true);
+  expect(
+    cardForm.querySelector('#cardNumberInput > primer-input-card-number')
+  ).not.toBeNull();
+  expect(
+    cardForm.querySelector('#expiryInput > primer-input-card-expiry')
+  ).not.toBeNull();
+  expect(cardForm.querySelector('#cvvInput > primer-input-cvv')).not.toBeNull();
+  expect(
+    cardForm.querySelector('label[for="cardNumberInput"]')?.textContent
+  ).toBe('Card number');
 
   const submitted = jest.fn();
   cardForm.addEventListener('primer:card-submit', submitted);
@@ -246,4 +273,29 @@ test('a closed wallet sheet is a cancel, and destroying the last method removes 
   rendered.splice(0);
   expect(document.querySelector('primer-checkout')).toBeNull();
   expect(document.querySelector('primer-provider')).toBeNull();
+});
+
+test('our cardholder field is validated before Primer gets the submit, and its value reaches Primer', async () => {
+  const { node, method } = await renderCard({
+    card: { cardholderName: { required: true } },
+  });
+  const cardForm = node.querySelector('primer-card-form') as HTMLElement;
+  const submitted = jest.fn();
+  cardForm.addEventListener('primer:card-submit', submitted);
+
+  await method.submit?.();
+  expect(submitted).not.toHaveBeenCalled();
+  expect(
+    node
+      .querySelector('#cardHolderInput')
+      ?.parentElement?.querySelector('.errorContainer')?.textContent
+  ).toBe('Please enter the cardholder name');
+
+  const cardholder = node.querySelector('#cardHolderInput') as HTMLInputElement;
+  cardholder.value = 'Jane Doe';
+  cardholder.dispatchEvent(new Event('input'));
+  expect(primerApi.setCardholderName).toHaveBeenCalledWith('Jane Doe');
+
+  await method.submit?.();
+  expect(submitted).toHaveBeenCalledTimes(1);
 });
