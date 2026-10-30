@@ -323,21 +323,33 @@ test('a closed wallet sheet is a cancel, and destroying the last method removes 
   expect(document.querySelector('primer-provider')).toBeNull();
 });
 
-test('our cardholder field is validated before Primer gets the submit, and its value reaches Primer', async () => {
+test('Primer gets the submit to highlight its inputs, but no payment starts while our cardholder field is empty', async () => {
+  const onPaymentFail = jest.fn();
   const { node, method } = await renderCard({
     card: { cardholderName: { required: true } },
+    onPaymentFail,
   });
   const cardForm = node.querySelector('primer-card-form') as HTMLElement;
   const submitted = jest.fn();
   cardForm.addEventListener('primer:card-submit', submitted);
 
   await method.submit?.();
-  expect(submitted).not.toHaveBeenCalled();
+  expect(submitted).toHaveBeenCalledTimes(1);
   expect(
     node
       .querySelector('#cardHolderInput')
       ?.parentElement?.querySelector('.errorContainer')?.textContent
-  ).toBe('Please enter the cardholder name');
+  ).toBe('Name on card is required');
+  const blocked = {
+    paymentMethodType: 'PAYMENT_CARD',
+    continuePaymentCreation: jest.fn(),
+    abortPaymentCreation: jest.fn(),
+  };
+  dispatch('primer:payment-start', blocked, true);
+  await flush();
+  expect(blocked.abortPaymentCreation).toHaveBeenCalledTimes(1);
+  expect(blocked.continuePaymentCreation).not.toHaveBeenCalled();
+  expect(onPaymentFail).not.toHaveBeenCalled();
 
   const cardholder = node.querySelector('#cardHolderInput') as HTMLInputElement;
   cardholder.value = 'Jane Doe';
@@ -345,7 +357,10 @@ test('our cardholder field is validated before Primer gets the submit, and its v
   expect(primerApi.setCardholderName).toHaveBeenCalledWith('Jane Doe');
 
   await method.submit?.();
-  expect(submitted).toHaveBeenCalledTimes(1);
+  expect(submitted).toHaveBeenCalledTimes(2);
+  const { continuePaymentCreation, abortPaymentCreation } = await pay();
+  expect(abortPaymentCreation).not.toHaveBeenCalled();
+  expect(continuePaymentCreation).toHaveBeenCalledTimes(1);
 });
 
 test('a re-rendered method keeps paying after the old instance is destroyed', async () => {
