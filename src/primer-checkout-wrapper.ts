@@ -70,6 +70,7 @@ class SharedCheckout {
   private approvalError: unknown;
 
   constructor(clientToken: string, options: CheckoutOptions) {
+    ensureTokens();
     this.element = document.createElement('primer-checkout');
     this.element.id = this.id;
     this.element.setAttribute('loader-disabled', '');

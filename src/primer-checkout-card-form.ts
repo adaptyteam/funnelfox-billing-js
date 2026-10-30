@@ -46,6 +46,13 @@ const TOKENS_CSS = `
   --primer-color-focus: transparent;
   display: block;
 }
+/* Primer's dialogs (3DS challenge) sit on z-index 1000 with no token to change it, so a page element above 1000
+   would cover the challenge. checkout-web v2 used 100000. */
+primer-portal-dialog {
+  display: block;
+  position: relative;
+  z-index: 100000;
+}
 /* Primer sizes a wallet button as 20 px + 2 x --primer-space-medium: 54 px, as in the legacy skin. */
 .ff-primer-wallet {
   --primer-space-medium: 17px;
