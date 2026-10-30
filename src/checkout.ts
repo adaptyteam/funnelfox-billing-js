@@ -113,6 +113,9 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   private taxRecalcSeq = 0;
   private lastTaxInfo?: TaxInfo;
   private activePaymentMethodType?: PaymentMethod;
+  // WebKit allows one ApplePaySession per page: a second tap while the sheet is
+  // still opening throws InvalidAccessError, but Primer asks to start first.
+  private isApplePaySheetOpen = false;
   private shouldApplySessionCardholderNameConfig: boolean;
   private cardSessionFieldConfig: CardSessionFieldConfig = {};
   private isTelemetryEnabled = false;
@@ -688,6 +691,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         (error as Error)?.message || 'Payment processing failed'
       );
     } finally {
+      this.isApplePaySheetOpen = false;
       this.onLoaderChangeWithRace(false);
       this._setState('ready');
     }
@@ -719,6 +723,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         (error as Error)?.message || 'Payment processing failed'
       );
     } finally {
+      this.isApplePaySheetOpen = false;
       this.emit(EVENTS.PURCHASE_COMPLETED);
       this.onLoaderChangeWithRace(false);
       this._setState('ready');
@@ -786,6 +791,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       onTokenizeSuccess: this.handleTokenizeSuccess,
       onResumeSuccess: this.handleResumeSuccess,
       onResumeError: error => {
+        this.isApplePaySheetOpen = false;
         if (
           error.stack?.includes('PROCESSOR_3DS') &&
           error.code === 'RESUME_ERROR' &&
@@ -797,15 +803,23 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         this.emit(EVENTS.PURCHASE_FAILURE, error);
       },
       onCheckoutFail: error => {
+        this.isApplePaySheetOpen = false;
         this.emit(EVENTS.PURCHASE_FAILURE, error);
       },
       onTokenizeError: error => {
+        this.isApplePaySheetOpen = false;
         this.emit(EVENTS.PURCHASE_FAILURE, error);
       },
       onTokenizeStart: () => {
         wasPaymentProcessedStarted = true;
       },
       onTokenizeShouldStart: data => {
+        if (data.paymentMethodType === PaymentMethod.APPLE_PAY) {
+          if (this.isApplePaySheetOpen) {
+            return false;
+          }
+          this.isApplePaySheetOpen = true;
+        }
         this.activePaymentMethodType = data.paymentMethodType as PaymentMethod;
         this.emit(EVENTS.ERROR, undefined);
         this.emit(
@@ -820,6 +834,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
             this.emit(EVENTS.ERROR, undefined);
             break;
           case 'PAYMENT_METHOD_UNSELECTED':
+            this.isApplePaySheetOpen = false;
             if (!wasPaymentProcessedStarted) {
               this.emit(EVENTS.PURCHASE_CANCELLED);
             }
