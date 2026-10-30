@@ -363,6 +363,56 @@ test('Primer gets the submit to highlight its inputs, but no payment starts whil
   expect(continuePaymentCreation).toHaveBeenCalledTimes(1);
 });
 
+function startPayment(paymentMethodType: string) {
+  const detail = {
+    paymentMethodType,
+    continuePaymentCreation: jest.fn(),
+    abortPaymentCreation: jest.fn(),
+  };
+  dispatch('primer:payment-start', detail, true);
+  return detail;
+}
+
+test('a payment Primer starts on its own (Enter in a card input) is checked against our fields too', async () => {
+  const onPaymentFail = jest.fn();
+  await renderCard({
+    card: { cardholderName: { required: true } },
+    onPaymentFail,
+  });
+
+  const start = startPayment('PAYMENT_CARD');
+  await flush();
+  expect(start.abortPaymentCreation).toHaveBeenCalledTimes(1);
+  expect(start.continuePaymentCreation).not.toHaveBeenCalled();
+  expect(onPaymentFail).not.toHaveBeenCalled();
+});
+
+test('the card form check does not hold back a wallet payment on the same page', async () => {
+  await renderCard({
+    externalId: 'same-customer',
+    card: { cardholderName: { required: true } },
+  });
+  await renderMethod({ externalId: 'same-customer' }, PaymentMethod.GOOGLE_PAY);
+  expect(document.querySelectorAll('primer-checkout')).toHaveLength(1);
+
+  const start = startPayment('GOOGLE_PAY');
+  await until(() => start.continuePaymentCreation.mock.calls.length > 0);
+  expect(start.abortPaymentCreation).not.toHaveBeenCalled();
+});
+
+test('a re-rendered card form keeps its check after the old instance is destroyed', async () => {
+  const first = await renderCard({ externalId: 'same-customer' });
+  await renderCard({
+    externalId: 'same-customer',
+    card: { cardholderName: { required: true } },
+  });
+  await first.method.destroy?.();
+
+  const start = startPayment('PAYMENT_CARD');
+  await flush();
+  expect(start.abortPaymentCreation).toHaveBeenCalledTimes(1);
+});
+
 test('a re-rendered method keeps paying after the old instance is destroyed', async () => {
   const first = await renderCard({ externalId: 'same-customer' });
   // The funnel mounts the new card form before it destroys the old one; both share the cached session.
