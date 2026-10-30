@@ -172,14 +172,31 @@ test('Apple Pay is offered only where the browser has it natively, and then repl
     'PAYMENT_CARD',
   ]);
 
-  const native = window as unknown as { ApplePaySession?: unknown };
-  native.ApplePaySession = { canMakePayments: () => true };
+  const page = window as unknown as { ApplePaySession?: unknown };
+  // Apple's JS SDK, loaded by Primer Checkout, defines this class in Chrome for its QR code flow.
+  page.ApplePaySession = class {
+    static canMakePayments() {
+      return true;
+    }
+  };
   try {
+    await expect(availableMethods(primerMethods)).resolves.toEqual([
+      'GOOGLE_PAY',
+      'PAYMENT_CARD',
+    ]);
+    // A browser's own class: Safari and iOS.
+    const nativeCanMakePayments = () => true;
+    page.ApplePaySession = Object.assign(
+      Function.prototype.bind.call(() => undefined, null),
+      {
+        canMakePayments: nativeCanMakePayments,
+      }
+    );
     await expect(availableMethods(primerMethods)).resolves.toEqual([
       'APPLE_PAY',
       'PAYMENT_CARD',
     ]);
   } finally {
-    delete native.ApplePaySession;
+    delete page.ApplePaySession;
   }
 });
