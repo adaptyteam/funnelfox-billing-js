@@ -47,10 +47,13 @@ const TOKENS_CSS = `
   display: block;
 }
 /* Primer's dialogs (3DS challenge) sit on z-index 1000 with no token to change it, so a page element above 1000
-   would cover the challenge. checkout-web v2 used 100000. */
+   would cover the challenge. checkout-web v2 used 100000. The host is display: contents, which ignores z-index;
+   fixed keeps it out of the page flow (no extra gap in a flex or grid body). */
 primer-portal-dialog {
   display: block;
-  position: relative;
+  position: fixed;
+  top: 0;
+  left: 0;
   z-index: 100000;
 }
 /* Primer sizes a wallet button as 20 px + 2 x --primer-space-medium: 54 px, as in the legacy skin. */
