@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { configure, createCheckout } from '../src';
+import { configure, createCheckout, getAvailablePaymentMethods } from '../src';
 import { loadPrimerSDK } from '../src/utils/primer-loader';
 import type { CheckoutConfig } from '../src/types';
 
@@ -135,4 +135,24 @@ test('createCheckout on a Primer Checkout session never loads the legacy SDK and
   ).not.toBeNull();
 
   await checkout.destroy();
+});
+
+test('getAvailablePaymentMethods on a Primer Checkout org reads the methods from Primer Checkout and removes it', async () => {
+  const loading = getAvailablePaymentMethods({
+    orgId: 'org',
+    baseUrl: 'https://billing.test',
+  });
+  while (!document.querySelector('primer-checkout')) {
+    await flush();
+  }
+  dispatch('primer:methods-update', [
+    { type: 'PAYMENT_CARD' },
+    { type: 'APPLE_PAY' },
+    { type: 'GOOGLE_PAY' },
+    { type: 'KLARNA' },
+  ]);
+
+  await expect(loading).resolves.toEqual(['APPLE_PAY', 'PAYMENT_CARD']);
+  expect(loadPrimerSDK).not.toHaveBeenCalled();
+  expect(document.querySelector('primer-checkout')).toBeNull();
 });
