@@ -137,7 +137,7 @@ test('createCheckout on a Primer Checkout session never loads the legacy SDK and
   await checkout.destroy();
 });
 
-test('getAvailablePaymentMethods on a Primer Checkout org reads the methods from Primer Checkout and removes it', async () => {
+async function availableMethods(primerMethods: { type: string }[]) {
   const loading = getAvailablePaymentMethods({
     orgId: 'org',
     baseUrl: 'https://billing.test',
@@ -145,14 +145,41 @@ test('getAvailablePaymentMethods on a Primer Checkout org reads the methods from
   while (!document.querySelector('primer-checkout')) {
     await flush();
   }
-  dispatch('primer:methods-update', [
+  dispatch('primer:methods-update', primerMethods);
+  return loading;
+}
+
+test('getAvailablePaymentMethods on a Primer Checkout org reads the methods from Primer Checkout and removes it', async () => {
+  await expect(
+    availableMethods([
+      { type: 'PAYMENT_CARD' },
+      { type: 'GOOGLE_PAY' },
+      { type: 'KLARNA' },
+    ])
+  ).resolves.toEqual(['GOOGLE_PAY', 'PAYMENT_CARD']);
+  expect(loadPrimerSDK).not.toHaveBeenCalled();
+  expect(document.querySelector('primer-checkout')).toBeNull();
+});
+
+test('Apple Pay is offered only where the browser has it natively, and then replaces Google Pay, as in checkout-web v2', async () => {
+  const primerMethods = [
     { type: 'PAYMENT_CARD' },
     { type: 'APPLE_PAY' },
     { type: 'GOOGLE_PAY' },
-    { type: 'KLARNA' },
+  ];
+  await expect(availableMethods(primerMethods)).resolves.toEqual([
+    'GOOGLE_PAY',
+    'PAYMENT_CARD',
   ]);
 
-  await expect(loading).resolves.toEqual(['APPLE_PAY', 'PAYMENT_CARD']);
-  expect(loadPrimerSDK).not.toHaveBeenCalled();
-  expect(document.querySelector('primer-checkout')).toBeNull();
+  const native = window as unknown as { ApplePaySession?: unknown };
+  native.ApplePaySession = { canMakePayments: () => true };
+  try {
+    await expect(availableMethods(primerMethods)).resolves.toEqual([
+      'APPLE_PAY',
+      'PAYMENT_CARD',
+    ]);
+  } finally {
+    delete native.ApplePaySession;
+  }
 });

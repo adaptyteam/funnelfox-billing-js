@@ -277,3 +277,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `createCheckout` no longer loads checkout-web v2 before the session: each Primer SDK is loaded once the session tells which one is used
 - One-click 3DS (`silentPurchase({ handle3DS: true })`) keeps running on checkout-web v2 for every org (FFB-768)
 - `getAvailablePaymentMethods` on a Primer Checkout org reads the methods from Primer Checkout and no longer loads checkout-web v2
+- Primer Checkout: Apple Pay only where the browser has it natively (Safari, iOS), as with checkout-web v2, so Chrome keeps Google Pay

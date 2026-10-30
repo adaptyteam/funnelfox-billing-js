@@ -251,9 +251,24 @@ function releaseCheckout(clientToken: string) {
   }
 }
 
+/** Safari and iOS. checkout-web v2 offered Apple Pay only there; Primer Checkout also offers it elsewhere via a QR code. */
+function hasNativeApplePay() {
+  const session = (
+    window as unknown as { ApplePaySession?: { canMakePayments(): boolean } }
+  ).ApplePaySession;
+  try {
+    return Boolean(session?.canMakePayments());
+  } catch {
+    return false;
+  }
+}
+
 function toAllowedMethods(types: string[]): PaymentMethod[] {
-  const methods = ALLOWED_PAYMENT_METHODS.filter(method =>
-    types.includes(method)
+  // Apple Pay outside Safari would also hide Google Pay (below) for every Chrome shopper; it stays off, as in v2.
+  const methods = ALLOWED_PAYMENT_METHODS.filter(
+    method =>
+      types.includes(method) &&
+      (method !== PaymentMethod.APPLE_PAY || hasNativeApplePay())
   );
   // Same rule as the legacy wrapper: where Apple Pay is available, Google Pay is not offered.
   if (methods.includes(PaymentMethod.APPLE_PAY)) {

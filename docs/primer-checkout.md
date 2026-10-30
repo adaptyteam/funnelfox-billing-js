@@ -47,6 +47,10 @@ expiry date and CVV are Primer Checkout inputs styled through Primer's CSS token
   co-badged cards;
 - the CVV is always required.
 
+Apple Pay is offered only where the browser supports it natively (Safari, iOS), as with checkout-web v2, and there
+it replaces Google Pay, as before. Primer Checkout could also offer Apple Pay in other browsers through a QR code to an
+iPhone; that would hide Google Pay for every Chrome shopper, so it stays off.
+
 Wallet buttons keep their 54 px height and 28 px radius. PayPal shows only the PayPal button: PayPal's card button
 is turned off because cards go through the card form.
 
@@ -54,8 +58,10 @@ is turned off because cards go through the card form.
 
 On top of what checkout-web v2 needs (`sdk.primer.io`, Primer API, wallet providers), allow:
 
-- `script-src https://cdn.jsdelivr.net` for the Primer Checkout module;
-- `script-src https://applepay.cdn-apple.com` for Apple Pay outside Safari.
+- `script-src https://cdn.jsdelivr.net` for the Primer Checkout module.
+
+Primer Checkout also loads Apple's Apple Pay scripts from `https://applepay.cdn-apple.com`. They are needed only for
+Apple Pay outside Safari, which the SDK does not offer, so blocking them only adds console errors.
 
 ## Browser support
 
