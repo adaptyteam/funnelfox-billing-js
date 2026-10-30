@@ -46,10 +46,14 @@ interface ApprovalDetail {
   continueFlow(): Promise<void>;
 }
 
+// Primer reports readiness within seconds; a checkout that never gets there is a failed initialization.
+const READY_TIMEOUT_MS = 30000;
+
 /**
  * One `<primer-checkout>` per client session: Primer supports a single checkout per page, while the funnel renders
  * every payment method from its own `initMethod` call. Methods render through `<primer-provider>` wherever the
- * page puts them, and the checkout element itself shows nothing.
+ * page puts them, and the checkout element itself shows nothing. Primer dispatches its lifecycle events on the
+ * checkout element, so each shared checkout hears only its own session.
  */
 class SharedCheckout {
   readonly id = generateId('ff-primer-checkout-');
@@ -63,7 +67,6 @@ class SharedCheckout {
   >();
   private activeHooks?: PrimerCheckoutHooks;
   private approvalError: unknown;
-  private readonly listeners: [string, EventListener][] = [];
 
   constructor(clientToken: string, options: CheckoutOptions) {
     this.element = document.createElement('primer-checkout');
@@ -74,11 +77,15 @@ class SharedCheckout {
       toPrimerOptions(options);
 
     this.ready = new Promise((resolve, reject) => {
-      // Primer components dispatch from wherever they render, so the events reach the document, not the checkout.
+      const timer = setTimeout(
+        () => reject(new PrimerError('Primer Checkout did not become ready')),
+        READY_TIMEOUT_MS
+      );
       this.listen('primer:ready', event => {
         this.api = (event as CustomEvent<PrimerCheckoutApi>).detail;
       });
       this.listen('primer:methods-update', event => {
+        clearTimeout(timer);
         const types = (
           (event as CustomEvent<{ type: string }[]>).detail || []
         ).map(method => method.type);
@@ -88,6 +95,7 @@ class SharedCheckout {
         const error = (event as CustomEvent<{ primerJsError?: unknown }>).detail
           ?.primerJsError;
         if (error) {
+          clearTimeout(timer);
           reject(
             new PrimerError('Failed to initialize Primer Checkout', error)
           );
@@ -95,19 +103,18 @@ class SharedCheckout {
       });
     });
     this.listen('primer:payment-start', event => this.onPaymentStart(event));
-    this.listen('primer:payment-approval-required', event =>
-      this.onApprovalRequired(event as CustomEvent<ApprovalDetail>)
-    );
-    this.listen('primer:payment-success', () => this.activeHooks?.onSuccess());
-    this.listen('primer:payment-failure', () => {
+    this.listen('primer:payment-approval-required', event => {
+      void this.onApprovalRequired(event as CustomEvent<ApprovalDetail>);
+    });
+    this.listen('primer:payment-success', event => {
+      this.settle(event)?.onSuccess();
+    });
+    this.listen('primer:payment-failure', event => {
       const approvalError = this.approvalError;
-      this.approvalError = undefined;
-      void this.activeHooks?.onFailure(approvalError);
+      void this.settle(event)?.onFailure(approvalError);
     });
     this.listen('primer:payment-cancel', event => {
-      const type = (event as CustomEvent<{ paymentMethodType?: string }>).detail
-        ?.paymentMethodType;
-      this.hooksFor(type)?.onCancel();
+      this.settle(event)?.onCancel();
     });
 
     document.body.appendChild(this.element);
@@ -118,8 +125,15 @@ class SharedCheckout {
     this.hooksByMethod.set(method, hooks);
   }
 
-  unregister(method: PaymentMethod) {
-    this.hooksByMethod.delete(method);
+  /** Only the instance that registered the method may remove it: a re-rendered method registers before the old one is destroyed. */
+  unregister(method: PaymentMethod, hooks: PrimerCheckoutHooks) {
+    if (this.hooksByMethod.get(method) === hooks) {
+      this.hooksByMethod.delete(method);
+    }
+    if (this.activeHooks === hooks) {
+      this.activeHooks = undefined;
+      this.approvalError = undefined;
+    }
   }
 
   refreshSession() {
@@ -131,37 +145,43 @@ class SharedCheckout {
   }
 
   remove() {
-    for (const [type, listener] of this.listeners) {
-      document.removeEventListener(type, listener);
-    }
     this.element.remove();
   }
 
   private listen(type: string, listener: EventListener) {
-    document.addEventListener(type, listener);
-    this.listeners.push([type, listener]);
+    this.element.addEventListener(type, listener);
   }
 
-  private hooksFor(type: string | undefined | null) {
-    return (
+  /** The hooks a payment outcome belongs to; the payment is over, so nothing stays active. */
+  private settle(event: Event) {
+    const type = (event as CustomEvent<{ paymentMethodType?: string | null }>)
+      .detail?.paymentMethodType;
+    const hooks =
       (type && this.hooksByMethod.get(type as PaymentMethod)) ||
-      this.activeHooks
-    );
+      this.activeHooks;
+    this.activeHooks = undefined;
+    this.approvalError = undefined;
+    return hooks;
   }
 
   private onPaymentStart(event: Event) {
     const detail = (event as CustomEvent<PaymentStartDetail>).detail;
-    const hooks = this.hooksFor(detail.paymentMethodType);
+    event.preventDefault();
+    const hooks = this.hooksByMethod.get(
+      detail.paymentMethodType as PaymentMethod
+    );
     if (!hooks) {
+      // Nobody could approve this payment, so it must not reach the approval step.
+      detail.abortPaymentCreation();
       return;
     }
     this.activeHooks = hooks;
     this.approvalError = undefined;
-    event.preventDefault();
     hooks.beforePayment(detail.paymentMethodType as PaymentMethod).then(
       () => detail.continuePaymentCreation(),
       error => {
         detail.abortPaymentCreation();
+        this.activeHooks = undefined;
         void hooks.onFailure(error);
       }
     );
@@ -170,12 +190,19 @@ class SharedCheckout {
   private async onApprovalRequired(event: CustomEvent<ApprovalDetail>) {
     const { paymentAttemptId, continueFlow } = event.detail;
     try {
-      await this.activeHooks?.approve(paymentAttemptId);
+      if (!this.activeHooks) {
+        throw new PrimerError('No payment method is waiting for this approval');
+      }
+      await this.activeHooks.approve(paymentAttemptId);
     } catch (error) {
       this.approvalError = error;
-    } finally {
+    }
+    try {
       // Primer keeps the checkout locked until this is called, whatever our backend decided.
       await continueFlow();
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Primer Checkout continueFlow failed', error);
     }
   }
 }
@@ -220,6 +247,14 @@ function toAllowedMethods(types: string[]): PaymentMethod[] {
 const WALLET_BUTTON_HEIGHT = 54;
 const WALLET_BUTTON_RADIUS = 28;
 
+function collectsApplePayEmail(options: CheckoutOptions) {
+  const contactFields: string[] = [
+    ...(options.applePay?.billingOptions?.requiredBillingContactFields || []),
+    ...(options.applePay?.shippingOptions?.requiredShippingContactFields || []),
+  ];
+  return contactFields.includes('emailAddress');
+}
+
 function toPrimerOptions(options: CheckoutOptions) {
   return {
     submitButton: { useBuiltInButton: false },
@@ -230,6 +265,10 @@ function toPrimerOptions(options: CheckoutOptions) {
         type: options.applePay?.buttonType,
         buttonStyle: options.applePay?.buttonStyle,
       },
+      // Primer Checkout collects the email as a shipping contact field only.
+      ...(collectsApplePayEmail(options)
+        ? { shippingOptions: { requiredShippingContactFields: ['email'] } }
+        : {}),
     },
     googlePay: {
       buttonType: options.googlePay?.buttonType,
@@ -245,6 +284,7 @@ function toPrimerOptions(options: CheckoutOptions) {
         height: options.paypal?.buttonHeight ?? WALLET_BUTTON_HEIGHT,
         borderRadius: WALLET_BUTTON_RADIUS,
       },
+      paymentFlow: options.paypal?.paymentFlow,
       // The card is paid through our own card form; Primer would add PayPal's card button under the PayPal one.
       disableFunding: ['card'],
     },
@@ -273,9 +313,17 @@ class PrimerCheckoutWrapper {
       this.clientToken = clientToken;
       this.checkout = acquireCheckout(clientToken, options);
     }
-    this.availableMethods = await this.checkout.ready;
-    if (this.availableMethods.length === 0) {
-      throw new PrimerError('No allowed payment methods found');
+    try {
+      this.availableMethods = await this.checkout.ready;
+      if (this.availableMethods.length === 0) {
+        throw new PrimerError('No allowed payment methods found');
+      }
+    } catch (error) {
+      // A broken checkout must not be handed to the next attempt with the same session.
+      releaseCheckout(clientToken);
+      this.checkout = null;
+      this.clientToken = null;
+      throw error;
     }
     options.onAvailablePaymentMethodsLoad?.(this.availableMethods);
   }
@@ -289,13 +337,19 @@ class PrimerCheckoutWrapper {
     if (!checkout) {
       throw new PrimerError('Primer Checkout not initialized');
     }
+    if (!this.availableMethods.includes(method)) {
+      options.onMethodRenderError?.(method);
+      throw new PrimerError(
+        `Payment method ${method} is not available in this checkout`
+      );
+    }
     checkout.register(method, this.hooks);
 
     const provider = document.createElement('primer-provider');
     provider.setAttribute('checkout-id', checkout.id);
     let methodInterface: PaymentMethodInterface;
     const removeMethod = () => {
-      checkout.unregister(method);
+      checkout.unregister(method, this.hooks);
       provider.remove();
       this.methodInterfaces = this.methodInterfaces.filter(
         item => item !== methodInterface
