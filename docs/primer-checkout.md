@@ -25,6 +25,7 @@ Under the hood, on a `checkout` session:
 - **Loading.** Primer Checkout is imported at runtime from
   `https://cdn.jsdelivr.net/npm/@primer-io/primer-js@<version>/+esm`, so it is not in the SDK bundle. The
   checkout-web v2 script is not loaded, except for one-click 3DS (see below).
+  `getAvailablePaymentMethods` reads the method list from Primer Checkout too.
 - **One checkout per session.** Primer Checkout supports one `<primer-checkout>` per page. The SDK appends one
   hidden `<primer-checkout>` to `document.body` per client session, and every payment method renders inside a
   `<primer-provider>` in the container you passed. Several `initMethod` calls for the same session share it.
