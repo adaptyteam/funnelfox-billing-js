@@ -65,6 +65,7 @@ class SharedCheckout {
     PaymentMethod,
     PrimerCheckoutHooks
   >();
+  private readonly gatesByMethod = new Map<PaymentMethod, () => boolean>();
   private activeHooks?: PrimerCheckoutHooks;
   private approvalError: unknown;
 
@@ -121,14 +122,25 @@ class SharedCheckout {
     this.element.setAttribute('client-token', clientToken);
   }
 
-  register(method: PaymentMethod, hooks: PrimerCheckoutHooks) {
+  /** `canStart` stops a payment Primer would start: its own inputs are valid, while the skin's fields are not. */
+  register(
+    method: PaymentMethod,
+    hooks: PrimerCheckoutHooks,
+    canStart?: () => boolean
+  ) {
     this.hooksByMethod.set(method, hooks);
+    if (canStart) {
+      this.gatesByMethod.set(method, canStart);
+    } else {
+      this.gatesByMethod.delete(method);
+    }
   }
 
   /** Only the instance that registered the method may remove it: a re-rendered method registers before the old one is destroyed. */
   unregister(method: PaymentMethod, hooks: PrimerCheckoutHooks) {
     if (this.hooksByMethod.get(method) === hooks) {
       this.hooksByMethod.delete(method);
+      this.gatesByMethod.delete(method);
     }
     if (this.activeHooks === hooks) {
       this.activeHooks = undefined;
@@ -172,6 +184,13 @@ class SharedCheckout {
     );
     if (!hooks) {
       // Nobody could approve this payment, so it must not reach the approval step.
+      detail.abortPaymentCreation();
+      return;
+    }
+    if (
+      this.gatesByMethod.get(detail.paymentMethodType as PaymentMethod)?.() ===
+      false
+    ) {
       detail.abortPaymentCreation();
       return;
     }
@@ -364,6 +383,7 @@ class PrimerCheckoutWrapper {
         options,
         cardholderName => checkout.setCardholderName(cardholderName)
       );
+      checkout.register(method, this.hooks, cardForm.ownFieldsValid);
       methodInterface = {
         setDisabled: cardForm.setDisabled,
         submit: cardForm.submit,
