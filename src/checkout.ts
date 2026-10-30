@@ -277,9 +277,16 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   }
 
   private primerCheckoutHooks(): PrimerCheckoutHooks {
-    // A wallet sheet closed before tokenization ends without a payment start, so the loader is released only by
-    // the payment that took it.
+    // The loader is taken when the payment is really processed, as in the legacy flow: on the card submit, and for
+    // a wallet only after the shopper approves the sheet. A cancelled sheet never takes it.
     let paymentInFlight = false;
+    const takeLoader = () => {
+      if (!paymentInFlight) {
+        paymentInFlight = true;
+        this.onLoaderChangeWithRace(true);
+        this._setState('processing');
+      }
+    };
     const releaseLoader = () => {
       if (paymentInFlight) {
         paymentInFlight = false;
@@ -295,16 +302,15 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         this.activePaymentMethodType = method;
         this.emit(EVENTS.ERROR, undefined);
         this.emit(EVENTS.START_PURCHASE, method);
-        paymentInFlight = true;
-        this.onLoaderChangeWithRace(true);
-        this._setState('processing');
         // The amount is final once Primer opens the attempt: an approve after a change gets a conflict.
         // Wallets authorize their own amount, as in the legacy flow.
         if (method === PaymentMethod.PAYMENT_CARD) {
+          takeLoader();
           await this.flushTaxRecalc();
         }
       },
       approve: async paymentAttemptId => {
+        takeLoader();
         const [radarSessionId, airwallexDeviceId] = await Promise.all([
           this.cachedSessionResponse?.radarSessionId,
           this.cachedSessionResponse?.airwallexDeviceId,
@@ -329,12 +335,12 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         void this.syncOrderStatus()
           .catch(() => undefined)
           .then(() => {
-            releaseLoader();
             this._setState('completed');
             this.emit(EVENTS.SUCCESS, {
               orderId: this.orderId as string,
               status: 'succeeded',
             });
+            releaseLoader();
           });
       },
       onFailure: async approvalError => {
