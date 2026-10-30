@@ -5,6 +5,7 @@
 import CheckoutInstance from './checkout';
 import APIClient, { getResponseErrorCodes } from './api-client';
 import PrimerWrapper from './primer-wrapper';
+import PrimerCheckoutWrapper from './primer-checkout-wrapper';
 import { DEFAULT_BUTTONS_OPTIONS, DEFAULTS } from './constants';
 import * as constants from './constants';
 import type {
@@ -636,6 +637,9 @@ export async function getAvailablePaymentMethods(params: {
     if (!clientToken) {
       throw new Error('Error creating simple client session');
     }
+    if (response.data.primer_sdk === 'checkout') {
+      return await getPrimerCheckoutPaymentMethods(clientToken);
+    }
 
     return await new Promise<PaymentMethod[]>((resolve, reject) => {
       const primerWrapper = new PrimerWrapper();
@@ -661,6 +665,35 @@ export async function getAvailablePaymentMethods(params: {
     });
     throw error;
   }
+}
+
+const noop = () => undefined;
+
+async function getPrimerCheckoutPaymentMethods(
+  clientToken: string
+): Promise<PaymentMethod[]> {
+  // Nothing is rendered, so no payment can start and the hooks are never called.
+  const primerWrapper = new PrimerCheckoutWrapper({
+    beforePayment: async () => undefined,
+    approve: async () => undefined,
+    onSuccess: noop,
+    onFailure: noop,
+    onCancel: noop,
+  });
+  let methods: PaymentMethod[] = [];
+  try {
+    await primerWrapper.initializeHeadlessCheckout(clientToken, {
+      onTokenizeSuccess: noop,
+      onResumeSuccess: noop,
+      onAvailablePaymentMethodsLoad: loaded => {
+        methods = loaded;
+      },
+      paypal: DEFAULT_BUTTONS_OPTIONS[PaymentMethod.PAYPAL],
+    });
+  } finally {
+    await primerWrapper.destroy();
+  }
+  return methods;
 }
 
 export async function createStripeCardForm(

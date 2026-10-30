@@ -121,13 +121,16 @@ const renderCard = (options: Parameters<typeof renderMethod>[0] = {}) =>
   renderMethod(options);
 
 /** What Primer Checkout does after the customer submits: payment start, then the approval request. */
-async function pay(target: EventTarget = lastCheckout()) {
+async function pay(
+  target: EventTarget = lastCheckout(),
+  paymentMethodType = 'PAYMENT_CARD'
+) {
   const continuePaymentCreation = jest.fn();
   const abortPaymentCreation = jest.fn();
   const start = dispatch(
     'primer:payment-start',
     {
-      paymentMethodType: 'PAYMENT_CARD',
+      paymentMethodType,
       continuePaymentCreation,
       abortPaymentCreation,
     },
@@ -320,21 +323,33 @@ test('a closed wallet sheet is a cancel, and destroying the last method removes 
   expect(document.querySelector('primer-provider')).toBeNull();
 });
 
-test('our cardholder field is validated before Primer gets the submit, and its value reaches Primer', async () => {
+test('Primer gets the submit to highlight its inputs, but no payment starts while our cardholder field is empty', async () => {
+  const onPaymentFail = jest.fn();
   const { node, method } = await renderCard({
     card: { cardholderName: { required: true } },
+    onPaymentFail,
   });
   const cardForm = node.querySelector('primer-card-form') as HTMLElement;
   const submitted = jest.fn();
   cardForm.addEventListener('primer:card-submit', submitted);
 
   await method.submit?.();
-  expect(submitted).not.toHaveBeenCalled();
+  expect(submitted).toHaveBeenCalledTimes(1);
   expect(
     node
       .querySelector('#cardHolderInput')
       ?.parentElement?.querySelector('.errorContainer')?.textContent
-  ).toBe('Please enter the cardholder name');
+  ).toBe('Name on card is required');
+  const blocked = {
+    paymentMethodType: 'PAYMENT_CARD',
+    continuePaymentCreation: jest.fn(),
+    abortPaymentCreation: jest.fn(),
+  };
+  dispatch('primer:payment-start', blocked, true);
+  await flush();
+  expect(blocked.abortPaymentCreation).toHaveBeenCalledTimes(1);
+  expect(blocked.continuePaymentCreation).not.toHaveBeenCalled();
+  expect(onPaymentFail).not.toHaveBeenCalled();
 
   const cardholder = node.querySelector('#cardHolderInput') as HTMLInputElement;
   cardholder.value = 'Jane Doe';
@@ -342,7 +357,60 @@ test('our cardholder field is validated before Primer gets the submit, and its v
   expect(primerApi.setCardholderName).toHaveBeenCalledWith('Jane Doe');
 
   await method.submit?.();
-  expect(submitted).toHaveBeenCalledTimes(1);
+  expect(submitted).toHaveBeenCalledTimes(2);
+  const { continuePaymentCreation, abortPaymentCreation } = await pay();
+  expect(abortPaymentCreation).not.toHaveBeenCalled();
+  expect(continuePaymentCreation).toHaveBeenCalledTimes(1);
+});
+
+function startPayment(paymentMethodType: string) {
+  const detail = {
+    paymentMethodType,
+    continuePaymentCreation: jest.fn(),
+    abortPaymentCreation: jest.fn(),
+  };
+  dispatch('primer:payment-start', detail, true);
+  return detail;
+}
+
+test('a payment Primer starts on its own (Enter in a card input) is checked against our fields too', async () => {
+  const onPaymentFail = jest.fn();
+  await renderCard({
+    card: { cardholderName: { required: true } },
+    onPaymentFail,
+  });
+
+  const start = startPayment('PAYMENT_CARD');
+  await flush();
+  expect(start.abortPaymentCreation).toHaveBeenCalledTimes(1);
+  expect(start.continuePaymentCreation).not.toHaveBeenCalled();
+  expect(onPaymentFail).not.toHaveBeenCalled();
+});
+
+test('the card form check does not hold back a wallet payment on the same page', async () => {
+  await renderCard({
+    externalId: 'same-customer',
+    card: { cardholderName: { required: true } },
+  });
+  await renderMethod({ externalId: 'same-customer' }, PaymentMethod.GOOGLE_PAY);
+  expect(document.querySelectorAll('primer-checkout')).toHaveLength(1);
+
+  const start = startPayment('GOOGLE_PAY');
+  await until(() => start.continuePaymentCreation.mock.calls.length > 0);
+  expect(start.abortPaymentCreation).not.toHaveBeenCalled();
+});
+
+test('a re-rendered card form keeps its check after the old instance is destroyed', async () => {
+  const first = await renderCard({ externalId: 'same-customer' });
+  await renderCard({
+    externalId: 'same-customer',
+    card: { cardholderName: { required: true } },
+  });
+  await first.method.destroy?.();
+
+  const start = startPayment('PAYMENT_CARD');
+  await flush();
+  expect(start.abortPaymentCreation).toHaveBeenCalledTimes(1);
 });
 
 test('a re-rendered method keeps paying after the old instance is destroyed', async () => {
@@ -373,6 +441,39 @@ test('a wallet sheet closed before any payment start leaves the loader alone', a
   expect(onLoaderChange).toHaveBeenLastCalledWith(true);
   dispatch('primer:payment-cancel', { paymentMethodType: 'PAYMENT_CARD' });
   expect(onLoaderChange).toHaveBeenLastCalledWith(false);
+});
+
+test('a wallet takes the loader only once its sheet is approved, and success is reported before the loader is released', async () => {
+  const calls: string[] = [];
+  const onLoaderChange = jest.fn((state: boolean) =>
+    calls.push(`loader:${state}`)
+  );
+  const onPaymentSuccess = jest.fn(() => calls.push('success'));
+  const onPaymentCancel = jest.fn(() => calls.push('cancel'));
+  await renderMethod(
+    { onLoaderChange, onPaymentSuccess, onPaymentCancel },
+    PaymentMethod.GOOGLE_PAY
+  );
+
+  const abortPaymentCreation = jest.fn();
+  dispatch(
+    'primer:payment-start',
+    {
+      paymentMethodType: 'GOOGLE_PAY',
+      continuePaymentCreation: jest.fn(),
+      abortPaymentCreation,
+    },
+    true
+  );
+  await flush();
+  dispatch('primer:payment-cancel', { paymentMethodType: 'GOOGLE_PAY' });
+  expect(calls).toEqual(['cancel']);
+
+  await pay(lastCheckout(), 'GOOGLE_PAY');
+  expect(calls).toEqual(['cancel', 'loader:true']);
+  dispatch('primer:payment-success', { paymentMethodType: 'GOOGLE_PAY' });
+  await until(() => onPaymentSuccess.mock.calls.length > 0);
+  expect(calls).toEqual(['cancel', 'loader:true', 'success', 'loader:false']);
 });
 
 test('a method Primer does not offer is reported as a render error, as in the legacy flow', async () => {

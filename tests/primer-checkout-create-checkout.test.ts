@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { configure, createCheckout } from '../src';
+import { configure, createCheckout, getAvailablePaymentMethods } from '../src';
 import { loadPrimerSDK } from '../src/utils/primer-loader';
 import type { CheckoutConfig } from '../src/types';
 
@@ -135,4 +135,68 @@ test('createCheckout on a Primer Checkout session never loads the legacy SDK and
   ).not.toBeNull();
 
   await checkout.destroy();
+});
+
+async function availableMethods(primerMethods: { type: string }[]) {
+  const loading = getAvailablePaymentMethods({
+    orgId: 'org',
+    baseUrl: 'https://billing.test',
+  });
+  while (!document.querySelector('primer-checkout')) {
+    await flush();
+  }
+  dispatch('primer:methods-update', primerMethods);
+  return loading;
+}
+
+test('getAvailablePaymentMethods on a Primer Checkout org reads the methods from Primer Checkout and removes it', async () => {
+  await expect(
+    availableMethods([
+      { type: 'PAYMENT_CARD' },
+      { type: 'GOOGLE_PAY' },
+      { type: 'KLARNA' },
+    ])
+  ).resolves.toEqual(['GOOGLE_PAY', 'PAYMENT_CARD']);
+  expect(loadPrimerSDK).not.toHaveBeenCalled();
+  expect(document.querySelector('primer-checkout')).toBeNull();
+});
+
+test('Apple Pay is offered only where the browser has it natively, and then replaces Google Pay, as in checkout-web v2', async () => {
+  const primerMethods = [
+    { type: 'PAYMENT_CARD' },
+    { type: 'APPLE_PAY' },
+    { type: 'GOOGLE_PAY' },
+  ];
+  await expect(availableMethods(primerMethods)).resolves.toEqual([
+    'GOOGLE_PAY',
+    'PAYMENT_CARD',
+  ]);
+
+  const page = window as unknown as { ApplePaySession?: unknown };
+  // Apple's JS SDK, loaded by Primer Checkout, defines this class in Chrome for its QR code flow.
+  page.ApplePaySession = class {
+    static canMakePayments() {
+      return true;
+    }
+  };
+  try {
+    await expect(availableMethods(primerMethods)).resolves.toEqual([
+      'GOOGLE_PAY',
+      'PAYMENT_CARD',
+    ]);
+    // A browser's own class: Safari and iOS.
+    const nativeCanMakePayments = () => true;
+    page.ApplePaySession = Object.assign(
+      Function.prototype.bind.call(() => undefined, null),
+      {
+        canMakePayments: nativeCanMakePayments,
+      }
+    );
+    await expect(availableMethods(primerMethods)).resolves.toEqual([
+      'APPLE_PAY',
+      'PAYMENT_CARD',
+    ]);
+  } finally {
+    delete page.ApplePaySession;
+  }
 });

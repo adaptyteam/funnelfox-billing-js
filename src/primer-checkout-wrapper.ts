@@ -65,10 +65,12 @@ class SharedCheckout {
     PaymentMethod,
     PrimerCheckoutHooks
   >();
+  private readonly gatesByMethod = new Map<PaymentMethod, () => boolean>();
   private activeHooks?: PrimerCheckoutHooks;
   private approvalError: unknown;
 
   constructor(clientToken: string, options: CheckoutOptions) {
+    ensureTokens();
     this.element = document.createElement('primer-checkout');
     this.element.id = this.id;
     this.element.setAttribute('loader-disabled', '');
@@ -121,14 +123,25 @@ class SharedCheckout {
     this.element.setAttribute('client-token', clientToken);
   }
 
-  register(method: PaymentMethod, hooks: PrimerCheckoutHooks) {
+  /** `canStart` stops a payment Primer would start: its own inputs are valid, while the skin's fields are not. */
+  register(
+    method: PaymentMethod,
+    hooks: PrimerCheckoutHooks,
+    canStart?: () => boolean
+  ) {
     this.hooksByMethod.set(method, hooks);
+    if (canStart) {
+      this.gatesByMethod.set(method, canStart);
+    } else {
+      this.gatesByMethod.delete(method);
+    }
   }
 
   /** Only the instance that registered the method may remove it: a re-rendered method registers before the old one is destroyed. */
   unregister(method: PaymentMethod, hooks: PrimerCheckoutHooks) {
     if (this.hooksByMethod.get(method) === hooks) {
       this.hooksByMethod.delete(method);
+      this.gatesByMethod.delete(method);
     }
     if (this.activeHooks === hooks) {
       this.activeHooks = undefined;
@@ -172,6 +185,13 @@ class SharedCheckout {
     );
     if (!hooks) {
       // Nobody could approve this payment, so it must not reach the approval step.
+      detail.abortPaymentCreation();
+      return;
+    }
+    if (
+      this.gatesByMethod.get(detail.paymentMethodType as PaymentMethod)?.() ===
+      false
+    ) {
       detail.abortPaymentCreation();
       return;
     }
@@ -231,9 +251,33 @@ function releaseCheckout(clientToken: string) {
   }
 }
 
+/**
+ * Safari and iOS. checkout-web v2 offered Apple Pay only there. Primer Checkout loads Apple's JS SDK, which defines
+ * its own ApplePaySession in other browsers to offer Apple Pay through a QR code, so only the browser's own class counts.
+ */
+function hasNativeApplePay() {
+  const session = (
+    window as unknown as { ApplePaySession?: { canMakePayments(): boolean } }
+  ).ApplePaySession;
+  if (!session) {
+    return false;
+  }
+  try {
+    return (
+      Function.prototype.toString.call(session).includes('[native code]') &&
+      session.canMakePayments()
+    );
+  } catch {
+    return false;
+  }
+}
+
 function toAllowedMethods(types: string[]): PaymentMethod[] {
-  const methods = ALLOWED_PAYMENT_METHODS.filter(method =>
-    types.includes(method)
+  // Apple Pay outside Safari would also hide Google Pay (below) for every Chrome shopper; it stays off, as in v2.
+  const methods = ALLOWED_PAYMENT_METHODS.filter(
+    method =>
+      types.includes(method) &&
+      (method !== PaymentMethod.APPLE_PAY || hasNativeApplePay())
   );
   // Same rule as the legacy wrapper: where Apple Pay is available, Google Pay is not offered.
   if (methods.includes(PaymentMethod.APPLE_PAY)) {
@@ -364,6 +408,7 @@ class PrimerCheckoutWrapper {
         options,
         cardholderName => checkout.setCardholderName(cardholderName)
       );
+      checkout.register(method, this.hooks, cardForm.ownFieldsValid);
       methodInterface = {
         setDisabled: cardForm.setDisabled,
         submit: cardForm.submit,
