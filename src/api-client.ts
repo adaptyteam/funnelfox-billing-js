@@ -2,7 +2,11 @@
  * @fileoverview API client for Funnefox backend integration
  */
 
-import { API_ENDPOINTS, SDK_VERSION } from './constants';
+import {
+  API_ENDPOINTS,
+  APPROVE_PAYMENT_TIMEOUT_MS,
+  SDK_VERSION,
+} from './constants';
 import { APIError, NetworkError } from './errors';
 import {
   CreateClientSessionOptions,
@@ -228,10 +232,15 @@ class APIClient {
       payload.postal_code = params.postalCode;
     }
     // Once: a refusal (double purchase, attempt expired) is final, and a resend only aborts the attempt again.
-    return (await this.requestOnce(API_ENDPOINTS.APPROVE_PAYMENT, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    })) as CreatePaymentResponse;
+    // Bounded well inside Primer's fixed 90 s approval window, so the checkout is unlocked before the attempt expires.
+    return (await withTimeout(
+      this.requestOnce(API_ENDPOINTS.APPROVE_PAYMENT, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+      APPROVE_PAYMENT_TIMEOUT_MS,
+      'approve_payment timed out'
+    )) as CreatePaymentResponse;
   }
 
   /** Primer Checkout: the order's payment outcome and decline reason, which the browser SDK does not get. */

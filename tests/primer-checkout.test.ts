@@ -46,47 +46,82 @@ function paymentData(data: Record<string, unknown>) {
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 
 const rendered: { destroy?: () => void }[] = [];
-let session = 0;
+let tokens = 0;
 
-function dispatch(type: string, detail?: unknown, cancelable = false) {
+function lastCheckout() {
+  const all = document.querySelectorAll('primer-checkout');
+  return all[all.length - 1] as HTMLElement;
+}
+
+/** Primer Checkout dispatches its lifecycle events on the `<primer-checkout>` element. */
+function dispatch(
+  type: string,
+  detail?: unknown,
+  cancelable = false,
+  target: EventTarget = lastCheckout()
+) {
   const event = new CustomEvent(type, { detail, cancelable, bubbles: true });
-  document.dispatchEvent(event);
+  target.dispatchEvent(event);
   return event;
 }
 
 const primerApi = { refreshSession: jest.fn(), setCardholderName: jest.fn() };
 
-async function renderCard(callbacks: {
-  onPaymentSuccess?: jest.Mock;
-  onPaymentFail?: jest.Mock;
-  onPaymentCancel?: jest.Mock;
-  card?: { cardholderName?: { required: boolean } };
-}) {
+async function renderMethod(
+  options: {
+    onPaymentSuccess?: jest.Mock;
+    onPaymentFail?: jest.Mock;
+    onPaymentCancel?: jest.Mock;
+    onLoaderChange?: jest.Mock;
+    onRenderError?: jest.Mock;
+    card?: { cardholderName?: { required: boolean } };
+    externalId?: string;
+  } = {},
+  method: PaymentMethod = PaymentMethod.PAYMENT_CARD,
+  primerMethods = [{ type: 'PAYMENT_CARD' }, { type: 'GOOGLE_PAY' }]
+) {
   const node = document.createElement('div');
   document.body.appendChild(node);
-  const rendering = Billing.initMethod(PaymentMethod.PAYMENT_CARD, node, {
+  const checkoutsBefore = document.querySelectorAll('primer-checkout').length;
+  const { externalId, ...callbacks } = options;
+  const rendering = Billing.initMethod(method, node, {
     orgId: 'org',
     baseUrl: 'https://billing.test',
     priceId: 'price-1',
-    externalId: `user-${Math.random()}`,
+    externalId: externalId || `user-${Math.random()}`,
     ...callbacks,
   });
-  // The checkout element appears once the session is in; Primer then reports ready and its methods.
-  while (!document.querySelector('primer-checkout')) {
+  let settled = false;
+  rendering.then(
+    () => {
+      settled = true;
+    },
+    () => {
+      settled = true;
+    }
+  );
+  // A new session gets its own checkout element; Primer then reports ready and its methods on it. A cached
+  // session reuses its checkout, which is ready already.
+  while (
+    document.querySelectorAll('primer-checkout').length === checkoutsBefore &&
+    !settled
+  ) {
     await flush();
   }
-  dispatch('primer:ready', primerApi);
-  dispatch('primer:methods-update', [
-    { type: 'PAYMENT_CARD' },
-    { type: 'GOOGLE_PAY' },
-  ]);
-  const method = await rendering;
-  rendered.push(method);
-  return { node, method };
+  if (document.querySelectorAll('primer-checkout').length > checkoutsBefore) {
+    dispatch('primer:ready', primerApi);
+    dispatch('primer:methods-update', primerMethods);
+  }
+  const methodInterface = await rendering;
+  rendered.push(methodInterface);
+  return { node, method: methodInterface, checkout: lastCheckout() };
 }
 
+const renderCard = (options: Parameters<typeof renderMethod>[0] = {}) =>
+  renderMethod(options);
+
 /** What Primer Checkout does after the customer submits: payment start, then the approval request. */
-async function pay() {
+async function pay(target: EventTarget = lastCheckout()) {
   const continuePaymentCreation = jest.fn();
   const abortPaymentCreation = jest.fn();
   const start = dispatch(
@@ -96,7 +131,8 @@ async function pay() {
       continuePaymentCreation,
       abortPaymentCreation,
     },
-    true
+    true,
+    target
   );
   while (
     !continuePaymentCreation.mock.calls.length &&
@@ -105,10 +141,12 @@ async function pay() {
     await flush();
   }
   const continueFlow = jest.fn().mockResolvedValue(undefined);
-  dispatch('primer:payment-approval-required', {
-    paymentAttemptId: 'att-1',
-    continueFlow,
-  });
+  dispatch(
+    'primer:payment-approval-required',
+    { paymentAttemptId: 'att-1', continueFlow },
+    false,
+    target
+  );
   while (!continueFlow.mock.calls.length) {
     await flush();
   }
@@ -128,7 +166,6 @@ afterEach(async () => {
 });
 
 beforeEach(() => {
-  session += 1;
   document.body.innerHTML = '';
   requests.length = 0;
   for (const key of Object.keys(replies)) {
@@ -136,11 +173,7 @@ beforeEach(() => {
   }
   reply('/v1/checkout/create_client_session', {
     status: 'success',
-    data: {
-      client_token: `token-${session}`,
-      order_id: 'order-1',
-      primer_sdk: 'checkout',
-    },
+    data: { order_id: 'order-1', primer_sdk: 'checkout' },
   });
   reply(
     '/v1/checkout/approve_payment',
@@ -157,8 +190,19 @@ beforeEach(() => {
         endpoint,
         body: JSON.parse((options.body as string) || '{}'),
       });
-      const { status, body } = replies[endpoint];
-      return { ok: status < 400, status, json: async () => body } as Response;
+      const { status, body } = replies[endpoint] || { status: 200, body: {} };
+      // Every new session gets its own client token, like the real backend.
+      const json =
+        endpoint === '/v1/checkout/create_client_session'
+          ? {
+              ...(body as { data: object }),
+              data: {
+                ...(body as { data: object }).data,
+                client_token: `token-${++tokens}`,
+              },
+            }
+          : body;
+      return { ok: status < 400, status, json: async () => json } as Response;
     }
   );
 });
@@ -168,7 +212,8 @@ test('a Primer Checkout session renders the card form through a provider and pay
   const { node, method } = await renderCard({ onPaymentSuccess });
 
   const checkout = document.querySelector('primer-checkout') as HTMLElement;
-  expect(checkout.getAttribute('client-token')).toBe(`token-${session}`);
+  const clientToken = checkout.getAttribute('client-token');
+  expect(clientToken).toMatch(/^token-/);
   const provider = node.querySelector('primer-provider') as HTMLElement;
   expect(provider.getAttribute('checkout-id')).toBe(checkout.id);
   const cardForm = provider.querySelector('primer-card-form') as HTMLElement;
@@ -198,7 +243,7 @@ test('a Primer Checkout session renders the card form through a provider and pay
   ).toEqual({
     order_id: 'order-1',
     payment_attempt_id: 'att-1',
-    client_token: `token-${session}`,
+    client_token: clientToken,
     client_metadata: {},
   });
 
@@ -298,4 +343,83 @@ test('our cardholder field is validated before Primer gets the submit, and its v
 
   await method.submit?.();
   expect(submitted).toHaveBeenCalledTimes(1);
+});
+
+test('a re-rendered method keeps paying after the old instance is destroyed', async () => {
+  const first = await renderCard({ externalId: 'same-customer' });
+  // The funnel mounts the new card form before it destroys the old one; both share the cached session.
+  await renderCard({ externalId: 'same-customer' });
+  expect(document.querySelectorAll('primer-checkout')).toHaveLength(1);
+  await first.method.destroy?.();
+
+  const { continuePaymentCreation, abortPaymentCreation } = await pay();
+  expect(abortPaymentCreation).not.toHaveBeenCalled();
+  expect(continuePaymentCreation).toHaveBeenCalledTimes(1);
+  expect(requests.map(r => r.endpoint)).toContain(
+    '/v1/checkout/approve_payment'
+  );
+});
+
+test('a wallet sheet closed before any payment start leaves the loader alone', async () => {
+  const onLoaderChange = jest.fn();
+  const onPaymentCancel = jest.fn();
+  await renderCard({ onLoaderChange, onPaymentCancel });
+
+  dispatch('primer:payment-cancel', { paymentMethodType: 'PAYMENT_CARD' });
+  expect(onPaymentCancel).toHaveBeenCalledTimes(1);
+  expect(onLoaderChange).not.toHaveBeenCalledWith(true);
+
+  await pay();
+  expect(onLoaderChange).toHaveBeenLastCalledWith(true);
+  dispatch('primer:payment-cancel', { paymentMethodType: 'PAYMENT_CARD' });
+  expect(onLoaderChange).toHaveBeenLastCalledWith(false);
+});
+
+test('a method Primer does not offer is reported as a render error, as in the legacy flow', async () => {
+  const onRenderError = jest.fn();
+  await expect(
+    renderMethod({ onRenderError }, PaymentMethod.APPLE_PAY, [
+      { type: 'PAYMENT_CARD' },
+    ])
+  ).rejects.toThrow();
+  expect(onRenderError).toHaveBeenCalledWith(PaymentMethod.APPLE_PAY);
+});
+
+test('two checkouts on one page each handle only their own payment', async () => {
+  const first = await renderCard({ externalId: 'customer-a' });
+  const second = await renderCard({ externalId: 'customer-b' });
+  expect(first.checkout).not.toBe(second.checkout);
+
+  await pay(second.checkout);
+  const approvals = requests.filter(
+    r => r.endpoint === '/v1/checkout/approve_payment'
+  );
+  expect(approvals).toHaveLength(1);
+  expect(approvals[0].body.client_token).toBe(
+    second.checkout.getAttribute('client-token')
+  );
+});
+
+test('a checkout that fails to initialize is not reused by the next attempt', async () => {
+  const node = document.createElement('div');
+  document.body.appendChild(node);
+  const options = {
+    orgId: 'org',
+    baseUrl: 'https://billing.test',
+    priceId: 'price-1',
+    externalId: 'customer-broken',
+  };
+  const failing = Billing.initMethod(PaymentMethod.PAYMENT_CARD, node, options);
+  while (!document.querySelector('primer-checkout')) {
+    await flush();
+  }
+  const broken = lastCheckout();
+  dispatch('primer:state-change', {
+    primerJsError: { code: 'INITIALIZATION_ERROR' },
+  });
+  await expect(failing).rejects.toThrow();
+  expect(broken.isConnected).toBe(false);
+
+  const retry = await renderCard({ externalId: 'customer-broken' });
+  expect(retry.checkout).not.toBe(broken);
 });
