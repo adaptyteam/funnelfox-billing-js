@@ -268,6 +268,29 @@ describe('runOneClickThreeDS', () => {
       expect(onChallengeShown).toHaveBeenCalledTimes(1);
     });
 
+    test('a repeated tokenization is refused, so the challenge is reported once', async () => {
+      const primer = installPrimer({
+        scenario: (cb, log) => {
+          const handler = {
+            ...log.tokenizeHandler,
+            continueWithNewClientToken: (t: string) => log.continueWith.push(t),
+          };
+          cb.onTokenizeSuccess({ token: 'vaulted_tok' }, handler);
+          cb.onTokenizeSuccess({ token: 'vaulted_tok' }, handler);
+        },
+      });
+      routeFetch({ [ENDPOINT.SESSION]: [jsonResponse(200, SESSION_BODY)] });
+      const onChallengeShown = jest.fn();
+      jest.useFakeTimers();
+      void runOneClickThreeDS(
+        params({ revealDelayMs: 6000, onChallengeShown, timeoutMs: 60000 })
+      );
+      await jest.advanceTimersByTimeAsync(7000);
+      expect(onChallengeShown).toHaveBeenCalledTimes(1);
+      expect(primer.continueWith).toEqual([ACTION_TOKEN]);
+      expect(primer.tokenizeHandler.handleFailure).toHaveBeenCalledTimes(1);
+    });
+
     test('a resume before revealDelayMs never shows the overlay', async () => {
       installPrimer({ scenario: resumeWith('resume_1', 0) });
       routeFetch({
