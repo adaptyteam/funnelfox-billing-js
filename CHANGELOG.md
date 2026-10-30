@@ -266,3 +266,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.13.1] - 2026-10-29
 
 - Card form: the Expiration date and Security code columns share grid rows and are always the same width, so their inputs stay on one line when one label wraps on a narrow checkout, and an error under one input no longer shrinks the other column. Before, the columns were sized by their content, and a wrapped "Expiration date" label or a CVV error pushed the expiry input down. (FFB-586)
+
+## [Unreleased]
+
+- Checkout runs on Primer Checkout (`@primer-io/primer-js`) when the client session says `primer_sdk: 'checkout'`; other sessions keep checkout-web v2. Same `createCheckout` / `Billing.initMethod` calls, callbacks and events. Details: [docs/primer-checkout.md](./docs/primer-checkout.md)
+  - Primer Checkout is imported at runtime from jsDelivr, so the SDK bundle does not grow
+  - One hidden `<primer-checkout>` per client session; payment methods render through `<primer-provider>` in their containers
+  - The payment attempt is approved through `/v1/checkout/approve_payment`; Primer creates the payment and runs 3DS. Success syncs the order through `/v1/checkout/order_status` first, failures read the decline from it (`declineCode`, `declineCodeSource`)
+  - The card skin keeps its markup and own fields; number, expiry and CVV are Primer Checkout inputs styled by CSS tokens. Wallet buttons keep 54 px height and 28 px radius; PayPal's card button is turned off
+- `createCheckout` no longer loads checkout-web v2 before the session: each Primer SDK is loaded once the session tells which one is used
+- One-click 3DS (`silentPurchase({ handle3DS: true })`) keeps running on checkout-web v2 for every org (FFB-768)

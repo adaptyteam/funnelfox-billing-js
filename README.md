@@ -928,6 +928,15 @@ initCheckout();
 
 ---
 
+## Primer Checkout
+
+Orgs can run on Primer's new web SDK, Primer Checkout, instead of checkout-web v2. The billing backend switches it per
+org and reports it in the client session, so `createCheckout` and `Billing.initMethod` integrations need no change.
+What differs under the hood, the visible differences, CSP and browser requirements are in
+[docs/primer-checkout.md](./docs/primer-checkout.md).
+
+---
+
 ## Browser Support
 
 - Chrome 60+
