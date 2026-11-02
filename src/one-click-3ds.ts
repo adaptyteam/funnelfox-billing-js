@@ -252,7 +252,9 @@ export async function runOneClickThreeDS(
       _data: unknown,
       handler: OnTokenizeSuccessHandler
     ) => {
-      if (settled) {
+      // A repeated tokenization would start a second reveal timer, so the challenge
+      // (and the caller's onThreeDSStart) would be reported twice: refuse it.
+      if (settled || tokenized) {
         callSafely(() => handler.handleFailure());
         return;
       }
