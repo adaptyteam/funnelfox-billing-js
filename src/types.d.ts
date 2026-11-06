@@ -484,7 +484,10 @@ export interface SilentPurchaseOptions {
   initiationType?: 'cit' | 'mit';
   /** CIT card networks (sent only when set). `[]` = all networks. */
   citCardNetworks?: string[];
-  /** Allow CIT for PAN_ONLY Google Pay (sent only when set). */
+  /**
+   * @deprecated Not sent any more: a saved Google Pay token is never charged as CIT, and the
+   * backend ignores the field. Wallet buyers confirm the upsell again with `mountWalletUpsell`.
+   */
   citGooglePayPanOnly?: boolean;
 }
 
@@ -547,6 +550,71 @@ export interface OneClickResult {
   error?: Error;
   failedRequest?: OneClickFailedRequest;
 }
+
+export type WalletKind = 'APPLE_PAY' | 'GOOGLE_PAY';
+
+export interface MountWalletUpsellOptions {
+  orgId: string;
+  priceId: string;
+  externalId: string;
+  clientMetadata?: Record<string, unknown>;
+  /** Default: the `configure()` value, else https://billing.funnelfox.com. */
+  baseUrl?: string;
+  style?: {
+    /** Default `plain`. A type the wallet does not have falls back to `plain`. */
+    buttonType?: 'plain' | 'buy' | 'pay' | 'continue';
+    /** Default `black`. Google Pay shows `white-outline` as `white`. */
+    buttonColor?: 'black' | 'white' | 'white-outline';
+    /** px, default 54. */
+    height?: number;
+    /** px, default 28. */
+    borderRadius?: number;
+  };
+  /** The customer tapped the button and the wallet sheet opens. */
+  onStart?: () => void;
+  /** Fired once when the 3DS window becomes visible, as in `silentPurchase({ handle3DS: true })`. */
+  onThreeDSStart?: (info: { orderId: string }) => void;
+  /** Fired exactly once per `onThreeDSStart`, before `onResult`. */
+  onThreeDSEnd?: (info: { result: ThreeDSResult }) => void;
+  /**
+   * Called exactly once per attempt. After `cancelled` the button stays active and can be
+   * tapped again; after any other outcome it is disabled for good.
+   */
+  onResult: (result: WalletUpsellResult) => void;
+}
+
+export type WalletUpsellMount =
+  | {
+      mounted: true;
+      wallet: WalletKind;
+      setDisabled(disabled: boolean): void;
+      destroy(): void;
+    }
+  /** The customer's saved method is not a Primer wallet: use `silentPurchase`. */
+  | { mounted: false; reason: 'not_wallet' }
+  /** This device cannot show the customer's wallet. */
+  | { mounted: false; reason: 'wallet_unavailable'; wallet: WalletKind }
+  | { mounted: false; reason: 'error'; error: Error };
+
+/**
+ * `cancelled`: the customer closed the wallet sheet and nothing was charged. The other outcomes
+ * mean what they mean for `silentPurchase({ handle3DS: true })`.
+ */
+export type WalletUpsellResult = Omit<OneClickResult, 'outcome'> & {
+  outcome: OneClickOutcome | 'cancelled';
+};
+
+/**
+ * One-click upsell confirmed in the Apple Pay / Google Pay sheet (wallet re-authentication):
+ * call when the upsell screen loads, not on tap. Mounts Primer's native wallet button into
+ * `container` for a customer whose saved method is a Primer wallet; the upsell is then charged
+ * with the fresh wallet token as a customer-initiated payment. Rejects only with
+ * `ValidationError`; with `mounted: false` nothing is left in `container`.
+ */
+export declare function mountWalletUpsell(
+  container: HTMLElement,
+  options: MountWalletUpsellOptions
+): Promise<WalletUpsellMount>;
 
 /**
  * One-click purchase with the customer's saved payment method.
@@ -630,6 +698,7 @@ export declare const Billing: {
   createClientSession: typeof createClientSession;
   initMethod: typeof initMethod;
   silentPurchase: typeof silentPurchase;
+  mountWalletUpsell: typeof mountWalletUpsell;
   getAvailablePaymentMethods: typeof getAvailablePaymentMethods;
   stripe: {
     createCardForm: typeof createStripeCardForm;
@@ -836,6 +905,21 @@ export interface OneClickRequest {
   client_metadata: Record<string, string | number | boolean>;
   initiation_type?: 'cit' | 'mit';
   cit_card_networks?: string[];
-  cit_google_pay_pan_only?: boolean;
   idempotency_key?: string;
+  /** Wallet re-auth: the single-use token of the confirmed wallet sheet, with `session_id`. */
+  payment_method_token?: string;
+  session_id?: string;
+}
+
+export interface OneClickWalletSessionData {
+  wallet: WalletKind | null;
+  reason?: string | null;
+  client_token?: string | null;
+  session_id?: string | null;
+  order_id?: string | null;
+  /** Minor units, tax included when collected. */
+  amount?: number | null;
+  currency?: string | null;
+  /** UTC ISO. */
+  expires_at?: string | null;
 }

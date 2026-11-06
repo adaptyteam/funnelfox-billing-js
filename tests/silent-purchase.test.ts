@@ -197,7 +197,7 @@ describe('legacy silentPurchase (no handle3DS)', () => {
     await assertion;
   });
 
-  test('L5: CIT fields are sent in snake_case only when set; [] preserved', async () => {
+  test('L5: CIT fields are sent in snake_case only when set; [] preserved; the deprecated citGooglePayPanOnly never', async () => {
     routeFetch({ [ENDPOINT.ONE_CLICK]: [jsonResponse(200, paymentBody({}))] });
     jest.spyOn(console, 'warn').mockImplementation(() => {});
     await silentPurchase({
@@ -214,7 +214,6 @@ describe('legacy silentPurchase (no handle3DS)', () => {
       client_metadata: { source: 'jest' },
       initiation_type: 'cit',
       cit_card_networks: [],
-      cit_google_pay_pan_only: false,
     });
     expect(bodyOf(second)).toEqual({
       pp_ident: 'pp_upsell',
@@ -239,7 +238,6 @@ describe('legacy silentPurchase (no handle3DS)', () => {
       client_metadata: { source: 'jest' },
       initiation_type: 'cit',
       cit_card_networks: ['VISA'],
-      cit_google_pay_pan_only: true,
       idempotency_key: expect.any(String),
     });
   });
@@ -1514,7 +1512,7 @@ describe('isolation', () => {
     expect(getOrCreate).not.toHaveBeenCalled();
   });
 
-  test('E1: no new runtime exports on Billing or the entry point', () => {
+  test('E1: the runtime exports on Billing and the entry point (mountWalletUpsell since FFB-837)', () => {
     expect(Object.keys(Billing).sort()).toEqual(
       [
         'configure',
@@ -1522,6 +1520,7 @@ describe('isolation', () => {
         'createClientSession',
         'initMethod',
         'silentPurchase',
+        'mountWalletUpsell',
         'getAvailablePaymentMethods',
         'stripe',
       ].sort()
@@ -1555,6 +1554,7 @@ describe('isolation', () => {
         'createClientSession',
         'default',
         'getAvailablePaymentMethods',
+        'mountWalletUpsell',
       ].sort()
     );
   });

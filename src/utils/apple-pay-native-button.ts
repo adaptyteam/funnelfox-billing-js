@@ -84,7 +84,7 @@ export async function loadApplePayButtonElement(): Promise<boolean> {
  */
 export async function overlayNativeApplePayButton(
   wrapper: HTMLElement,
-  options: { buttonType: string; buttonStyle?: string }
+  options: { buttonType: string; buttonStyle?: string; borderRadius?: number }
 ): Promise<HTMLElement | null> {
   const available = await loadApplePayButtonElement();
   if (!available) {
@@ -111,7 +111,7 @@ export async function overlayNativeApplePayButton(
     'height:100%',
     '--apple-pay-button-width:100%',
     '--apple-pay-button-height:100%',
-    '--apple-pay-button-border-radius:28px',
+    `--apple-pay-button-border-radius:${options.borderRadius ?? 28}px`,
     'display:block',
     'cursor:pointer',
     'z-index:1',

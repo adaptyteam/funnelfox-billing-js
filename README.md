@@ -716,6 +716,64 @@ const headlessCheckout = await Primer.createHeadless(session.clientToken, {
 await headlessCheckout.start();
 ```
 
+## One-Click Upsell With Wallet Re-Authentication
+
+### `Billing.mountWalletUpsell(container, options)`
+
+A saved Apple Pay / Google Pay token must not be charged as a customer-initiated payment (Primer), so a buyer who paid with a wallet confirms the upsell in the wallet sheet again, and the upsell is charged with that fresh wallet payment. Call `mountWalletUpsell` when the upsell screen loads, not on tap: Apple Pay opens its sheet only from the tap itself, so the SDK prepares everything in advance and mounts Primer's native wallet button into `container`.
+
+```javascript
+const mount = await Billing.mountWalletUpsell(container, {
+  orgId: 'your-org-id',
+  priceId: 'upsell_price',
+  externalId: 'user_456',
+  clientMetadata: { ff_billing_reason: 'upsell' },
+  style: {
+    buttonType: 'plain',
+    buttonColor: 'black',
+    height: 54,
+    borderRadius: 28,
+  },
+  onStart: () => {},
+  onThreeDSStart: ({ orderId }) => {},
+  onThreeDSEnd: ({ result }) => {},
+  onResult: result => {
+    // result.outcome: 'succeeded' | 'declined' | '3ds_failed' | '3ds_abandoned'
+    //   | 'error' | 'processing' | 'already_purchased' | 'cancelled'
+  },
+});
+
+if (mount.mounted) {
+  // The wallet button is shown: hide your own upsell button.
+  // mount.setDisabled(true | false), mount.destroy() when the screen goes away.
+} else if (mount.reason === 'not_wallet' || mount.reason === 'error') {
+  // Keep your own button and use Billing.silentPurchase({ handle3DS: true }).
+} else if (mount.reason === 'wallet_unavailable') {
+  // The buyer's wallet cannot be shown on this device: open the full checkout on tap.
+}
+```
+
+Mount result:
+
+- `mounted: true` with `wallet` (`APPLE_PAY` or `GOOGLE_PAY`): the native button is shown.
+- `not_wallet`: the buyer's saved method is not a Primer wallet.
+- `wallet_unavailable`: the device cannot show the buyer's wallet. The other wallet is never offered instead.
+- `error` with `error`: a request failed (network, 5xx, `double_purchase`, `invalid_price`, `merchant_config_error`, rate limit) or the button could not be rendered.
+- The promise rejects only with `ValidationError`. With `mounted: false` nothing is left in `container`.
+
+`onResult` is called exactly once per attempt, with the same fields as `silentPurchase({ handle3DS: true })` plus the outcome `cancelled`: the buyer closed the wallet sheet and nothing was charged. After `cancelled` the button stays active and can be tapped again; after any other outcome it is disabled for good. 3DS, retries with an idempotency key and the meaning of each outcome are those of `silentPurchase({ handle3DS: true })`; `processing` carries the order id the charge was reserved under.
+
+Handled by the SDK:
+
+- A second tap while an attempt runs is ignored, for both wallets, and so is a `silentPurchase({ handle3DS: true })` for the same buyer.
+- The wallet session is prepared again before it expires and when the tab becomes visible with little time left. A tap on a session about to expire is ignored and the button is replaced, so the next tap works.
+- When the backend reports the wallet session as no longer valid (nothing charged), the SDK prepares a new one and retries once with the same wallet payment, but only if the amount is unchanged. Otherwise, and when the wallet payment itself is rejected, the result is `error`.
+- If the session cannot be prepared again while the button is shown, `onResult` gets an `error` without a tap and the button is disabled.
+
+Style: `buttonType` `plain` | `buy` | `pay` | `continue` (a type the wallet does not have becomes `plain`; Apple Pay `continue` is drawn with Apple's `<apple-pay-button>`), `buttonColor` `black` | `white` | `white-outline` (Google Pay shows `white-outline` as `white`), `height` and `borderRadius` in px (default 54 and 28).
+
+Apple Pay needs the page's domain to be verified for Apple Pay in Primer, as for the checkout.
+
 ## Stripe Integration
 
 The `Billing.stripe` namespace provides a Stripe-native checkout experience — no Primer dependency required. It supports card payments via Stripe Elements and native wallet payments (Apple Pay / Google Pay) via the Payment Request API.

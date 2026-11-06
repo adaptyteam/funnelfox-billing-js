@@ -112,7 +112,7 @@ export function pickVaultedMethod(
   );
 }
 
-function dismissPrimerOverlay(): void {
+export function dismissPrimerOverlay(): void {
   if (typeof document === 'undefined') {
     return;
   }
@@ -123,7 +123,7 @@ function dismissPrimerOverlay(): void {
 }
 
 /** Hides Primer's overlay until the returned function is called. */
-function hidePrimerOverlay(): () => void {
+export function hidePrimerOverlay(): () => void {
   if (typeof document === 'undefined') {
     return () => {};
   }
@@ -137,7 +137,7 @@ function hidePrimerOverlay(): () => void {
  * A Primer update that renames the overlay would leave it visible during the hidden phase, while
  * `threeDSChallenged` stays false for a check that finishes in that time.
  */
-function warnIfOverlayNotFound(): void {
+export function warnIfOverlayNotFound(): void {
   if (
     typeof document !== 'undefined' &&
     !document.querySelector(PRIMER_OVERLAY_SELECTOR)
