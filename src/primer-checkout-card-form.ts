@@ -46,14 +46,26 @@ const TOKENS_CSS = `
   --primer-color-focus: transparent;
   display: block;
 }
+/* Primer's dialogs (3DS challenge) sit on z-index 1000 with no token to change it, so a page element above 1000
+   would cover the challenge. checkout-web v2 used 100000. The host is display: contents, which ignores z-index;
+   fixed keeps it out of the page flow (no extra gap in a flex or grid body). */
+primer-portal-dialog {
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100000;
+}
 /* Primer sizes a wallet button as 20 px + 2 x --primer-space-medium: 54 px, as in the legacy skin. */
 .ff-primer-wallet {
   --primer-space-medium: 17px;
 }
+/* The legacy hosted-input container is 3 px taller than its field: the gap under its inline iframe. */
 .ff-primer-card primer-input-card-number,
 .ff-primer-card primer-input-card-expiry,
 .ff-primer-card primer-input-cvv {
   display: block;
+  margin-bottom: 3px;
 }
 `;
 
@@ -69,6 +81,8 @@ export function ensureTokens() {
 
 export interface PrimerCardForm {
   submit(): Promise<void>;
+  /** Validates the skin's own fields, showing their errors. */
+  ownFieldsValid(): boolean;
   setDisabled(disabled: boolean): void;
   destroy(): void;
 }
@@ -133,7 +147,7 @@ export function renderPrimerCardForm(
   const getCardholderError = () =>
     options.isCardholderNameRequired?.() &&
     !elements.cardholderName?.value.trim()
-      ? 'Please enter the cardholder name'
+      ? 'Name on card is required'
       : null;
 
   const onCardholderInput = (event: Event) => {
@@ -167,17 +181,20 @@ export function renderPrimerCardForm(
     dispatchError('postalCode', getPostalCodeError());
   };
 
-  const submit = async () => {
+  const validateOwnFields = () => {
     const cardholderError = getCardholderError();
     const emailError = getEmailError();
     const postalCodeError = getPostalCodeError();
     dispatchError('cardholderName', cardholderError);
     dispatchError('emailAddress', emailError);
     dispatchError('postalCode', postalCodeError);
-    if (cardholderError || emailError || postalCodeError) {
-      return;
-    }
-    // The card form listens on itself: a submit dispatched on the document does not reach a form inside a provider.
+    return !cardholderError && !emailError && !postalCodeError;
+  };
+  const submit = async () => {
+    validateOwnFields();
+    // Primer validates and highlights its inputs only on a submit, so it gets one even when our fields are invalid;
+    // the payment it would then start is stopped by ownFieldsValid. The card form listens on itself: a submit
+    // dispatched on the document does not reach a form inside a provider.
     form.dispatchEvent(
       new CustomEvent('primer:card-submit', { bubbles: true, composed: true })
     );
@@ -207,6 +224,7 @@ export function renderPrimerCardForm(
 
   return {
     submit,
+    ownFieldsValid: validateOwnFields,
     setDisabled: (disabled: boolean) => {
       form.toggleAttribute('disabled', disabled);
       for (const field of ownFields) {
