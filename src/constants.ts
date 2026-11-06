@@ -57,6 +57,7 @@ export const API_ENDPOINTS = {
   CREATE_PAYMENT: '/v1/checkout/create_payment',
   RESUME_PAYMENT: '/v1/checkout/resume_payment',
   ONE_CLICK: '/v1/checkout/one_click',
+  ONE_CLICK_WALLET_SESSION: '/v1/checkout/one_click_wallet_session',
   CREATE_SIMPLE_CLIENT_SESSION: '/v1/checkout/create_simple_client_session',
   RECALCULATE_TAX: '/v1/checkout/recalculate_tax',
 } as const;

@@ -2,6 +2,7 @@
  * @fileoverview Main entry point for @funnelfox/billing
  */
 import * as api from './api';
+import { mountWalletUpsell } from './wallet-upsell';
 
 export {
   FunnefoxSDKError,
@@ -28,12 +29,15 @@ export {
   getAvailablePaymentMethods,
 } from './api';
 
+export { mountWalletUpsell } from './wallet-upsell';
+
 export const Billing = {
   configure: api.configure,
   createCheckout: api.createCheckout,
   createClientSession: api.createClientSession,
   initMethod: api.initMethod,
   silentPurchase: api.silentPurchase,
+  mountWalletUpsell,
   getAvailablePaymentMethods: api.getAvailablePaymentMethods,
   stripe: {
     createCardForm: api.createStripeCardForm,

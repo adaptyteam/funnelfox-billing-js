@@ -12,6 +12,7 @@ import {
   CreatePaymentResponse,
   MetadataType,
   OneClickRequest,
+  OneClickWalletSessionData,
   PaymentProcessResult,
   TaxRecalculationData,
   TaxRecalculationResponse,
@@ -357,6 +358,25 @@ class APIClient {
       },
       timeoutMs
     )) as CreatePaymentResponse;
+  }
+
+  /** `one_click_wallet_session`: prepares the wallet re-auth button of a one-click upsell. */
+  async oneClickWalletSession(
+    payload: {
+      pp_ident: string;
+      external_id: string;
+      client_metadata: Record<string, unknown>;
+    },
+    timeoutMs?: number
+  ) {
+    return (await this.requestOnce(
+      API_ENDPOINTS.ONE_CLICK_WALLET_SESSION,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+      timeoutMs
+    )) as { status: string; data?: OneClickWalletSessionData; error?: unknown };
   }
 
   /** `resume_payment`, POSTed exactly once (see `requestOnce`). */

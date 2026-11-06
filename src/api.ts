@@ -47,6 +47,11 @@ export function configure(config: SDKConfig): void {
   defaultConfig = config;
 }
 
+/** The base URL from `configure()`, else the production one. */
+export function defaultBaseUrl(): string {
+  return defaultConfig?.baseUrl || DEFAULTS.BASE_URL;
+}
+
 function resolveConfig(
   options: { orgId?: string; apiConfig?: APIConfig },
   functionName: string
@@ -146,9 +151,6 @@ export function buildOneClickRequest(
   if (options.citCardNetworks !== undefined) {
     payload.cit_card_networks = options.citCardNetworks;
   }
-  if (options.citGooglePayPanOnly !== undefined) {
-    payload.cit_google_pay_pan_only = options.citGooglePayPanOnly;
-  }
   return payload;
 }
 
@@ -207,12 +209,17 @@ async function silentPurchaseLegacy(options: SilentPurchaseOptions) {
 }
 
 const ONE_CLICK_IN_PROGRESS = 'one_click_in_progress';
-const DOUBLE_PURCHASE = 'double_purchase';
+export const DOUBLE_PURCHASE = 'double_purchase';
 const IDEMPOTENCY_KEY_IN_PROGRESS = 'idempotency_key_in_progress';
 const ONE_CLICK_RETRY_DELAYS_MS = [1000, 2000, 4000];
 /** Longer than the backend's wait for the user's lock (~12.6 s). */
 const ONE_CLICK_TIMEOUT_MS = 25000;
-const oneClickInFlight = new Set<string>();
+/** org + external id of the customers with a one-click purchase running (silent or wallet). */
+export const oneClickInFlight = new Set<string>();
+
+export function oneClickInFlightKey(orgId: string, externalId: string): string {
+  return `${orgId}\u0000${externalId}`;
+}
 
 /** A random UUID v4, or `null` when the browser has no crypto (then one_click is not retried). */
 export function createIdempotencyKey(): string | null {
@@ -241,7 +248,7 @@ export function createIdempotencyKey(): string | null {
  * with the same idempotency key is safe: the backend never charges a key twice (FFB-757).
  * A 2xx APIError means the body could not be parsed.
  */
-function isRetryableOneClickError(error: unknown): boolean {
+export function isRetryableOneClickError(error: unknown): boolean {
   if (error instanceof NetworkError) {
     return true;
   }
@@ -264,7 +271,7 @@ function isEmptyResponse(response: CreatePaymentResponse): boolean {
 }
 
 /** `one_click`, retried with the same idempotency key; sent once when there is no key. */
-async function postOneClick(
+export async function postOneClick(
   apiClient: APIClient,
   payload: OneClickRequest
 ): Promise<CreatePaymentResponse> {
@@ -523,7 +530,7 @@ function mapThreeDSRun(
   }
 }
 
-function callHook<T>(
+export function callHook<T>(
   name: string,
   hook: ((info: T) => void) | undefined,
   info: T
@@ -535,7 +542,7 @@ function callHook<T>(
     hook(info);
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error(`[FunnelfoxSDK] silentPurchase ${name} hook threw`, error);
+    console.error(`[FunnelfoxSDK] ${name} hook threw`, error);
   }
 }
 
@@ -549,7 +556,7 @@ async function silentPurchaseDetailed(
   }
   const { orgId, baseUrl, externalId } = options;
 
-  const inFlightKey = `${orgId}\u0000${externalId}`;
+  const inFlightKey = oneClickInFlightKey(orgId, externalId);
   if (oneClickInFlight.has(inFlightKey)) {
     return {
       outcome: 'error',
