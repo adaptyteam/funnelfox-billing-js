@@ -639,6 +639,9 @@ class WalletUpsell {
       payment_method_token: paymentMethodToken,
       session_id: session.sessionId,
     };
+    if (this.options.displayCurrency) {
+      payload.display_currency_code = this.options.displayCurrency;
+    }
     const idempotencyKey = createIdempotencyKey();
     if (idempotencyKey) {
       payload.idempotency_key = idempotencyKey;

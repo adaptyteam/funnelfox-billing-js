@@ -225,6 +225,8 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       region: this.region,
       clientMetadata: this.checkoutConfig.clientMetadata,
       countryCode: this.checkoutConfig.customer.countryCode,
+      displayCurrency: this.checkoutConfig.displayCurrency,
+      displayCountry: this.checkoutConfig.displayCountry,
       integration: 'primer',
     });
 
@@ -863,6 +865,8 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         clientToken: this.clientToken,
         priceId: newPriceId,
         clientMetadata,
+        displayCurrency: this.checkoutConfig.displayCurrency,
+        displayCountry: this.checkoutConfig.displayCountry,
       });
       this.checkoutConfig.priceId = newPriceId;
       await this.primerWrapper.refreshClientSession();

@@ -152,6 +152,12 @@ class APIClient {
     if (params.countryCode !== undefined) {
       payload.country_code = params.countryCode;
     }
+    if (params.displayCurrency) {
+      payload.display_currency_code = params.displayCurrency;
+    }
+    if (params.displayCountry) {
+      payload.display_country_code = params.displayCountry;
+    }
     return (await this.request(API_ENDPOINTS.CREATE_CLIENT_SESSION, {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -163,13 +169,21 @@ class APIClient {
     clientToken: string;
     priceId: string;
     clientMetadata?: MetadataType;
+    displayCurrency?: string;
+    displayCountry?: string;
   }) {
-    const payload = {
+    const payload: Record<string, unknown> = {
       order_id: params.orderId,
       client_token: params.clientToken,
       pp_ident: params.priceId,
       client_metadata: params.clientMetadata || {},
     };
+    if (params.displayCurrency) {
+      payload.display_currency_code = params.displayCurrency;
+    }
+    if (params.displayCountry) {
+      payload.display_country_code = params.displayCountry;
+    }
     return await this.request(API_ENDPOINTS.UPDATE_CLIENT_SESSION, {
       method: 'POST',
       body: JSON.stringify(payload),

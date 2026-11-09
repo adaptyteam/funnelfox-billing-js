@@ -15,6 +15,8 @@ interface SessionParams {
   email?: string;
   clientMetadata?: MetadataType;
   countryCode?: string;
+  displayCurrency?: string;
+  displayCountry?: string;
 }
 
 class SessionService {
@@ -29,6 +31,8 @@ class SessionService {
       p.baseUrl || DEFAULTS.BASE_URL,
       p.region || DEFAULTS.REGION,
       p.countryCode ?? '',
+      p.displayCurrency ?? '',
+      p.displayCountry ?? '',
       p.priceId,
       p.externalId,
       p.email,
@@ -66,6 +70,8 @@ class SessionService {
       region: p.region || DEFAULTS.REGION,
       clientMetadata: p.clientMetadata,
       countryCode: p.countryCode,
+      displayCurrency: p.displayCurrency,
+      displayCountry: p.displayCountry,
       integration: p.integration,
     });
 
