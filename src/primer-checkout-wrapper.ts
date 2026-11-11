@@ -10,6 +10,7 @@ import { PaymentMethod } from './enums';
 import { PrimerError } from './errors';
 import { generateId } from './utils/helpers';
 import { loadPrimerCheckout } from './utils/primer-checkout-loader';
+import { PRIMER_CHECKOUT_SOURCE } from './utils/primer-checkout-module';
 import {
   ensureTokens,
   renderPrimerCardForm,
@@ -351,7 +352,10 @@ class PrimerCheckoutWrapper {
     try {
       await loadPrimerCheckout();
     } catch (error) {
-      throw new PrimerError('Failed to load Primer Checkout', error);
+      throw new PrimerError(
+        `Failed to load Primer Checkout from ${PRIMER_CHECKOUT_SOURCE || 'an unknown location'}`,
+        error
+      );
     }
     if (!this.checkout) {
       this.clientToken = clientToken;

@@ -4,6 +4,8 @@ import terser from '@rollup/plugin-terser';
 import typescript from '@rollup/plugin-typescript';
 import html from 'rollup-plugin-html';
 import postcss from 'rollup-plugin-import-css';
+import { cpSync } from 'node:fs';
+import path from 'node:path';
 
 const packageJson = {
   name: '@funnelfox/billing',
@@ -18,9 +20,51 @@ const banner = `/**
  * @license MIT
  */`;
 
+const primerCheckoutModule = path.resolve(
+  'src/utils/primer-checkout-module.ts'
+);
+
+// The UMD build runs without a bundler, so it imports primer-js from files shipped next to the SDK script.
+function umdPrimerCheckoutSource() {
+  return {
+    name: 'umd-primer-checkout-source',
+    async resolveId(source, importer, options) {
+      if (!source.endsWith('/primer-checkout-module')) {
+        return null;
+      }
+      const resolved = await this.resolve(source + '.ts', importer, {
+        ...options,
+        skipSelf: true,
+      });
+      if (resolved?.id !== primerCheckoutModule) {
+        return null;
+      }
+      return primerCheckoutModule.replace(/\.ts$/, '.umd.ts');
+    },
+  };
+}
+
+function copyPrimerCheckout() {
+  const source = path.resolve('node_modules/@primer-io/primer-js');
+  return {
+    name: 'copy-primer-checkout',
+    writeBundle() {
+      const target = path.resolve('dist/primer-js');
+      cpSync(
+        path.join(source, 'dist/primer-loader.js'),
+        path.join(target, 'primer-loader.js')
+      );
+      cpSync(path.join(source, 'dist/chunks'), path.join(target, 'chunks'), {
+        recursive: true,
+      });
+      cpSync(path.join(source, 'LICENSE.md'), path.join(target, 'LICENSE.md'));
+    },
+  };
+}
+
 const commonConfig = {
   input: 'src/index.ts',
-  external: ['@primer-io/checkout-web'],
+  external: ['@primer-io/checkout-web', '@primer-io/primer-js'],
   plugins: [
     typescript({
       tsconfig: './tsconfig.json',
@@ -58,6 +102,11 @@ export default [
   // UMD build for browser usage
   {
     ...commonConfig,
+    plugins: [
+      umdPrimerCheckoutSource(),
+      ...commonConfig.plugins,
+      copyPrimerCheckout(),
+    ],
     output: {
       file: 'dist/funnelfox-billing.js',
       format: 'umd',
@@ -84,6 +133,7 @@ export default [
       },
     },
     plugins: [
+      umdPrimerCheckoutSource(),
       ...commonConfig.plugins,
       terser({
         format: {

@@ -22,9 +22,18 @@ events, same card skin and wallet buttons.
 
 Under the hood, on a `checkout` session:
 
-- **Loading.** Primer Checkout is imported at runtime from
-  `https://cdn.jsdelivr.net/npm/@primer-io/primer-js@<version>/+esm`, so it is not in the SDK bundle. The
-  checkout-web v2 script is not loaded, except for one-click 3DS (see below).
+- **Loading.** Primer Checkout (`@primer-io/primer-js`, pinned to one version) is imported on the first `checkout`
+  session, never at page load, and always from your own host:
+  - with a bundler (the ESM and CommonJS builds), the SDK imports the `@primer-io/primer-js` package, a dependency of
+    `@funnelfox/billing`, so your bundler serves it as a lazy chunk next to your other assets;
+  - with the `<script>` build (`funnelfox-billing.js` / `.min.js`), the package ships it in `dist/primer-js/` and the
+    SDK imports `primer-js/primer-loader.js` relative to its own script URL. Serve the whole `dist/` folder, not only
+    the SDK file. The SDK must be loaded with `<script src>`: without a script URL it cannot locate the module. If
+    the script comes from a public CDN such as unpkg, the module comes from the same CDN path, so pin the SDK
+    version in the URL instead of `@latest`; the server must send CORS headers for module scripts.
+
+  If the module does not load, `createCheckout` fails with `Failed to load Primer Checkout from <url>`; there is no
+  fallback to a third-party CDN. The checkout-web v2 script is not loaded, except for one-click 3DS (see below).
   `getAvailablePaymentMethods` reads the method list from Primer Checkout too.
 - **One checkout per session.** Primer Checkout supports one `<primer-checkout>` per page. The SDK appends one
   hidden `<primer-checkout>` to `document.body` per client session, and every payment method renders inside a
@@ -56,9 +65,8 @@ is turned off because cards go through the card form.
 
 ## Content Security Policy
 
-On top of what checkout-web v2 needs (`sdk.primer.io`, Primer API, wallet providers), allow:
-
-- `script-src https://cdn.jsdelivr.net` for the Primer Checkout module.
+Primer Checkout needs nothing on top of what checkout-web v2 needs (`sdk.primer.io`, Primer API, wallet providers):
+the module comes from your own origin (see Loading above), so `script-src 'self'` covers it.
 
 Primer Checkout also loads Apple's Apple Pay scripts from `https://applepay.cdn-apple.com`. They are needed only for
 Apple Pay outside Safari, which the SDK does not offer, so blocking them only adds console errors.
