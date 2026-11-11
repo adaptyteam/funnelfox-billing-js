@@ -17,7 +17,10 @@
     "declaration": false,
     "declarationMap": false,
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    "paths": {
+      "@primer-io/primer-js": ["./src/utils/primer-js-module.d.ts"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "test.html"],
