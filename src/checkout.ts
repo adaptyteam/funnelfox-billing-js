@@ -684,10 +684,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     let paymentButtonElements: PaymentButtonElements;
     let checkoutOptions: CheckoutOptions;
 
-    if (
-      !this.checkoutConfig.cardSelectors ||
-      !this.checkoutConfig.paymentButtonSelectors
-    ) {
+    if (!this.hasCustomSelectors()) {
       this.checkoutConfig.paymentMethodOrder =
         this.checkoutConfig.paymentMethodOrder || DEFAULT_PAYMENT_METHOD_ORDER;
       const defaultSkinCheckoutOptions =
@@ -1154,7 +1151,15 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.emit(EVENTS.LOADER_CHANGE, isLoading);
   };
   showInitializingLoader() {
-    renderLoader(this.checkoutConfig.container);
+    renderLoader(this.checkoutConfig.container, {
+      keepContent: this.hasCustomSelectors(),
+    });
+  }
+  private hasCustomSelectors() {
+    return Boolean(
+      this.checkoutConfig.cardSelectors &&
+      this.checkoutConfig.paymentButtonSelectors
+    );
   }
   hideInitializingLoader() {
     hideLoader();
