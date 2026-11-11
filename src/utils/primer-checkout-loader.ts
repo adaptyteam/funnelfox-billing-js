@@ -2,11 +2,7 @@
  * @fileoverview Runtime loader for Primer Checkout (@primer-io/primer-js)
  */
 
-import { PRIMER_CHECKOUT_MODULE_URL } from '../constants';
-
-interface PrimerCheckoutModule {
-  loadPrimer: () => void;
-}
+import { importPrimerCheckoutModule } from './primer-checkout-module';
 
 let loadingPromise: Promise<void> | null = null;
 
@@ -16,11 +12,7 @@ let loadingPromise: Promise<void> | null = null;
  */
 export function loadPrimerCheckout(): Promise<void> {
   if (!loadingPromise) {
-    loadingPromise = (
-      import(
-        /* webpackIgnore: true */ /* @vite-ignore */ PRIMER_CHECKOUT_MODULE_URL
-      ) as Promise<PrimerCheckoutModule>
-    )
+    loadingPromise = importPrimerCheckoutModule()
       .then(module => {
         module.loadPrimer();
       })

@@ -55,6 +55,7 @@
   ],
   "dependencies": {
     "@primer-io/checkout-web": "^2.57.3",
+    "@primer-io/primer-js": "1.13.2",
     "@stripe/stripe-js": "^4.0.0"
   },
   "devDependencies": {
