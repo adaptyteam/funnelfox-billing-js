@@ -87,6 +87,37 @@ export interface PrimerCardForm {
   destroy(): void;
 }
 
+function cardFormNodes(
+  elements: CardInputElements | CardInputElementsWithButton
+): HTMLElement[] {
+  const nodes: (HTMLElement | undefined)[] = [
+    elements.cardNumber,
+    elements.expiryDate,
+    elements.cvv,
+    elements.cardholderName,
+    elements.emailAddress,
+  ];
+  if ('button' in elements) {
+    nodes.push(elements.button);
+  }
+  return nodes.filter((node): node is HTMLElement => Boolean(node));
+}
+
+function closestCommonAncestor(
+  nodes: HTMLElement[],
+  boundary: HTMLElement
+): HTMLElement {
+  let ancestor = nodes[0]?.parentElement;
+  while (ancestor && ancestor !== boundary) {
+    const current = ancestor;
+    if (nodes.every(node => current.contains(node))) {
+      return current;
+    }
+    ancestor = ancestor.parentElement;
+  }
+  return boundary;
+}
+
 /**
  * Moves the rendered card skin into `<primer-card-form>` (Primer's inputs must live inside it) and puts Primer's
  * number, expiry and CVV inputs into the skin's containers. Our own fields keep the legacy wrapper's validation.
@@ -101,7 +132,7 @@ export function renderPrimerCardForm(
   ensureTokens();
   const formRoot =
     elements.cardNumber.closest<HTMLElement>('.ff-card-form-container') ||
-    htmlNode;
+    closestCommonAncestor(cardFormNodes(elements), htmlNode);
 
   const form = document.createElement('primer-card-form');
   form.setAttribute('hide-labels', '');

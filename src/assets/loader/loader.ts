@@ -9,9 +9,17 @@ export const loaderConfig = {
   },
 };
 
-export const renderLoader = (container: string) => {
+export const renderLoader = (
+  container: string,
+  { keepContent = false }: { keepContent?: boolean } = {}
+) => {
   const loaderContainer = document.querySelector(container);
-  if (loaderContainer) {
+  if (!loaderContainer) {
+    return;
+  }
+  if (keepContent) {
+    loaderContainer.insertAdjacentHTML('afterbegin', loaderConfig.html);
+  } else {
     loaderContainer.innerHTML = loaderConfig.html;
   }
 };

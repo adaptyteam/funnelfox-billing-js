@@ -77,5 +77,3 @@ loaded only when a challenge is needed. The decision and its evidence are in FFB
 
 - Apple Pay button height and corner radius cannot be set on Primer Checkout. The height follows the same token as
   the other wallets; it is not verified on a device yet.
-- `createCheckout` with custom `cardSelectors` inside `container` does not work on either Primer SDK: the
-  initialization loader replaces the container's content before the selectors are resolved.
