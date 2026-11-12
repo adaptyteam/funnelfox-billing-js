@@ -50,6 +50,16 @@ export interface APIConfig {
   region?: string;
 }
 
+export interface DisplayLocaleOptions {
+  /**
+   * ISO 4217 currency the page showed the price in. Billing charges it when the price point
+   * offers it, else the price point's own currency.
+   */
+  displayCurrency?: string;
+  /** ISO 3166-1 alpha-2 country the page resolved that currency for. */
+  displayCountry?: string;
+}
+
 export interface Customer {
   email: string;
   externalId: string;
@@ -112,7 +122,8 @@ export interface PrimerCheckoutConfig extends Pick<
   cardSelectors?: CardInputSelectors;
   paymentButtonSelectors?: PaymentButtonSelectors;
 }
-export interface CheckoutConfig extends PrimerCheckoutConfig {
+export interface CheckoutConfig
+  extends PrimerCheckoutConfig, DisplayLocaleOptions {
   customer: Customer;
   priceId: string;
   container: string;
@@ -258,7 +269,15 @@ export interface CheckoutInstance {
     }
   ): Promise<void | PaymentMethodInterface>;
 
-  updatePrice(newPriceId: string): Promise<void>;
+  /**
+   * Moves the checkout to another price. Pass `displayLocale` when the page shows the new price in
+   * another currency than the checkout was opened with; omitted, the current one is kept.
+   */
+  updatePrice(
+    newPriceId: string,
+    clientMetadata?: MetadataType,
+    displayLocale?: DisplayLocaleOptions
+  ): Promise<void>;
   getStatus(): CheckoutStatus;
   destroy(): Promise<void>;
   getContainer(): Element | null;
@@ -368,7 +387,7 @@ export declare function createCheckout(
   options: CreateCheckoutOptions
 ): Promise<CheckoutInstance>;
 
-export interface CreateClientSessionOptions {
+export interface CreateClientSessionOptions extends DisplayLocaleOptions {
   region?: string;
   priceId: string;
   externalId: string;
@@ -435,7 +454,8 @@ export interface InitMethodOptions
       >,
       'card'
     >,
-    InitMethodCallbacks {
+    InitMethodCallbacks,
+    DisplayLocaleOptions {
   applePay?: BillingApplePayOptions;
   card?: BillingCardOptions;
   orgId: string;
@@ -484,6 +504,8 @@ export interface SilentPurchaseOptions {
   initiationType?: 'cit' | 'mit';
   /** CIT card networks (sent only when set). `[]` = all networks. */
   citCardNetworks?: string[];
+  /** The currency the upsell page showed; omitted = the customer's purchase currency, else the default. */
+  displayCurrency?: string;
   /**
    * @deprecated Not sent any more: a saved Google Pay token is never charged as CIT, and the
    * backend ignores the field. Wallet buyers confirm the upsell again with `mountWalletUpsell`.
@@ -750,6 +772,8 @@ export interface CreateClientSessionRequest {
   external_id: string;
   email_address?: string;
   country_code?: string;
+  display_currency_code?: string;
+  display_country_code?: string;
   client_metadata?: MetadataType;
 }
 
@@ -905,6 +929,7 @@ export interface OneClickRequest {
   client_metadata: Record<string, string | number | boolean>;
   initiation_type?: 'cit' | 'mit';
   cit_card_networks?: string[];
+  display_currency_code?: string;
   idempotency_key?: string;
   /** Wallet re-auth: the single-use token of the confirmed wallet sheet, with `session_id`. */
   payment_method_token?: string;

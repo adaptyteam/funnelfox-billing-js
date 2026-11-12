@@ -40,6 +40,7 @@ import { PaymentMethod } from './enums';
 import { getErrorImage } from './utils/error-image';
 import { sleep } from './utils/helpers';
 import sessionService from './shared/services/session-service';
+import { normalizeDisplayCurrency } from './utils/display-locale';
 
 let defaultConfig: SDKConfig | null = null;
 
@@ -111,7 +112,15 @@ export async function createCheckout(
 export async function createClientSession(
   params: CreateClientSessionOptions
 ): Promise<{ clientToken: string; orderId: string; type: string }> {
-  const { priceId, externalId, email, clientMetadata, countryCode } = params;
+  const {
+    priceId,
+    externalId,
+    email,
+    clientMetadata,
+    countryCode,
+    displayCurrency,
+    displayCountry,
+  } = params;
 
   const config = resolveConfig(params, 'createClientSession');
 
@@ -129,6 +138,8 @@ export async function createClientSession(
     region: config.region,
     clientMetadata,
     countryCode,
+    displayCurrency,
+    displayCountry,
   });
 
   return apiClient.processSessionResponse(sessionResponse);
@@ -150,6 +161,10 @@ export function buildOneClickRequest(
   }
   if (options.citCardNetworks !== undefined) {
     payload.cit_card_networks = options.citCardNetworks;
+  }
+  const displayCurrency = normalizeDisplayCurrency(options.displayCurrency);
+  if (displayCurrency) {
+    payload.display_currency_code = displayCurrency;
   }
   return payload;
 }
@@ -704,6 +719,8 @@ export async function initMethod(
         },
         container: '',
         clientMetadata: options.meta,
+        displayCurrency: options.displayCurrency,
+        displayCountry: options.displayCountry,
         card: options.card,
         style: options.style,
         applePay: {
@@ -804,6 +821,8 @@ export async function createStripeCardForm(
     email: params.email,
     clientMetadata: params.clientMetadata,
     countryCode: params.countryCode,
+    displayCurrency: params.displayCurrency,
+    displayCountry: params.displayCountry,
     integration: 'stripe' as const,
   };
 
@@ -838,6 +857,8 @@ export async function purchaseStripeWallet(
     email: params.email,
     clientMetadata: params.clientMetadata,
     countryCode: params.countryCode,
+    displayCurrency: params.displayCurrency,
+    displayCountry: params.displayCountry,
     integration: 'stripe' as const,
   };
 
@@ -874,6 +895,8 @@ export async function getAvailableStripeWallet(
       email: params.email,
       clientMetadata: params.clientMetadata,
       countryCode: params.countryCode,
+      displayCurrency: params.displayCurrency,
+      displayCountry: params.displayCountry,
       integration: 'stripe',
     }),
     import('./stripe/stripe-wallet'),

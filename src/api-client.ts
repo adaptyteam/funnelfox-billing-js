@@ -18,6 +18,10 @@ import {
   TaxRecalculationResponse,
 } from './types';
 import { retry, withTimeout } from './utils/helpers';
+import {
+  normalizeDisplayCountry,
+  normalizeDisplayCurrency,
+} from './utils/display-locale';
 
 interface APIClientConfig {
   baseUrl: string;
@@ -152,6 +156,14 @@ class APIClient {
     if (params.countryCode !== undefined) {
       payload.country_code = params.countryCode;
     }
+    const displayCurrency = normalizeDisplayCurrency(params.displayCurrency);
+    if (displayCurrency) {
+      payload.display_currency_code = displayCurrency;
+    }
+    const displayCountry = normalizeDisplayCountry(params.displayCountry);
+    if (displayCountry) {
+      payload.display_country_code = displayCountry;
+    }
     return (await this.request(API_ENDPOINTS.CREATE_CLIENT_SESSION, {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -163,13 +175,23 @@ class APIClient {
     clientToken: string;
     priceId: string;
     clientMetadata?: MetadataType;
+    displayCurrency?: string;
+    displayCountry?: string;
   }) {
-    const payload = {
+    const payload: Record<string, unknown> = {
       order_id: params.orderId,
       client_token: params.clientToken,
       pp_ident: params.priceId,
       client_metadata: params.clientMetadata || {},
     };
+    const displayCurrency = normalizeDisplayCurrency(params.displayCurrency);
+    if (displayCurrency) {
+      payload.display_currency_code = displayCurrency;
+    }
+    const displayCountry = normalizeDisplayCountry(params.displayCountry);
+    if (displayCountry) {
+      payload.display_country_code = displayCountry;
+    }
     return await this.request(API_ENDPOINTS.UPDATE_CLIENT_SESSION, {
       method: 'POST',
       body: JSON.stringify(payload),
