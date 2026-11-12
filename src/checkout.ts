@@ -46,6 +46,7 @@ import { renderLoader, hideLoader } from './assets/loader/loader';
 import type {
   CheckoutRenderOptions,
   CreateClientSessionResponse,
+  DisplayLocaleOptions,
   InitMethodCallbacks,
   MetadataType,
   TaxInfo,
@@ -847,7 +848,11 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     };
   }
 
-  async updatePrice(newPriceId: string, clientMetadata?: MetadataType) {
+  async updatePrice(
+    newPriceId: string,
+    clientMetadata?: MetadataType,
+    displayLocale?: DisplayLocaleOptions
+  ) {
     this._ensureNotDestroyed();
     requireString(newPriceId, 'priceId');
     if (this.state === 'processing') {
@@ -860,15 +865,21 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       this.onLoaderChangeWithRace(true);
       this._setState('updating');
       sessionService.clearCache();
+      const displayCurrency =
+        displayLocale?.displayCurrency ?? this.checkoutConfig.displayCurrency;
+      const displayCountry =
+        displayLocale?.displayCountry ?? this.checkoutConfig.displayCountry;
       await this.apiClient.updateClientSession({
         orderId: this.orderId,
         clientToken: this.clientToken,
         priceId: newPriceId,
         clientMetadata,
-        displayCurrency: this.checkoutConfig.displayCurrency,
-        displayCountry: this.checkoutConfig.displayCountry,
+        displayCurrency,
+        displayCountry,
       });
       this.checkoutConfig.priceId = newPriceId;
+      this.checkoutConfig.displayCurrency = displayCurrency;
+      this.checkoutConfig.displayCountry = displayCountry;
       await this.primerWrapper.refreshClientSession();
       this.onLoaderChangeWithRace(false);
       this._setState('ready');

@@ -269,7 +269,15 @@ export interface CheckoutInstance {
     }
   ): Promise<void | PaymentMethodInterface>;
 
-  updatePrice(newPriceId: string): Promise<void>;
+  /**
+   * Moves the checkout to another price. Pass `displayLocale` when the page shows the new price in
+   * another currency than the checkout was opened with; omitted, the current one is kept.
+   */
+  updatePrice(
+    newPriceId: string,
+    clientMetadata?: MetadataType,
+    displayLocale?: DisplayLocaleOptions
+  ): Promise<void>;
   getStatus(): CheckoutStatus;
   destroy(): Promise<void>;
   getContainer(): Element | null;

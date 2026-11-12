@@ -258,12 +258,22 @@ checkout.on('destroy', () => {
 
 #### Methods
 
-##### `updatePrice(priceId)`
+##### `updatePrice(priceId, clientMetadata?, displayLocale?)`
 
 Updates the checkout to use a different price.
 
 ```javascript
 await checkout.updatePrice('price_yearly');
+```
+
+When the page shows the new price in another currency than the checkout was opened with, pass it
+as `displayLocale`, otherwise the checkout keeps charging the currency it was opened in:
+
+```javascript
+await checkout.updatePrice('price_yearly', undefined, {
+  displayCurrency: 'EUR',
+  displayCountry: 'DE',
+});
 ```
 
 **Note:** Cannot update price while payment is processing.
