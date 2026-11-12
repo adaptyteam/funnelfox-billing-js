@@ -40,6 +40,7 @@ import { PaymentMethod } from './enums';
 import { getErrorImage } from './utils/error-image';
 import { sleep } from './utils/helpers';
 import sessionService from './shared/services/session-service';
+import { normalizeDisplayCurrency } from './utils/display-locale';
 
 let defaultConfig: SDKConfig | null = null;
 
@@ -161,8 +162,9 @@ export function buildOneClickRequest(
   if (options.citCardNetworks !== undefined) {
     payload.cit_card_networks = options.citCardNetworks;
   }
-  if (options.displayCurrency) {
-    payload.display_currency_code = options.displayCurrency;
+  const displayCurrency = normalizeDisplayCurrency(options.displayCurrency);
+  if (displayCurrency) {
+    payload.display_currency_code = displayCurrency;
   }
   return payload;
 }
