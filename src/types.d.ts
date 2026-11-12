@@ -571,8 +571,6 @@ export interface MountWalletUpsellOptions {
   orgId: string;
   priceId: string;
   externalId: string;
-  /** As in `silentPurchase`. */
-  displayCurrency?: string;
   clientMetadata?: Record<string, unknown>;
   /** Default: the `configure()` value, else https://billing.funnelfox.com. */
   baseUrl?: string;

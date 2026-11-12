@@ -140,7 +140,7 @@ const checkout = await createCheckout({
   - `customer.externalId` (string, required) - Your user identifier
   - `customer.email` (string, optional) - Customer email
   - `customer.countryCode` (string, optional) - ISO country code
-- `options.displayCurrency` (string, optional) - ISO 4217 currency the page showed the price in (from Billing's `price_points/resolve`). Billing charges it when the price point offers it, otherwise the price point's own currency. Also accepted by `initMethod`, `createClientSession`, the Stripe forms, and (currency only) `silentPurchase` and `mountWalletUpsell`.
+- `options.displayCurrency` (string, optional) - ISO 4217 currency the page showed the price in (from Billing's `price_points/resolve`). Billing charges it when the price point offers it, otherwise the price point's own currency. Also accepted by `initMethod`, `createClientSession`, the Stripe forms, and (currency only) `silentPurchase`. `mountWalletUpsell` takes no display currency yet: Billing charges the wallet upsell in the price point's own currency.
 - `options.displayCountry` (string, optional) - ISO 3166-1 alpha-2 country the page resolved that currency for.
 - `options.container` (string, required) - CSS selector for checkout container
 - `options.card.emailAddress.visible` (boolean, optional) - Shows an email field in the card form. Disabled by default.
