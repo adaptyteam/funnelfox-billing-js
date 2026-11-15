@@ -283,7 +283,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 - Checkout runs on Primer Checkout (`@primer-io/primer-js`) when the client session says `primer_sdk: 'checkout'`; other sessions keep checkout-web v2. Same `createCheckout` / `Billing.initMethod` calls, callbacks and events. Details: [docs/primer-checkout.md](./docs/primer-checkout.md)
-  - Primer Checkout is imported at runtime from jsDelivr, so the SDK bundle does not grow
+  - Primer Checkout (`@primer-io/primer-js` 1.13.2, a new pinned dependency) is imported only for a `checkout` session and always from the integrator's host: bundlers serve it as a lazy chunk, and the `<script>` build loads it from `dist/primer-js/` next to the SDK file, so the whole `dist/` folder has to be served. No third-party CDN and no CSP change. A failed load ends in `Failed to load Primer Checkout from <url>` (FFB-775)
   - One hidden `<primer-checkout>` per client session; payment methods render through `<primer-provider>` in their containers
   - The payment attempt is approved through `/v1/checkout/approve_payment`; Primer creates the payment and runs 3DS. Success syncs the order through `/v1/checkout/order_status` first, failures read the decline from it (`declineCode`, `declineCodeSource`)
   - The card skin keeps its markup and own fields; number, expiry and CVV are Primer Checkout inputs styled by CSS tokens. Wallet buttons keep 54 px height and 28 px radius; PayPal's card button is turned off
