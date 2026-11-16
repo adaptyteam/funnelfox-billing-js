@@ -388,6 +388,7 @@ class APIClient {
       pp_ident: string;
       external_id: string;
       client_metadata: Record<string, unknown>;
+      display_currency_code?: string;
     },
     timeoutMs?: number
   ) {

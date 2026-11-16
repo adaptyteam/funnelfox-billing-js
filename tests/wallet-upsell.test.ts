@@ -687,6 +687,102 @@ describe('charge', () => {
 
 // ---------- 3DS ----------
 
+describe('displayCurrency', () => {
+  function retriedChargeRoutes() {
+    routeFetch({
+      [WALLET_SESSION]: [
+        jsonResponse(200, sessionBody({ amount: 899, currency: 'eur' })),
+        jsonResponse(
+          200,
+          sessionBody({
+            session_id: 'sess_2',
+            client_token: 'wallet-client-token-2',
+            amount: 899,
+            currency: 'eur',
+          })
+        ),
+      ],
+      [ENDPOINT.ONE_CLICK]: [
+        jsonResponse(400, errorBody('wallet_session_invalid')),
+        jsonResponse(200, paymentBody({ order_id: 'order_w2' })),
+      ],
+    });
+  }
+
+  async function chargeWithRetry(h: Harness, primer: PrimerMock) {
+    const mount = await mounted(h);
+    const result = h.nextResult();
+    tapAndConfirm(primer.last());
+    await expect(result).resolves.toMatchObject({ outcome: 'succeeded' });
+    mount.destroy();
+    return {
+      sessions: callsTo(WALLET_SESSION).map(bodyOf),
+      charges: callsTo(ENDPOINT.ONE_CLICK).map(bodyOf),
+    };
+  }
+
+  test('sent as display_currency_code with every wallet session and one_click', async () => {
+    const primer = installPrimer();
+    retriedChargeRoutes();
+    const { sessions, charges } = await chargeWithRetry(
+      harness({ displayCurrency: ' eur ' }),
+      primer
+    );
+    expect(sessions).toHaveLength(2);
+    expect(charges).toHaveLength(2);
+    for (const body of [...sessions, ...charges]) {
+      expect(body.display_currency_code).toBe('EUR');
+    }
+    expect(sessions[0]).toEqual({
+      pp_ident: 'pp_upsell',
+      external_id: 'user_1',
+      client_metadata: { ff_billing_reason: 'upsell' },
+      display_currency_code: 'EUR',
+    });
+  });
+
+  test.each([undefined, '', 'EURO'])(
+    'displayCurrency %p: no display_currency_code in any request',
+    async displayCurrency => {
+      const primer = installPrimer();
+      retriedChargeRoutes();
+      const { sessions, charges } = await chargeWithRetry(
+        harness({ displayCurrency }),
+        primer
+      );
+      expect(sessions).toHaveLength(2);
+      expect(charges).toHaveLength(2);
+      for (const body of [...sessions, ...charges]) {
+        expect(body).not.toHaveProperty('display_currency_code');
+      }
+    }
+  );
+
+  test('the session replacing an expiring one keeps the currency', async () => {
+    const primer = installPrimer();
+    routeFetch({
+      [WALLET_SESSION]: [
+        jsonResponse(200, sessionBody({ expires_at: naiveUtc(30 * 1000) })),
+        jsonResponse(
+          200,
+          sessionBody({
+            session_id: 'sess_2',
+            client_token: 'wallet-client-token-2',
+          })
+        ),
+      ],
+    });
+    const h = harness({ displayCurrency: 'EUR' });
+    const mount = await mounted(h);
+    expect(tap(primer.last())).toBe(false);
+    await new Promise(resolve => setTimeout(resolve, 10));
+    expect(
+      callsTo(WALLET_SESSION).map(call => bodyOf(call).display_currency_code)
+    ).toEqual(['EUR', 'EUR']);
+    mount.destroy();
+  });
+});
+
 describe('3DS', () => {
   async function challenge(oneClick: Response, resume?: Response) {
     const primer = installPrimer();
