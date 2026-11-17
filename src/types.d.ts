@@ -347,6 +347,7 @@ export declare class APIError extends FunnefoxSDKError {
   response: unknown;
   declineCode: string | null;
   declineCodeSource: DeclineCodeSource | null;
+  retryAfterMs: number | null;
   constructor(
     message: string,
     statusCode?: number | null,
@@ -357,6 +358,7 @@ export declare class APIError extends FunnefoxSDKError {
       response?: unknown;
       declineCode?: string | null;
       declineCodeSource?: DeclineCodeSource | null;
+      retryAfterMs?: number | null;
     }
   );
 }

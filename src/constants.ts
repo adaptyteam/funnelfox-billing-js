@@ -20,6 +20,7 @@ export const DEFAULTS = {
   REQUEST_TIMEOUT: 30000,
   RETRY_ATTEMPTS: 3,
   RETRY_BASE_DELAY: 1000,
+  MAX_RETRY_AFTER: 10000,
 } as const;
 
 export const CHECKOUT_STATES = {

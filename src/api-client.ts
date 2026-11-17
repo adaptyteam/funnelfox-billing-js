@@ -2,7 +2,7 @@
  * @fileoverview API client for Funnefox backend integration
  */
 
-import { API_ENDPOINTS, SDK_VERSION } from './constants';
+import { API_ENDPOINTS, DEFAULTS, SDK_VERSION } from './constants';
 import { APIError, NetworkError } from './errors';
 import {
   CreateClientSessionOptions,
@@ -28,6 +28,18 @@ interface APIClientConfig {
   orgId: string;
   timeout?: number;
   retryAttempts?: number;
+}
+
+function parseRetryAfter(response: Response): number | null {
+  const seconds = Number(response.headers?.get('Retry-After'));
+  if (response.status !== 429 || !Number.isFinite(seconds) || seconds <= 0) {
+    return null;
+  }
+  return Math.min(seconds * 1000, DEFAULTS.MAX_RETRY_AFTER);
+}
+
+function retryAfterMs(error: unknown): number | null {
+  return error instanceof APIError ? error.retryAfterMs : null;
 }
 
 class APIClient {
@@ -56,13 +68,18 @@ class APIClient {
     };
 
     try {
-      return await retry(async () => {
-        return await withTimeout(
-          this._makeRequest(url, requestOptions),
-          this.timeout,
-          'Request timed out'
-        );
-      }, this.retryAttempts);
+      return await retry(
+        async () => {
+          return await withTimeout(
+            this._makeRequest(url, requestOptions),
+            this.timeout,
+            'Request timed out'
+          );
+        },
+        this.retryAttempts,
+        DEFAULTS.RETRY_BASE_DELAY,
+        retryAfterMs
+      );
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'APIError') {
         throw error;
@@ -137,6 +154,7 @@ class APIClient {
       const message = d.error?.[0]?.msg || 'Failed to create payment';
       throw new APIError(message, response.status, {
         response: data,
+        retryAfterMs: parseRetryAfter(response),
       });
     }
     return data;
