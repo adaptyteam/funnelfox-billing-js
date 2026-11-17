@@ -63,6 +63,7 @@ import type {
   WalletUpsellResult,
 } from './types';
 import { overlayNativeApplePayButton } from './utils/apple-pay-native-button';
+import { normalizeDisplayCurrency } from './utils/display-locale';
 import { getErrorImage } from './utils/error-image';
 import { generateId } from './utils/helpers';
 
@@ -135,6 +136,13 @@ function parseWalletSession(data: OneClickWalletSessionData): WalletSession {
   };
 }
 
+function displayCurrencyField(options: MountWalletUpsellOptions): {
+  display_currency_code?: string;
+} {
+  const displayCurrency = normalizeDisplayCurrency(options.displayCurrency);
+  return displayCurrency ? { display_currency_code: displayCurrency } : {};
+}
+
 /** `null` = the customer's saved method is not a Primer wallet. */
 async function prepareSession(
   apiClient: APIClient,
@@ -145,6 +153,7 @@ async function prepareSession(
       pp_ident: options.priceId,
       external_id: options.externalId,
       client_metadata: options.clientMetadata || {},
+      ...displayCurrencyField(options),
     },
     SESSION_REQUEST_TIMEOUT_MS
   );
@@ -638,6 +647,7 @@ class WalletUpsell {
         {}) as OneClickRequest['client_metadata'],
       payment_method_token: paymentMethodToken,
       session_id: session.sessionId,
+      ...displayCurrencyField(this.options),
     };
     const idempotencyKey = createIdempotencyKey();
     if (idempotencyKey) {
