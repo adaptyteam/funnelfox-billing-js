@@ -44,6 +44,8 @@
 }
 
 .ff-card-form-select {
+  /* iOS Safari paints select text system blue unless a color is set; match the label instead. */
+  color: inherit;
   padding-right: 34px;
   appearance: none;
   -webkit-appearance: none;
