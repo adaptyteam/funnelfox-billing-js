@@ -228,6 +228,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       countryCode: this.checkoutConfig.customer.countryCode,
       displayCurrency: this.checkoutConfig.displayCurrency,
       displayCountry: this.checkoutConfig.displayCountry,
+      sessionScope: this.checkoutConfig.sessionScope,
       integration: 'primer',
     });
 

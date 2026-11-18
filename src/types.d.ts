@@ -128,6 +128,7 @@ export interface CheckoutConfig
   priceId: string;
   container: string;
   clientMetadata?: MetadataType;
+  sessionScope?: string;
   paymentMethodOrder?: PaymentMethod[];
   // When true, recalculates tax live as the buyer edits the country/postal code in the card form,
   // updating the provider client session amount and reporting the new total via onTaxChange.
@@ -464,6 +465,7 @@ export interface InitMethodOptions
   externalId: string;
   email?: string;
   meta?: MetadataType;
+  sessionScope?: string;
 }
 
 export type DeclineCodeSource = ('primer' | 'stripe' | 'adyen') | (string & {});
