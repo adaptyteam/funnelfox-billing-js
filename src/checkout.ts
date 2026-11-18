@@ -1153,6 +1153,11 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         await methodInterface.destroy();
         await this.destroy();
       },
+      updatePrice: (
+        newPriceId: string,
+        clientMetadata?: MetadataType,
+        displayLocale?: DisplayLocaleOptions
+      ) => this.updatePrice(newPriceId, clientMetadata, displayLocale),
     };
   }
 

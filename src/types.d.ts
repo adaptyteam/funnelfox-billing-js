@@ -492,7 +492,7 @@ export declare function initMethod(
   method: PaymentMethod,
   htmlNode: HTMLElement,
   options: InitMethodOptions
-): Promise<PaymentMethodInterface>;
+): Promise<InitializedPaymentMethod>;
 
 export interface SilentPurchaseOptions {
   priceId: string;
@@ -887,6 +887,14 @@ export interface PaymentMethodInterface {
   setDisabled: (disabled: boolean) => void;
   submit?: () => Promise<void>;
   destroy?: () => void;
+}
+
+export interface InitializedPaymentMethod extends PaymentMethodInterface {
+  updatePrice: (
+    newPriceId: string,
+    clientMetadata?: MetadataType,
+    displayLocale?: DisplayLocaleOptions
+  ) => Promise<void>;
 }
 
 export interface PrimerWrapperInterface {
