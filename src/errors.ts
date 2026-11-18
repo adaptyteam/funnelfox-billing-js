@@ -42,6 +42,7 @@ class APIError extends FunnefoxSDKError {
   response: unknown;
   declineCode: string | null;
   declineCodeSource: DeclineCodeSource | null;
+  retryAfterMs: number | null;
   constructor(
     message: string,
     statusCode: number | null = null,
@@ -52,6 +53,7 @@ class APIError extends FunnefoxSDKError {
       response?: unknown;
       declineCode?: string | null;
       declineCodeSource?: DeclineCodeSource | null;
+      retryAfterMs?: number | null;
     } = {}
   ) {
     super(message, options.errorCode || ERROR_CODES.API_ERROR);
@@ -63,6 +65,7 @@ class APIError extends FunnefoxSDKError {
     this.response = options.response || null;
     this.declineCode = options.declineCode || null;
     this.declineCodeSource = options.declineCodeSource || null;
+    this.retryAfterMs = options.retryAfterMs ?? null;
   }
 }
 

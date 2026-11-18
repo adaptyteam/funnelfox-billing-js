@@ -236,7 +236,8 @@ export function sleep(ms: number) {
 export async function retry<T>(
   fn: () => Promise<T>,
   maxAttempts: number = 3,
-  baseDelay: number = 1000
+  baseDelay: number = 1000,
+  delayFor?: (error: unknown) => number | null
 ): Promise<T> {
   let lastError: any;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -245,7 +246,7 @@ export async function retry<T>(
     } catch (error) {
       lastError = error;
       if (attempt === maxAttempts) throw lastError;
-      const delay = baseDelay * Math.pow(2, attempt - 1);
+      const delay = delayFor?.(error) ?? baseDelay * Math.pow(2, attempt - 1);
       await sleep(delay);
     }
   }
