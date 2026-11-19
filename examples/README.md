@@ -89,7 +89,7 @@ import { configure } from '@funnelfox/billing';
 
 configure({
   orgId: 'your-org-id', // Your organization ID
-  baseUrl: 'https://billing.funnelfox.com', // Optional: Custom API URL
+  baseUrl: 'https://payments.funnelfox.com', // Optional: Custom API URL
   region: 'default', // Optional: Your region
 });
 ```
