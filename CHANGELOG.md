@@ -282,4 +282,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- `Billing.initMethod` returns `InitializedPaymentMethod`: the handle now has `updatePrice(newPriceId, clientMetadata?, displayLocale?)`, which moves the mounted method to another price point without remounting (delegates to `CheckoutInstance.updatePrice`). (PAY-527)
+- `initMethod` and `CheckoutConfig` take an optional `sessionScope`, which becomes part of the client session cache key. Methods mounted with the same price point and customer share one session and one order unless their `sessionScope` differs; `updatePrice` on one of them moves that shared order. Pass a distinct `sessionScope` per method handle that can change price independently, or call `updatePrice` on every handle that shares the scope. (PAY-527)
 - `TaxInfo` now carries `updateTotalInFunnel` from the session and recalculation `update_total_in_funnel`, in every `onTaxChange` (Primer, Stripe card form, wallet). It tells the host whether the funnel shows prices with tax (`amountTotal`) or the base price; the SDK passes Billing's value as is and omits it when Billing does not send it. (PAY-465)
