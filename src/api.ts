@@ -721,6 +721,7 @@ export async function initMethod(
         clientMetadata: options.meta,
         displayCurrency: options.displayCurrency,
         displayCountry: options.displayCountry,
+        sessionScope: options.sessionScope,
         card: options.card,
         style: options.style,
         applePay: {

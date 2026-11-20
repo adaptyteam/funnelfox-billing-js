@@ -228,6 +228,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       countryCode: this.checkoutConfig.customer.countryCode,
       displayCurrency: this.checkoutConfig.displayCurrency,
       displayCountry: this.checkoutConfig.displayCountry,
+      sessionScope: this.checkoutConfig.sessionScope,
       integration: 'primer',
     });
 
@@ -1153,6 +1154,11 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
         await methodInterface.destroy();
         await this.destroy();
       },
+      updatePrice: (
+        newPriceId: string,
+        clientMetadata?: MetadataType,
+        displayLocale?: DisplayLocaleOptions
+      ) => this.updatePrice(newPriceId, clientMetadata, displayLocale),
     };
   }
 

@@ -17,6 +17,7 @@ interface SessionParams {
   countryCode?: string;
   displayCurrency?: string;
   displayCountry?: string;
+  sessionScope?: string;
 }
 
 class SessionService {
@@ -37,6 +38,7 @@ class SessionService {
       p.externalId,
       p.email,
       p.integration,
+      p.sessionScope ?? '',
     ].join('|');
   }
 
