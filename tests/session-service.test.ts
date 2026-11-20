@@ -91,4 +91,51 @@ describe('SessionService', () => {
     expect(resp.data.order_id).toBe('order-2');
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
+
+  test('the same sessionScope shares one session', async () => {
+    mockFetchOnce(successBody);
+    const a = await sessionService.createSession({
+      ...baseParams,
+      sessionScope: 'element-1',
+    });
+    const b = await sessionService.createSession({
+      ...baseParams,
+      sessionScope: 'element-1',
+    });
+    expect(b).toBe(a);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  test('a different sessionScope gets its own session', async () => {
+    mockFetchOnce(successBody);
+    mockFetchOnce({
+      ...successBody,
+      data: { ...successBody.data, order_id: 'order-2' },
+    });
+    const a = await sessionService.createSession({
+      ...baseParams,
+      sessionScope: 'card',
+    });
+    const b = await sessionService.createSession({
+      ...baseParams,
+      sessionScope: 'apple-pay',
+    });
+    expect(a.data.order_id).toBe('order-1');
+    expect(b.data.order_id).toBe('order-2');
+  });
+
+  test('invalidating one scope keeps the other cached', async () => {
+    mockFetchOnce(successBody);
+    mockFetchOnce({
+      ...successBody,
+      data: { ...successBody.data, order_id: 'order-2' },
+    });
+    const card = { ...baseParams, sessionScope: 'card' };
+    const applePay = { ...baseParams, sessionScope: 'apple-pay' };
+    await sessionService.createSession(card);
+    const kept = await sessionService.createSession(applePay);
+    sessionService.invalidate(card);
+    expect(await sessionService.createSession(applePay)).toBe(kept);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
 });

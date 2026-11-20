@@ -207,6 +207,59 @@ describe('CheckoutInstance.updatePrice', () => {
     });
   });
 
+  test('applies rapid price changes in call order, the last one wins', async () => {
+    const checkout = openCheckout();
+    let releaseFirst: () => void = () => undefined;
+    fetchMock().mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          releaseFirst = () =>
+            resolve({
+              ok: true,
+              json: () => Promise.resolve({ status: 'success', data: {} }),
+            } as Response);
+        })
+    );
+    respondOnce();
+
+    const first = checkout.updatePrice('price_a');
+    const second = checkout.updatePrice('price_c');
+    await Promise.resolve();
+    expect(fetchMock()).toHaveBeenCalledTimes(1);
+
+    releaseFirst();
+    await Promise.all([first, second]);
+    const sent = fetchMock().mock.calls.map(
+      call => JSON.parse(String(call[1]?.body)).pp_ident
+    );
+    expect(sent).toEqual(['price_a', 'price_c']);
+    expect(checkout.getStatus().priceId).toBe('price_c');
+  });
+
+  test('a failed price change does not block the next one', async () => {
+    const checkout = openCheckout();
+    fetchMock().mockRejectedValue(new Error('network down'));
+    await expect(checkout.updatePrice('price_a')).rejects.toThrow();
+    fetchMock().mockReset();
+    respondOnce();
+    await checkout.updatePrice('price_c');
+    expect(lastBody()).toMatchObject({ pp_ident: 'price_c' });
+  });
+
+  test('moving to another price drops only this checkout session from the cache', async () => {
+    const invalidate = jest.spyOn(sessionService, 'invalidate');
+    const clearCache = jest.spyOn(sessionService, 'clearCache');
+    const checkout = openCheckout();
+    respondOnce();
+    await checkout.updatePrice('price_a');
+    expect(clearCache).not.toHaveBeenCalled();
+    expect(invalidate).toHaveBeenCalledWith(
+      expect.objectContaining({ priceId: 'price_b', integration: 'primer' })
+    );
+    invalidate.mockRestore();
+    clearCache.mockRestore();
+  });
+
   test('keeps the opening currency when none is passed', async () => {
     const checkout = openCheckout();
     respondOnce();
