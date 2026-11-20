@@ -15,6 +15,7 @@ import {
 import { toPaymentFailure } from './utils/payment-failure';
 import APIClient from './api-client';
 import sessionService from './shared/services/session-service';
+import { enqueueForOrder } from './shared/services/order-queue';
 import {
   APPLE_PAY_COLLECTING_EMAIL_OPTIONS,
   DEFAULT_BUTTONS_OPTIONS,
@@ -113,7 +114,6 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   private taxRecalcDebounce?: ReturnType<typeof setTimeout>;
   private taxRecalcSeq = 0;
   private lastTaxInfo?: TaxInfo;
-  private priceUpdate: Promise<void> = Promise.resolve();
   private activePaymentMethodType?: PaymentMethod;
   // WebKit allows one ApplePaySession per page: a second tap while the sheet is
   // still opening throws InvalidAccessError, but Primer asks to start first.
@@ -492,9 +492,19 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     }
   };
 
+  private canRecalcTax = (): boolean =>
+    !!this.orderId && !!this.getSelectedCountryCode();
+
   private scheduleTaxRecalc = () => {
     if (this.taxRecalcDebounce) {
       clearTimeout(this.taxRecalcDebounce);
+      this.taxRecalcDebounce = undefined;
+      if (!this.canRecalcTax() && this.lastTaxInfo) {
+        this.emitTaxInfo(this.lastTaxInfo);
+      }
+    }
+    if (!this.canRecalcTax()) {
+      return;
     }
     this.checkoutConfig.onTaxPending?.();
     this.emit(EVENTS.TAX_PENDING);
@@ -859,11 +869,9 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     clientMetadata?: MetadataType,
     displayLocale?: DisplayLocaleOptions
   ): Promise<void> {
-    const update = this.priceUpdate.then(() =>
+    return enqueueForOrder(this.orderId ?? `checkout:${this.id}`, () =>
       this.applyPrice(newPriceId, clientMetadata, displayLocale)
     );
-    this.priceUpdate = update.catch(() => undefined);
-    return update;
   }
 
   private async applyPrice(
