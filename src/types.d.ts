@@ -147,6 +147,7 @@ export interface TaxInfo {
   taxBehavior?: TaxBehavior;
   taxRate?: number;
   taxBreakdown?: TaxBreakdownEntry[];
+  updateTotalInFunnel?: boolean;
 }
 
 export type TaxBehavior = 'inclusive' | 'exclusive';
@@ -818,6 +819,7 @@ export interface CreateClientSessionResponse {
     amount_total?: number;
     currency?: string;
     tax_calculation_id?: string;
+    update_total_in_funnel?: boolean;
   };
   error?: {
     code: string;
@@ -846,6 +848,7 @@ export interface TaxRecalculationData {
   tax_behavior?: TaxBehavior;
   tax_breakdown?: TaxBreakdownEntryResponse[];
   currency: string;
+  update_total_in_funnel?: boolean;
 }
 
 export interface TaxRecalculationResponse {

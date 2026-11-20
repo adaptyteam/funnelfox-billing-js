@@ -53,10 +53,21 @@ export function resolveTaxDisplay(source: {
   tax_amount?: number;
   tax_inclusive_amount?: number;
   tax_breakdown?: TaxBreakdownEntryResponse[];
-}): Pick<TaxInfo, 'taxAmount' | 'taxBehavior' | 'taxRate' | 'taxBreakdown'> {
+  update_total_in_funnel?: boolean;
+}): Pick<
+  TaxInfo,
+  | 'taxAmount'
+  | 'taxBehavior'
+  | 'taxRate'
+  | 'taxBreakdown'
+  | 'updateTotalInFunnel'
+> {
   return {
     ...resolveTaxAmount(source),
     ...resolveTaxBreakdown(source.tax_breakdown),
+    ...(source.update_total_in_funnel != null
+      ? { updateTotalInFunnel: source.update_total_in_funnel }
+      : {}),
   };
 }
 
