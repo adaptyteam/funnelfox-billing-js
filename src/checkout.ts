@@ -113,6 +113,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   private taxRecalcDebounce?: ReturnType<typeof setTimeout>;
   private taxRecalcSeq = 0;
   private lastTaxInfo?: TaxInfo;
+  private priceUpdate: Promise<void> = Promise.resolve();
   private activePaymentMethodType?: PaymentMethod;
   // WebKit allows one ApplePaySession per page: a second tap while the sheet is
   // still opening throws InvalidAccessError, but Primer asks to start first.
@@ -216,8 +217,8 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.emit(EVENTS.INPUT_ERROR, { name: inputName, error });
   };
 
-  private async createSession() {
-    const response = await sessionService.createSession({
+  private sessionParams() {
+    return {
       orgId: this.orgId,
       baseUrl: this.baseUrl,
       priceId: this.checkoutConfig.priceId,
@@ -229,8 +230,12 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       displayCurrency: this.checkoutConfig.displayCurrency,
       displayCountry: this.checkoutConfig.displayCountry,
       sessionScope: this.checkoutConfig.sessionScope,
-      integration: 'primer',
-    });
+      integration: 'primer' as const,
+    };
+  }
+
+  private async createSession() {
+    const response = await sessionService.createSession(this.sessionParams());
 
     const sessionResponse = response as CachedClientSessionResponse;
     if (response.data?.stripe_public_key && !sessionResponse.radarSessionId) {
@@ -849,7 +854,19 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     };
   }
 
-  async updatePrice(
+  updatePrice(
+    newPriceId: string,
+    clientMetadata?: MetadataType,
+    displayLocale?: DisplayLocaleOptions
+  ): Promise<void> {
+    const update = this.priceUpdate.then(() =>
+      this.applyPrice(newPriceId, clientMetadata, displayLocale)
+    );
+    this.priceUpdate = update.catch(() => undefined);
+    return update;
+  }
+
+  private async applyPrice(
     newPriceId: string,
     clientMetadata?: MetadataType,
     displayLocale?: DisplayLocaleOptions
@@ -865,7 +882,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     try {
       this.onLoaderChangeWithRace(true);
       this._setState('updating');
-      sessionService.clearCache();
+      sessionService.invalidate(this.sessionParams());
       const displayCurrency =
         displayLocale?.displayCurrency ?? this.checkoutConfig.displayCurrency;
       const displayCountry =
@@ -909,7 +926,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     if (this.isDestroyed) return;
     try {
       this.stopUnhandledTelemetry();
-      sessionService.clearCache();
+      sessionService.invalidate(this.sessionParams());
       await this.primerWrapper.destroy();
       this._setState('destroyed');
       this.orderId = null;

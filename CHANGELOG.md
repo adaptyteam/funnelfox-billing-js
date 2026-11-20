@@ -279,3 +279,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New `Billing.mountWalletUpsell(container, options)`: a one-click upsell for buyers who paid with Apple Pay or Google Pay, confirmed in the wallet sheet and charged with that fresh wallet payment as a customer-initiated payment. Call it when the upsell screen loads; it prepares the wallet session (`one_click_wallet_session`), checks that the device can show the buyer's wallet and mounts Primer's native button. Mount results `mounted`, `not_wallet`, `wallet_unavailable`, `error`; `onResult` once per attempt with the `silentPurchase({ handle3DS: true })` outcomes plus `cancelled` (sheet closed, nothing charged, the button stays active). 3DS, idempotency keys and retries as in `silentPurchase({ handle3DS: true })`. The SDK ignores double taps, keeps the session alive until the tap and retries once on an invalid session when the amount is unchanged. Needs the backend with `one_click_wallet_session` (pay-backend FFB-836). (FFB-829)
 - `citGooglePayPanOnly` is deprecated and no longer sent: the backend ignores it, and a saved Google Pay token is never charged as CIT. Use `mountWalletUpsell` for wallet buyers. (FFB-829)
+
+## [Unreleased]
+
+- `updatePrice` calls on one checkout run one after another in call order, so after rapid plan switches the checkout ends on the last requested price and its `priceId` matches the order. A failed call does not block the next one. (PAY-527)
+- `updatePrice` and `destroy` drop only this checkout's cached client session instead of the whole cache, so checkouts with another `sessionScope` keep theirs. (PAY-527)
