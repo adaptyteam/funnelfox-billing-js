@@ -15,6 +15,7 @@ import {
 import { toPaymentFailure } from './utils/payment-failure';
 import APIClient from './api-client';
 import sessionService from './shared/services/session-service';
+import { enqueueForOrder } from './shared/services/order-queue';
 import {
   APPLE_PAY_COLLECTING_EMAIL_OPTIONS,
   DEFAULT_BUTTONS_OPTIONS,
@@ -216,8 +217,8 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     this.emit(EVENTS.INPUT_ERROR, { name: inputName, error });
   };
 
-  private async createSession() {
-    const response = await sessionService.createSession({
+  private sessionParams() {
+    return {
       orgId: this.orgId,
       baseUrl: this.baseUrl,
       priceId: this.checkoutConfig.priceId,
@@ -229,8 +230,12 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       displayCurrency: this.checkoutConfig.displayCurrency,
       displayCountry: this.checkoutConfig.displayCountry,
       sessionScope: this.checkoutConfig.sessionScope,
-      integration: 'primer',
-    });
+      integration: 'primer' as const,
+    };
+  }
+
+  private async createSession() {
+    const response = await sessionService.createSession(this.sessionParams());
 
     const sessionResponse = response as CachedClientSessionResponse;
     if (response.data?.stripe_public_key && !sessionResponse.radarSessionId) {
@@ -487,9 +492,19 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     }
   };
 
+  private canRecalcTax = (): boolean =>
+    !!this.orderId && !!this.getSelectedCountryCode();
+
   private scheduleTaxRecalc = () => {
     if (this.taxRecalcDebounce) {
       clearTimeout(this.taxRecalcDebounce);
+      this.taxRecalcDebounce = undefined;
+      if (!this.canRecalcTax() && this.lastTaxInfo) {
+        this.emitTaxInfo(this.lastTaxInfo);
+      }
+    }
+    if (!this.canRecalcTax()) {
+      return;
     }
     this.checkoutConfig.onTaxPending?.();
     this.emit(EVENTS.TAX_PENDING);
@@ -849,7 +864,17 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     };
   }
 
-  async updatePrice(
+  updatePrice(
+    newPriceId: string,
+    clientMetadata?: MetadataType,
+    displayLocale?: DisplayLocaleOptions
+  ): Promise<void> {
+    return enqueueForOrder(this.orderId ?? `checkout:${this.id}`, () =>
+      this.applyPrice(newPriceId, clientMetadata, displayLocale)
+    );
+  }
+
+  private async applyPrice(
     newPriceId: string,
     clientMetadata?: MetadataType,
     displayLocale?: DisplayLocaleOptions
@@ -865,7 +890,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     try {
       this.onLoaderChangeWithRace(true);
       this._setState('updating');
-      sessionService.clearCache();
+      sessionService.invalidate(this.sessionParams());
       const displayCurrency =
         displayLocale?.displayCurrency ?? this.checkoutConfig.displayCurrency;
       const displayCountry =
@@ -909,7 +934,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     if (this.isDestroyed) return;
     try {
       this.stopUnhandledTelemetry();
-      sessionService.clearCache();
+      sessionService.invalidate(this.sessionParams());
       await this.primerWrapper.destroy();
       this._setState('destroyed');
       this.orderId = null;

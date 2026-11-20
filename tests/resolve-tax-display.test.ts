@@ -90,6 +90,29 @@ describe('resolveTaxDisplay', () => {
         taxBreakdown: [{ ...nlVatInfo, percentage: 'n/a' }],
       },
     ],
+    [
+      'funnel shows the total with tax',
+      {
+        tax_behavior: 'exclusive' as const,
+        tax_amount: 173,
+        update_total_in_funnel: true,
+      },
+      { taxBehavior: 'exclusive', taxAmount: 173, updateTotalInFunnel: true },
+    ],
+    [
+      'funnel shows the base price',
+      {
+        tax_behavior: 'exclusive' as const,
+        tax_amount: 173,
+        update_total_in_funnel: false,
+      },
+      { taxBehavior: 'exclusive', taxAmount: 173, updateTotalInFunnel: false },
+    ],
+    [
+      'billing does not send update_total_in_funnel',
+      { tax_behavior: 'exclusive' as const, tax_amount: 173 },
+      { taxBehavior: 'exclusive', taxAmount: 173 },
+    ],
   ])('%s', (_name, source, expected) => {
     expect(resolveTaxDisplay(source)).toStrictEqual(expected);
   });
