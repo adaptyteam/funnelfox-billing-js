@@ -41,10 +41,13 @@ export const DEFAULT_THREE_DS_TIMEOUT_MS = 600000;
  */
 export const THREE_DS_OVERLAY_REVEAL_DELAY_MS = 6000;
 
-/** Primer's 3DS overlay (Primer Web SDK 2.57.3, verified in the FFB-758 spike). */
+/**
+ * Primer's 3DS overlay (verified on Primer Web SDK 2.57.3 in the FFB-758 spike; still present in
+ * the 2.59.10 bundle).
+ */
 const PRIMER_OVERLAY_SELECTOR = '#primer-overlay';
 
-/** Close button of Primer's 3DS overlay (Primer Web SDK 2.57.3, verified in the spike). */
+/** Close button of Primer's 3DS overlay (verified on 2.57.3 in the spike; still in 2.59.10). */
 const PRIMER_OVERLAY_CLOSE_SELECTOR =
   '[data-testid="OverlayContent.closeButton"]';
 

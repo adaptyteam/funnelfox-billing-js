@@ -1,7 +1,8 @@
 import { getVisibleHostedInputError } from '../src/utils/helpers';
 
 // Payloads recorded from Primer's hosted inputs (checkout-web 2.57.3) on the
-// card form: card number 4111111111111111111, expiry 3254.
+// card form: card number 4111111111111111111, expiry 3254. The same error
+// codes ship in 2.59.10, the version the SDK loads now.
 const typingIncompleteCardNumber = {
   error: 'Card number is incomplete',
   errorCode: 'cardIncomplete',
