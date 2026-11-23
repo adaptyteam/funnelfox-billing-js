@@ -6,12 +6,12 @@
 import { loadScript, loadStylesheet } from './script-loader';
 
 const PRIMER_CDN_BASE = 'https://sdk.primer.io/web';
-const DEFAULT_VERSION = '2.57.3';
+const DEFAULT_VERSION = '2.59.10';
 
 // Integrity hashes for specific versions (for SRI security)
 const INTEGRITY_HASHES: Record<string, { js: string; css?: string }> = {
-  '2.57.3': {
-    js: 'sha384-xq2SWkYvTlKOMpuXQUXq1QI3eZN7JiqQ3Sc72U9wY1IE30MW3HkwQWg/1n6BTMz4',
+  '2.59.10': {
+    js: 'sha384-ljZeT03W/Ja1PxE4t71YTBNazrfN4CpSb0LJUdPA/E28Xclgz/WsuM2O6TKwVJxz',
   },
 };
 
@@ -51,7 +51,7 @@ function waitForPrimer(timeout = 10000): Promise<void> {
 
 /**
  * Loads the Primer SDK script and CSS from CDN
- * @param version - The version of Primer SDK to load (default: 2.57.3)
+ * @param version - The version of Primer SDK to load (default: 2.59.10)
  * @returns Promise that resolves when SDK is loaded and ready
  */
 export async function loadPrimerSDK(version?: string): Promise<void> {
