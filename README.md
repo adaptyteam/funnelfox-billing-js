@@ -19,8 +19,8 @@ A modern TypeScript SDK for subscription payments with Primer Headless Checkout 
 
 ```html
 <!-- Include Primer Headless Checkout SDK first -->
-<script src="https://sdk.primer.io/web/v2.57.3/Primer.min.js"></script>
-<link rel="stylesheet" href="https://sdk.primer.io/web/v2.57.3/Checkout.css" />
+<script src="https://sdk.primer.io/web/v2.59.10/Primer.min.js"></script>
+<link rel="stylesheet" href="https://sdk.primer.io/web/v2.59.10/Checkout.css" />
 
 <!-- Include Funnelfox Billing SDK -->
 <script src="https://unpkg.com/@funnelfox/billing@latest/dist/funnelfox-billing.min.js"></script>
@@ -328,10 +328,10 @@ if (checkout.isProcessing()) {
 <html>
   <head>
     <title>Funnelfox Checkout</title>
-    <script src="https://sdk.primer.io/web/v2.57.3/Primer.min.js"></script>
+    <script src="https://sdk.primer.io/web/v2.59.10/Primer.min.js"></script>
     <link
       rel="stylesheet"
-      href="https://sdk.primer.io/web/v2.57.3/Checkout.css"
+      href="https://sdk.primer.io/web/v2.59.10/Checkout.css"
     />
     <script src="https://unpkg.com/@funnelfox/billing@latest/dist/funnelfox-billing.min.js"></script>
   </head>
