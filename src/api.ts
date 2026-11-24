@@ -13,6 +13,7 @@ import type {
   APIConfig,
   CreateClientSessionOptions,
   InitMethodOptions,
+  MethodGroupOptions,
   StripeCardFormOptions,
   StripeCardForm,
   StripeWalletOptions,
@@ -41,6 +42,8 @@ import { getErrorImage } from './utils/error-image';
 import { sleep } from './utils/helpers';
 import sessionService from './shared/services/session-service';
 import { normalizeDisplayCurrency } from './utils/display-locale';
+import { methodCheckoutConfig } from './method-config';
+import { PaymentMethodGroup } from './method-group';
 
 let defaultConfig: SDKConfig | null = null;
 
@@ -711,35 +714,7 @@ export async function initMethod(
     const checkoutInstance = new CheckoutInstance({
       orgId: options.orgId,
       baseUrl: options.baseUrl,
-      checkoutConfig: {
-        priceId: options.priceId,
-        customer: {
-          externalId: options.externalId,
-          email: options.email,
-        },
-        container: '',
-        clientMetadata: options.meta,
-        displayCurrency: options.displayCurrency,
-        displayCountry: options.displayCountry,
-        sessionScope: options.sessionScope,
-        card: options.card,
-        style: options.style,
-        applePay: {
-          ...DEFAULT_BUTTONS_OPTIONS[PaymentMethod.APPLE_PAY],
-          ...(options.applePay || {}),
-        },
-        paypal: {
-          ...DEFAULT_BUTTONS_OPTIONS[PaymentMethod.PAYPAL],
-          ...(options.paypal || {}),
-        },
-        googlePay: {
-          ...DEFAULT_BUTTONS_OPTIONS[PaymentMethod.GOOGLE_PAY],
-          ...(options.googlePay || {}),
-        },
-        onTaxChange: options.onTaxChange,
-        onTaxError: options.onTaxError,
-        onTaxPending: options.onTaxPending,
-      },
+      checkoutConfig: methodCheckoutConfig(options),
     });
 
     return await checkoutInstance.initMethod(method, element, {
@@ -762,6 +737,12 @@ export async function initMethod(
     });
     throw error;
   }
+}
+
+export function createMethodGroup(
+  options: MethodGroupOptions
+): PaymentMethodGroup {
+  return new PaymentMethodGroup(options);
 }
 
 export async function getAvailablePaymentMethods(params: {

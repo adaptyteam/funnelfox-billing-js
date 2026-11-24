@@ -499,6 +499,41 @@ export declare function initMethod(
   options: InitMethodOptions
 ): Promise<InitializedPaymentMethod>;
 
+export type MethodGroupOptions = Omit<
+  InitMethodOptions,
+  keyof InitMethodCallbacks
+> &
+  Pick<InitMethodCallbacks, 'onTaxChange' | 'onTaxError' | 'onTaxPending'>;
+
+export type MethodGroupMethodOptions = Omit<
+  InitMethodCallbacks,
+  'onTaxChange' | 'onTaxError' | 'onTaxPending'
+> &
+  Partial<
+    Pick<
+      InitMethodOptions,
+      'style' | 'card' | 'applePay' | 'googlePay' | 'paypal'
+    >
+  >;
+
+export interface MethodGroup {
+  initMethod(
+    method: PaymentMethod,
+    htmlNode: HTMLElement,
+    options?: MethodGroupMethodOptions
+  ): Promise<InitializedPaymentMethod>;
+  updatePrice(
+    newPriceId: string,
+    clientMetadata?: MetadataType,
+    displayLocale?: DisplayLocaleOptions
+  ): Promise<void>;
+  destroy(): Promise<void>;
+}
+
+export declare function createMethodGroup(
+  options: MethodGroupOptions
+): MethodGroup;
+
 export interface SilentPurchaseOptions {
   priceId: string;
   externalId: string;
@@ -726,6 +761,7 @@ export declare const Billing: {
   createCheckout: typeof createCheckout;
   createClientSession: typeof createClientSession;
   initMethod: typeof initMethod;
+  createMethodGroup: typeof createMethodGroup;
   silentPurchase: typeof silentPurchase;
   mountWalletUpsell: typeof mountWalletUpsell;
   getAvailablePaymentMethods: typeof getAvailablePaymentMethods;
