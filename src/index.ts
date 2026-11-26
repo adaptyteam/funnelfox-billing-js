@@ -36,6 +36,7 @@ export const Billing = {
   createCheckout: api.createCheckout,
   createClientSession: api.createClientSession,
   initMethod: api.initMethod,
+  createMethodGroup: api.createMethodGroup,
   silentPurchase: api.silentPurchase,
   mountWalletUpsell,
   getAvailablePaymentMethods: api.getAvailablePaymentMethods,

@@ -6,7 +6,7 @@ import type {
   MetadataType,
 } from '../../types';
 
-interface SessionParams {
+export interface SessionParams {
   orgId: string;
   baseUrl?: string;
   region?: string;

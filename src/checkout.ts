@@ -14,7 +14,9 @@ import {
 } from './utils/helpers';
 import { toPaymentFailure } from './utils/payment-failure';
 import APIClient from './api-client';
-import sessionService from './shared/services/session-service';
+import sessionService, {
+  type SessionParams,
+} from './shared/services/session-service';
 import { enqueueForOrder } from './shared/services/order-queue';
 import {
   APPLE_PAY_COLLECTING_EMAIL_OPTIONS,
@@ -82,7 +84,19 @@ interface CheckoutEventMap {
   [EVENTS.TAX_PENDING]: void;
 }
 
-const TAX_RECALC_DEBOUNCE_MS = 600;
+export const TAX_RECALC_DEBOUNCE_MS = 600;
+
+export interface CheckoutGroup {
+  session(params: SessionParams): Promise<CreateClientSessionResponse>;
+  updatePrice(
+    newPriceId: string,
+    clientMetadata?: MetadataType,
+    displayLocale?: DisplayLocaleOptions
+  ): Promise<void>;
+  scheduleTaxRecalc(): void;
+  flushTaxRecalc(): Promise<void>;
+  release(checkout: CheckoutInstance): void;
+}
 
 class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   id: string;
@@ -123,14 +137,18 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   private isTelemetryEnabled = false;
   private telemetryCleanup: (() => void) | null = null;
   private telemetryPaymentMethod?: PaymentMethod;
+  private readonly group?: CheckoutGroup;
+  private hasEnteredAddress = false;
 
   constructor(config: {
     orgId: string;
     baseUrl?: string;
     region?: string;
     checkoutConfig: CheckoutConfigWithCallbacks;
+    group?: CheckoutGroup;
   }) {
     super();
+    this.group = config.group;
     this.id = generateId('checkout_');
     this.orgId = config.orgId;
     this.baseUrl = config.baseUrl;
@@ -235,7 +253,9 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   }
 
   private async createSession() {
-    const response = await sessionService.createSession(this.sessionParams());
+    const response = this.group
+      ? await this.group.session(this.sessionParams())
+      : await sessionService.createSession(this.sessionParams());
 
     const sessionResponse = response as CachedClientSessionResponse;
     if (response.data?.stripe_public_key && !sessionResponse.radarSessionId) {
@@ -420,6 +440,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     } else if (inputName === 'postalCode') {
       this.cardPostalCode = value?.trim() || undefined;
     }
+    this.hasEnteredAddress = true;
     if (this.isTaxEnabled()) {
       this.scheduleTaxRecalc();
     }
@@ -474,7 +495,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       if (seq !== this.taxRecalcSeq) {
         return;
       }
-      this.emitTaxInfo({
+      this.receiveTaxInfo({
         amountTotal: tax.amount_total,
         currency: tax.currency,
         ...resolveTaxDisplay(tax),
@@ -483,19 +504,50 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
       if (seq !== this.taxRecalcSeq) {
         return;
       }
-      // Recalc failed for the new address; surface it instead of silently showing a stale total.
-      console.warn('[funnelfox-billing] tax recalculation failed', err);
-      if (this.lastTaxInfo) {
-        this.emit(EVENTS.TAX_CHANGE, this.lastTaxInfo);
-      }
-      this.checkoutConfig.onTaxError?.(err as Error);
+      this.receiveTaxError(err as Error);
     }
   };
+
+  receiveTaxInfo = (info: TaxInfo) => {
+    this.emitTaxInfo(info);
+  };
+
+  receiveTaxError = (err: Error) => {
+    // Recalc failed for the new address; surface it instead of silently showing a stale total.
+    console.warn('[funnelfox-billing] tax recalculation failed', err);
+    if (this.lastTaxInfo) {
+      this.emit(EVENTS.TAX_CHANGE, this.lastTaxInfo);
+    }
+    this.checkoutConfig.onTaxError?.(err);
+  };
+
+  notifyTaxPending = () => {
+    this.checkoutConfig.onTaxPending?.();
+    this.emit(EVENTS.TAX_PENDING);
+  };
+
+  restoreTaxInfo = () => {
+    if (this.lastTaxInfo) {
+      this.emitTaxInfo(this.lastTaxInfo);
+    }
+  };
+
+  taxEnabled = (): boolean => this.isTaxEnabled();
+
+  getTaxAddress = () => ({
+    countryCode: this.getSelectedCountryCode(),
+    postalCode: this.cardPostalCode,
+    entered: this.hasEnteredAddress,
+  });
 
   private canRecalcTax = (): boolean =>
     !!this.orderId && !!this.getSelectedCountryCode();
 
   private scheduleTaxRecalc = () => {
+    if (this.group) {
+      this.group.scheduleTaxRecalc();
+      return;
+    }
     if (this.taxRecalcDebounce) {
       clearTimeout(this.taxRecalcDebounce);
       this.taxRecalcDebounce = undefined;
@@ -506,8 +558,7 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     if (!this.canRecalcTax()) {
       return;
     }
-    this.checkoutConfig.onTaxPending?.();
-    this.emit(EVENTS.TAX_PENDING);
+    this.notifyTaxPending();
     this.taxRecalcDebounce = setTimeout(
       this.runTaxRecalc,
       TAX_RECALC_DEBOUNCE_MS
@@ -517,6 +568,12 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
   // Flush a pending recalc so a card charge reflects the final entered address (no estimate drift).
   // Used for card payments only; wallets authorize their own amount and are left untouched.
   private flushTaxRecalc = async (): Promise<void> => {
+    if (this.group) {
+      if (this.isTaxEnabled()) {
+        await this.group.flushTaxRecalc();
+      }
+      return;
+    }
     if (this.taxRecalcDebounce) {
       clearTimeout(this.taxRecalcDebounce);
       this.taxRecalcDebounce = undefined;
@@ -869,15 +926,33 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     clientMetadata?: MetadataType,
     displayLocale?: DisplayLocaleOptions
   ): Promise<void> {
+    if (this.group) {
+      return this.group.updatePrice(newPriceId, clientMetadata, displayLocale);
+    }
     return enqueueForOrder(this.orderId ?? `checkout:${this.id}`, () =>
       this.applyPrice(newPriceId, clientMetadata, displayLocale)
+    );
+  }
+
+  applyGroupPrice(
+    newPriceId: string,
+    clientMetadata: MetadataType | undefined,
+    displayLocale: DisplayLocaleOptions | undefined,
+    sendToBilling: boolean
+  ): Promise<void> {
+    return this.applyPrice(
+      newPriceId,
+      clientMetadata,
+      displayLocale,
+      sendToBilling
     );
   }
 
   private async applyPrice(
     newPriceId: string,
     clientMetadata?: MetadataType,
-    displayLocale?: DisplayLocaleOptions
+    displayLocale?: DisplayLocaleOptions,
+    sendToBilling = true
   ) {
     this._ensureNotDestroyed();
     requireString(newPriceId, 'priceId');
@@ -890,26 +965,30 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     try {
       this.onLoaderChangeWithRace(true);
       this._setState('updating');
-      sessionService.invalidate(this.sessionParams());
+      if (!this.group) {
+        sessionService.invalidate(this.sessionParams());
+      }
       const displayCurrency =
         displayLocale?.displayCurrency ?? this.checkoutConfig.displayCurrency;
       const displayCountry =
         displayLocale?.displayCountry ?? this.checkoutConfig.displayCountry;
-      await this.apiClient.updateClientSession({
-        orderId: this.orderId,
-        clientToken: this.clientToken,
-        priceId: newPriceId,
-        clientMetadata,
-        displayCurrency,
-        displayCountry,
-      });
+      if (sendToBilling) {
+        await this.apiClient.updateClientSession({
+          orderId: this.orderId,
+          clientToken: this.clientToken,
+          priceId: newPriceId,
+          clientMetadata,
+          displayCurrency,
+          displayCountry,
+        });
+      }
       this.checkoutConfig.priceId = newPriceId;
       this.checkoutConfig.displayCurrency = displayCurrency;
       this.checkoutConfig.displayCountry = displayCountry;
       await this.primerWrapper.refreshClientSession();
       this.onLoaderChangeWithRace(false);
       this._setState('ready');
-      if (this.isTaxEnabled()) {
+      if (!this.group && this.isTaxEnabled()) {
         this.scheduleTaxRecalc();
       }
     } catch (error) {
@@ -934,7 +1013,11 @@ class CheckoutInstance extends EventEmitter<CheckoutEventMap> {
     if (this.isDestroyed) return;
     try {
       this.stopUnhandledTelemetry();
-      sessionService.invalidate(this.sessionParams());
+      if (this.group) {
+        this.group.release(this);
+      } else {
+        sessionService.invalidate(this.sessionParams());
+      }
       await this.primerWrapper.destroy();
       this._setState('destroyed');
       this.orderId = null;

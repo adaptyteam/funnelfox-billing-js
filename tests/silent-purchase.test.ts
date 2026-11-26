@@ -1518,6 +1518,7 @@ describe('isolation', () => {
         'configure',
         'createCheckout',
         'createClientSession',
+        'createMethodGroup',
         'initMethod',
         'silentPurchase',
         'mountWalletUpsell',
